@@ -12,9 +12,10 @@ class GeneratorTest < Minitest::Test
     [PIN[0] + (x / sx), PIN[1] + (y / Curtilage::Geometry::METRES_PER_DEGREE_LAT)]
   end
 
-  def polygon(kind, id, x0, y0, x1, y1)
+  def polygon(kind, id, x0, y0, x1, y1, type: nil)
     ring = [[x0, y0], [x1, y0], [x1, y1], [x0, y1], [x0, y0]].map { |x, y| lnglat(x, y) }
-    { "feature" => kind, "id" => id, "geometry" => { "type" => "Polygon", "coordinates" => [ring] } }
+    { "feature" => kind, "id" => id, "highway" => type,
+      "geometry" => { "type" => "Polygon", "coordinates" => [ring] } }
   end
 
   def road(id, highway, points)
@@ -71,6 +72,37 @@ class GeneratorTest < Minitest::Test
     xs = xy(Curtilage.generate(PIN, scene, method: :grow_trim, grow_m: 60, neighbour_gap_m: nil)).map(&:first)
 
     assert_in_delta 30, xs.max, 0.5
+  end
+
+  # The neighbour east (x 50-70) is a house: split halfway (x = 30), flagged.
+  def test_houses_are_split_halfway_and_flagged
+    house = polygon("building", 2, 50, -10, 70, 10, type: "house")
+    with_house = scene.each_with_index.map { |f, i| i == 1 ? house : f }
+    result = Curtilage.generate(PIN, with_house, method: :grow_trim, grow_m: 60)
+
+    assert_in_delta 30, xy(result).map(&:first).max, 0.5
+    assert_includes result.flags, :near_houses
+  end
+
+  # A parking garage beside the building is part of the premises, not a
+  # neighbour to stop short of.
+  def test_parking_garage_next_door_is_claimed
+    garage = scene.first(1) + [polygon("building", 8, 12, -10, 40, 10, type: "parking"),
+                               road(4, "secondary", [[-200, -40], [200, -40]])]
+    result = Curtilage.generate(PIN, garage, method: :grow_trim, grow_m: 10)
+
+    assert_in_delta 40, xy(result).map(&:first).max, 0.5
+    assert(result.explanation.any? { |n| n.include?("parking structure 8") })
+  end
+
+  # Untyped small buildings in a row read as a residential street.
+  def test_untyped_small_buildings_in_a_row_count_as_homes
+    street = scene.first(1) + [polygon("building", 21, 20, -8, 30, 2), polygon("building", 22, 20, 6, 30, 16),
+                               polygon("building", 23, 20, -22, 30, -12)]
+    result = Curtilage.generate(PIN, street, method: :grow_trim, grow_m: 40)
+
+    assert_includes result.flags, :near_houses
+    assert_in_delta 15, xy(result).map(&:first).max, 0.5
   end
 
   # A gap narrower than two strips is still split down the middle.
@@ -130,7 +162,7 @@ class GeneratorTest < Minitest::Test
                       polygon("building", 13, -60, -5, -50, 5)]
     result = Curtilage.generate(PIN, centre, method: :grow_trim, grow_m: 10)
 
-    assert_includes result.flags, :shared_parking
+    assert(result.explanation.any? { |n| n.include?("is shared with 3 other buildings") })
     assert_operator xy(result).map(&:first).min, :>, -25
   end
 
@@ -193,12 +225,12 @@ class GeneratorTest < Minitest::Test
     assert_match(/grow_trim failed/, result.explanation.first)
   end
 
-  def test_large_and_attached_buildings_are_flagged
-    big_and_attached = [polygon("building", 1, -40, -25, 40, 25), polygon("building", 2, 40, -25, 60, 25)]
+  def test_large_buildings_are_flagged_and_attached_ones_explained
+    big_and_attached = [polygon("building", 1, -50, -30, 50, 30), polygon("building", 2, 50, -30, 70, 30)]
     result = Curtilage.generate(PIN, big_and_attached)
 
     assert_includes result.flags, :large_building
-    assert_includes result.flags, :attached_building
+    assert(result.explanation.any? { |n| n.include?("can't be split off") })
   end
 
   def test_no_building_nearby_gives_no_ring

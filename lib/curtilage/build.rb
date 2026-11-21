@@ -83,18 +83,35 @@ module Curtilage
 
     # Downloads and unzips one Geofabrik extract; returns [folder with its
     # shapefiles, extract date].
+    #
+    # Unless the whole zip is already on disk, only the layers used are
+    # downloaded, with range requests (ZipRange); a server or zip that can't
+    # do that gets the whole file instead.
     def fetch(part, date, work_dir, log)
       date ||= latest_date(part)
       name = "#{part.tr("/", "-")}-#{date}-free.shp.zip"
       zip = File.join(work_dir, name)
+      dir = File.join(work_dir, File.basename(name, ".shp.zip"))
+      return [dir, date] if !File.file?(zip) && fetch_layers(part, date, dir, log)
+
       unless File.file?(zip)
         log.puts "downloading https://#{HOST}#{url_path(part, date)}"
         Download.fetch(HOST, url_path(part, date), zip, max_bytes: MAX_DOWNLOAD_BYTES)
       end
       check_zip(zip)
-      dir = File.join(work_dir, File.basename(name, ".shp.zip"))
       unzip_layers(zip, dir)
       [dir, date]
+    end
+
+    def fetch_layers(part, date, dir, log)
+      log.puts "downloading the layers used from https://#{HOST}#{url_path(part, date)}"
+      patterns = LAYERS.map { |layer| "gis_osm_#{layer}_free_*" }
+      ZipRange.extract(HOST, url_path(part, date), patterns, dir, max_bytes: MAX_DOWNLOAD_BYTES)
+      true
+    rescue ZipRange::Unsupported => e
+      log.puts "range download not possible (#{e.message}); downloading the whole file"
+      FileUtils.rm_rf(dir)
+      false
     end
 
     def url_path(part, date) = "/#{part}-#{date}-free.shp.zip"

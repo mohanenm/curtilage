@@ -76,7 +76,7 @@ results = Curtilage.generate_many([[-80.0, 35.0], [-80.1, 35.2]], catalogue: cat
 result = results.first
 result.ok?          # a ring that passed validation; never save one that isn't
 result.ring         # [[lng, lat], ...], closed
-result.flags        # reasons a person should look: large_building, shared_parking, fallback, ...
+result.flags        # reasons a person should look: near_houses, large_building, fallback, ...
 result.explanation  # how it was made, step by step
 result.to_geojson   # a GeoJSON Feature with all of the above and the attribution
 ```

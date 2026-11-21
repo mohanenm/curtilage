@@ -12,7 +12,8 @@ module Curtilage
     MAX_FEATURES = 20_000
     MAX_VERTICES = 5_000
 
-    Polygon = Struct.new(:id, :kind, :name, :xy, :area, keyword_init: true) do
+    # category: the building type from OSM (house, parking, roof, ...), or nil.
+    Polygon = Struct.new(:id, :kind, :name, :xy, :area, :category, keyword_init: true) do
       def hull
         @hull ||= Geometry.convex_hull(xy)
       end
@@ -93,8 +94,10 @@ module Curtilage
       area = ring.size >= 3 ? Geometry.area(ring) : 0
       return @dropped += 1 if area < 1 || Geometry.self_intersects?(ring)
 
+      category = field(feature, :highway).to_s
       polygon = Polygon.new(id: field(feature, :id), kind: kind, name: field(feature, :name),
-                            xy: Geometry.counter_clockwise(ring), area: area)
+                            xy: Geometry.counter_clockwise(ring), area: area,
+                            category: category.empty? ? nil : category)
       case kind
       when "building" then @buildings << polygon
       when "ml_building" then @ml_buildings << polygon

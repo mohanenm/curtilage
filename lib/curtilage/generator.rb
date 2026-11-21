@@ -64,15 +64,26 @@ module Curtilage
       "rail" => 5, "light_rail" => 4, "subway" => 4, "narrow_gauge" => 3
     }.freeze
 
+    # Building types (OSM building=*) that are homes: their yards aren't the
+    # site's, so the lot is only split halfway with them.
+    HOUSE_TYPES = %w[house detached residential semidetached_house terrace bungalow static_caravan cabin
+                     apartments].freeze
+    # Structures that are part of a site's lot when next to its building:
+    # parking garages, carports and canopies (drive-throughs, fuel pumps).
+    LOT_TYPES = %w[parking carport roof].freeze
+
     DEFAULTS = {
       building_max_distance_m: 30,   # use the nearest building only this close
-      large_building_m2: 1_500,      # flag: likely shared (strip mall, multi-tenant)
+      large_building_m2: 5_000,      # flag: likely shared (strip mall, multi-tenant)
+      large_building_note_m2: 1_500, # explanation only, no flag: may be shared
       pin_clearance_m: 5,            # keep this much room around the pin
       grow_m: 30,                    # grow_trim: how far to grow before trimming
       road_offset_m: nil,            # trim this far short of road centrelines; nil: by road class
       neighbour_min_area_m2: 40,     # grow_trim: smaller buildings (sheds) don't bound a lot
       neighbour_gap_m: 3,            # grow_trim: strip left to a neighbouring building (nil: halfway)
       neighbour_strip_min_area_m2: 0, # grow_trim: smaller neighbours are split halfway
+      house_max_m2: 250,             # an untyped building smaller than this, among others, may be a home
+      house_street_m: 25,            # ... when two more small buildings are this close
       parking_reach_m: 20,           # grow_trim: parking this close (an aisle and a walkway) is its lot
       shared_lot_buildings: 3,       # grow_trim: a lot touching this many other buildings is shared
       small_building_m2: 50,         # flag: a building this small may be a kiosk or shed, not the site
@@ -174,8 +185,10 @@ module Curtilage
       log.note("grew the building rectangle by #{opts[:grow_m]} m")
       poly = Geometry.counter_clockwise(Geometry.convex_hull(grown + pin_square(opts)))
       poly = trim_at_roads(poly, features, target, opts, log)
-      poly = trim_at_neighbours(poly, features, target, opts, log)
       lots = own_parking(features, target, opts, log)
+      claimed = lots.select { |lot| lot.kind == "building" }
+      features = features.with_buildings(features.buildings - claimed) unless claimed.empty?
+      poly = trim_at_neighbours(poly, features, target, opts, log)
       poly = add_parking(poly, lots, Site.new(features, target, opts, log)) unless lots.empty?
       [poly, target]
     end
@@ -185,18 +198,30 @@ module Curtilage
     # A lot touching shared_lot_buildings or more other buildings is a shared
     # (shopping-centre) lot: splitting it between them leaves slivers, and it
     # isn't this site's alone, so it's left out and flagged.
+    #
+    # Parking garages, carports and canopies next to the building count as
+    # lot too (LOT_TYPES).
     def own_parking(features, target, opts, log)
-      features.parking.select do |lot|
+      structures = features.buildings.select { |b| LOT_TYPES.include?(b.category) && !b.equal?(target) }
+      (features.parking + structures).select do |lot|
         next false unless Geometry.contains?(lot.xy, [0.0, 0.0]) || touches?(lot, target, opts)
 
-        sharers = neighbours(features, target, opts).count { |other| touches?(lot, other, opts) }
-        if sharers >= opts[:shared_lot_buildings]
-          log.flag(:shared_parking, "parking #{lot.id} (#{lot.area.round} m2) is shared with #{sharers} other " \
-                                    "buildings, so it's left out: check how much of it belongs to the site")
+        others = sharers(lot, features, target, opts)
+        if others >= opts[:shared_lot_buildings]
+          log.note("parking #{lot.id} (#{lot.area.round} m2) is shared with #{others} other buildings, " \
+                   "so it's left out")
           next false
         end
-        log.note("parking #{lot.id} (#{lot.area.round} m2) touches the building, so it's part of the lot")
+        what = lot.kind == "building" ? "#{lot.category} structure" : "parking"
+        log.note("#{what} #{lot.id} (#{lot.area.round} m2) touches the building, so it's part of the lot")
         true
+      end
+    end
+
+    # Other buildings (not garages or canopies) the lot also touches.
+    def sharers(lot, features, target, opts)
+      neighbours(features, target, opts).count do |other|
+        !LOT_TYPES.include?(other.category) && touches?(lot, other, opts)
       end
     end
 
@@ -286,6 +311,8 @@ module Curtilage
       if target && target.area > opts[:large_building_m2]
         log.flag(:large_building, "building is over #{opts[:large_building_m2]} m2: if it's shared " \
                                   "(strip mall, several tenants), check which part is the site")
+      elsif target && target.area > opts[:large_building_note_m2]
+        log.note("building is #{target.area.round} m2: large enough that it may be shared")
       end
       target
     end
@@ -433,14 +460,20 @@ module Curtilage
         next unless Geometry.overlap?(other_hull, poly)
 
         if Geometry.overlap?(other_hull, hull)
-          log.flag(:attached_building, "building #{other.id} touches the building, so it can't be split off")
+          log.note("building #{other.id} touches the building, so it can't be split off")
           next
         end
+        other.instance_variable_set(:@home, home?(other, features, opts))
         strip = neighbour_strip(other, opts)
         trimmed = split_from_neighbour(poly, hull, other_hull, target.rectangle[:angle], stop: strip_stop(strip))
         next if trimmed.size < 3
 
-        log.note(strip ? "stopped #{strip} m short of building #{other.id}" : "trimmed halfway to building #{other.id}")
+        if other.instance_variable_get(:@home)
+          log.flag(:near_houses, "the lot borders a home (building #{other.id}): split halfway, " \
+                                 "check where the yard starts")
+        else
+          log.note(strip ? "stopped #{strip} m short of building #{other.id}" : "split halfway to building #{other.id}")
+        end
         poly = trimmed
       end
       poly
@@ -455,7 +488,21 @@ module Curtilage
     # halfway split: their yard isn't the site's.
     def neighbour_strip(other, opts)
       gap = opts[:neighbour_gap_m]
+      return nil if other.instance_variable_get(:@home)
+
       gap if gap && other.area >= opts[:neighbour_strip_min_area_m2]
+    end
+
+    # A home: typed as one, or (untyped, as mappers often leave it) a small
+    # building with other small buildings close by, like a residential street.
+    def home?(other, features, opts)
+      return true if HOUSE_TYPES.include?(other.category)
+      return false if other.category || other.area >= opts[:house_max_m2]
+
+      small = features.buildings.count do |b|
+        !b.equal?(other) && b.category.nil? && b.area < opts[:house_max_m2] && b.near?(other, opts[:house_street_m])
+      end
+      small >= 2
     end
 
     # Never less than halfway: a narrow gap is still split down the middle.

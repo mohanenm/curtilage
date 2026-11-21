@@ -11,7 +11,10 @@
 - Feature lookup from a features Parquet file through the DuckDB CLI, and a `curtilage generate` command.
 - `curtilage build REGION`: downloads the newest dated Geofabrik extract for any US state or Geofabrik region, checks the zip, reads every part of split layers, and builds the Parquet file with memory capped for a 1 GB dyno.
 - Optional machine-learned building footprints (Microsoft, ODbL): `--ml-footprints microsoft` at build time, `buildings: :osm_filled` or `:ml` at generate time, flagged `ml_footprint`. OSM only remains the default.
-- A parking lot touching three or more other buildings is treated as shared (a shopping-centre lot): left out and flagged `shared_parking`. Buildings under 50 m2 are flagged `small_building`.
+- A parking lot touching three or more other buildings is treated as shared (a shopping-centre lot) and left out. Buildings under 50 m2 are flagged `small_building`.
+- The build keeps OSM's building type. Parking garages, carports and canopies next to the building are claimed as part of the lot; homes (typed, or untyped small buildings in a row) are split halfway rather than claimed up to their walls, and flagged `near_houses`.
+- Flags were checked against site ratings and trimmed to the ones that point at problems: `large_building` now means over 5,000 m2, and attached buildings and shared lots are explained but no longer flagged.
+- The build downloads only the layers it uses, with HTTP range requests (about 30-60% fewer bytes), checks every file's CRC, and no longer needs `unzip` unless a server can't do ranges.
 - Features repeated along the seam of a multi-part region are read once.
 - Builds write `<region>.json` beside the Parquet file (source dates, extent, counts, licence, attribution); `Catalogue.from_dir` uses them to pick the file(s) covering each pin, locally or in a bucket.
 - `Curtilage.generate_many`, batch lookups (`Lookup.features_many`), reading Parquet from `s3://`, `gs://` and `https://`, `Result#to_geojson`, presets (`:whole_lot`, `:tight`) and `Audit.check` for existing polygons.

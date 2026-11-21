@@ -3,8 +3,9 @@
 -- this is read, filter, write. Run it with `curtilage build <state>`
 -- (Curtilage::Build), which sets everything below up.
 -- Output columns: id, feature, highway, name, min_lng, min_lat, max_lng, max_lat, wkb.
--- feature is building, ml_building, parking, road or railway; highway holds
--- the road or railway class (Geofabrik's fclass). ML footprints have no OSM
+-- feature is building, ml_building, parking, road or railway. highway holds
+-- the class: the road or railway class (Geofabrik's fclass), or the building
+-- type (house, parking, roof, ...; empty when OSM only says building=yes). ML footprints have no OSM
 -- id, so they get negative ids, unique within the file.
 --
 -- The caller defines, before this runs:
@@ -16,7 +17,7 @@
 
 COPY (
   WITH features AS (
-    SELECT osm_id::BIGINT AS id, 'building' AS feature, NULL AS highway, name, geom
+    SELECT osm_id::BIGINT AS id, 'building' AS feature, type AS highway, name, geom
     FROM buildings_a_src
     UNION ALL
     SELECT osm_id::BIGINT, 'parking', NULL, name, geom
