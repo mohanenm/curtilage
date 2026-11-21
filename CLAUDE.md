@@ -13,6 +13,7 @@ Ruby gem that generates a site's premises polygon (building + pickup/parking are
   .read sql/build_from_shapefiles.sql
   ```
   Feed this to the CLI on stdin (`data/bin/duckdb < file.sql`). Dot commands don't work with `-c`.
+  On macOS, `extension_directory` must be an absolute path: the signed binary refuses to load extensions from a relative one.
 
 ## Conventions
 
