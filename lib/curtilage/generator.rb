@@ -67,6 +67,11 @@ module Curtilage
 
     # Building types (OSM building=*) that are homes: their yards aren't the
     # site's, so the lot is only split halfway with them.
+    # A driveway reaches a public road when it comes this close to one.
+    ENTRANCE_MAX_M = 15
+    # How far beyond the lot a driveway is followed toward the street.
+    ENTRANCE_REACH_M = 25
+
     HOUSE_TYPES = %w[house detached residential semidetached_house terrace bungalow static_caravan cabin
                      apartments].freeze
     # Structures that are part of a site's lot when next to its building:
@@ -203,17 +208,20 @@ module Curtilage
     # Parking garages, carports and canopies next to the building count as
     # lot too (LOT_TYPES).
     def own_parking(features, target, opts, log)
-      structures = features.buildings.select { |b| LOT_TYPES.include?(b.category) && !b.equal?(target) }
+      structures = features.buildings.select do |b|
+        !b.equal?(target) && (LOT_TYPES.include?(b.category) || b.area < opts[:small_building_m2])
+      end
       (features.parking + structures).select do |lot|
         next false unless Geometry.contains?(lot.xy, [0.0, 0.0]) || touches?(lot, target, opts)
 
         others = sharers(lot, features, target, opts)
         if others >= opts[:shared_lot_buildings]
-          log.note("parking #{lot.id} (#{lot.area.round} m2) is shared with #{others} other buildings, " \
-                   "so it's left out")
-          next false
+          lot.instance_variable_set(:@shared, true)
+          log.note("parking #{lot.id} (#{lot.area.round} m2) is shared with #{others} other buildings: " \
+                   "claimed only within #{opts[:grow_m]} m of the building")
+          next true
         end
-        what = lot.kind == "building" ? "#{lot.category} structure" : "parking"
+        what = lot.kind == "building" ? "#{lot.category || "small"} structure" : "parking"
         log.note("#{what} #{lot.id} (#{lot.area.round} m2) touches the building, so it's part of the lot")
         true
       end
@@ -236,23 +244,74 @@ module Curtilage
     # Claims the site's parking up to the kerb (at most parking_max_extent_m
     # from the building), splitting a lot halfway where it also touches a
     # neighbour, then keeps clear of neighbouring buildings.
+    #
+    # A shared (shopping-centre) lot is claimed only near the building, and
+    # the driveways linking the claimed lot to a public road are taken in.
     def add_parking(poly, lots, site)
-      rect = site.target.rectangle
-      reach = Geometry.oriented_box(rect[:corners], rect[:angle], site.opts[:parking_max_extent_m])
-      fence = trim_at_roads(Geometry.counter_clockwise(reach), site.features, site.target, site.opts, Log.new([], []))
-      parts = lots.map { |lot| share_lot(Geometry.clip_convex(lot.xy, fence), lot, site) }
+      near = fence(site, site.opts[:grow_m])
+      far = fence(site, site.opts[:parking_max_extent_m])
+      parts = lots.map do |lot|
+        reach = lot.instance_variable_get(:@shared) ? near : far
+        share_lot(Geometry.clip_convex(lot.xy, reach), lot, site)
+      end
       grown = Geometry.counter_clockwise(Geometry.convex_hull(poly + parts.select { |p| p.size >= 3 }.flatten(1)))
+      grown = add_entrances(grown, far, site)
       keep_off_neighbours(grown, site.features, site.target, site.opts, site.log)
     end
 
+    # The box around the building, reach metres out, trimmed at roads.
+    def fence(site, reach)
+      rect = site.target.rectangle
+      box = Geometry.counter_clockwise(Geometry.oriented_box(rect[:corners], rect[:angle], reach))
+      trim_at_roads(box, site.features, site.target, site.opts, Log.new([], []))
+    end
+
+    # Driveways: service roads that run from the lot to a public road. The
+    # part within ENTRANCE_REACH_M of the lot joins the premises, up to the
+    # kerb: a short connector to the street gets in, a long service road
+    # running along the street (which would pull the polygon into a spike)
+    # doesn't.
+    def add_entrances(poly, fence, site)
+      points = site.features.roads.reject { |r| PUBLIC_HIGHWAYS.include?(r.highway) }.flat_map do |road|
+        pts = road.xy.each_cons(2).flat_map { |a, b| samples(a, b) }.select { |p| Geometry.contains?(fence, p) }
+        next [] unless pts.any? { |p| Geometry.contains?(poly, p) } && meets_public_road?(pts, site.features)
+
+        pts = pts.select { |p| Geometry.contains?(poly, p) || Geometry.distance_to_edges(poly, p) <= ENTRANCE_REACH_M }
+
+        site.log.note("took in the driveway #{road.id} to the street")
+        pts
+      end
+      return poly if points.empty?
+
+      Geometry.counter_clockwise(Geometry.convex_hull(poly + points))
+    end
+
+    def meets_public_road?(points, features)
+      street = points.filter_map do |p|
+        nearest_street_point(p, features)&.then do |q|
+          Math.hypot(q[0] - p[0], q[1] - p[1])
+        end
+      end
+      street.any? { |d| d <= ENTRANCE_MAX_M }
+    end
+
+    # A lot the site shares with one or two other buildings is still the
+    # site's (three or more is a shopping-centre lot, left out earlier): it is
+    # claimed whole, and keep_off_neighbours stays clear of their walls.
+    # Homes are the exception: a lot touching one is split halfway with it,
+    # so the claim stops short of the yard.
     def share_lot(part, lot, site)
       features, target, opts, log = site.to_a
-      neighbours(features, target, opts).each do |other|
-        next if !touches?(lot, other, opts) || Geometry.overlap?(other.hull, target.hull)
-
-        log.note("parking #{lot.id} also touches building #{other.id}: split halfway")
-        part = split_from_neighbour(part, target.hull, other.hull, target.rectangle[:angle]) if part.size >= 3
+      others = neighbours(features, target, opts).select do |other|
+        touches?(lot, other, opts) && !Geometry.overlap?(other.hull, target.hull)
       end
+      others.each do |other|
+        next unless home?(other, features, opts) && part.size >= 3
+
+        part = split_from_neighbour(part, target.hull, other.hull, target.rectangle[:angle])
+        log.note("parking #{lot.id} also touches home #{other.id}: split halfway")
+      end
+      log.note("parking #{lot.id} also touches building #{others.map(&:id).join(", ")}") if others.any?
       part
     end
 
@@ -324,10 +383,14 @@ module Curtilage
       target
     end
 
+    # A tiny structure (a canopy or kiosk roof) right by the pin loses to a
+    # real building in reach: the canopy then counts as part of the lot.
     def nearest_building(features, opts, log)
-      distance, target = features.buildings.map { |b| [Geometry.distance_to_edges(b.xy, [0.0, 0.0]), b] }
-                                 .min_by(&:first)
-      if target && distance <= opts[:building_max_distance_m]
+      in_reach = features.buildings.map { |b| [Geometry.distance_to_edges(b.xy, [0.0, 0.0]), b] }
+                         .select { |d, _| d <= opts[:building_max_distance_m] }
+      real = in_reach.reject { |_, b| b.area < opts[:small_building_m2] }
+      distance, target = (real.empty? ? in_reach : real).min_by(&:first)
+      if target
         log.flag(:building_not_under_pin, "no building under the pin; using building #{target.id}, " \
                                           "#{distance.round} m away (#{target.area.round} m2)")
         target
@@ -464,23 +527,32 @@ module Curtilage
           log.note("building #{other.id} touches the building, so it can't be split off")
           next
         end
-        other.instance_variable_set(:@home, home?(other, features, opts))
+        home = home?(other, features, opts) && (behind_home?(other, target, features) ? :behind : :beside)
+        other.instance_variable_set(:@home, home)
         strip = neighbour_strip(other, opts)
         trimmed = split_from_neighbour(poly, hull, other_hull, target.rectangle[:angle], stop: strip_stop(strip))
         next if trimmed.size < 3
 
-        if other.instance_variable_get(:@home)
-          log.flag(:near_houses, "the lot borders a home (building #{other.id}): split halfway, " \
-                                 "check where the yard starts")
-        else
-          log.note(strip ? "stopped #{strip} m short of building #{other.id}" : "split halfway to building #{other.id}")
-        end
+        explain_cut(log, other, strip)
         poly = trimmed
       end
       poly
     end
 
     HALFWAY = ->(near, far) { (near + far) / 2 }
+
+    def explain_cut(log, other, strip)
+      case other.instance_variable_get(:@home)
+      when :behind
+        log.flag(:near_houses, "the lot backs onto a home (building #{other.id}): split halfway, " \
+                               "check where its yard starts")
+      when :beside
+        log.flag(:near_houses, "the lot runs beside a home (building #{other.id}), stopping " \
+                               "#{strip} m short of it: check the property line")
+      else
+        log.note(strip ? "stopped #{strip} m short of building #{other.id}" : "split halfway to building #{other.id}")
+      end
+    end
 
     # The strip left to a neighbour, or nil to split halfway. Pavement
     # between two buildings usually belongs to one of them, and the site's
@@ -489,7 +561,7 @@ module Curtilage
     # halfway split: their yard isn't the site's.
     def neighbour_strip(other, opts)
       gap = opts[:neighbour_gap_m]
-      return nil if other.instance_variable_get(:@home)
+      return nil if other.instance_variable_get(:@home) == :behind
 
       gap if gap && other.area >= opts[:neighbour_strip_min_area_m2]
     end
@@ -504,6 +576,28 @@ module Curtilage
         !b.equal?(other) && b.category.nil? && b.area < opts[:house_max_m2] && b.near?(other, opts[:house_street_m])
       end
       small >= 2
+    end
+
+    # Whether the site is behind the home: across its back yard, judged by
+    # which way the home faces its nearest street. Beside or in front of a
+    # home, the lot runs up to the usual strip; behind it, only halfway.
+    def behind_home?(home, target, features)
+      centre = Geometry.centroid(home.hull)
+      street = nearest_street_point(centre, features)
+      return true unless street
+
+      front = [street[0] - centre[0], street[1] - centre[1]]
+      site = Geometry.centroid(target.hull).zip(centre).map { |a, b| a - b }
+      cosine = Geometry.dot(front, site) / ((Math.hypot(*front) * Math.hypot(*site)) + 1e-9)
+      cosine < -0.5
+    end
+
+    def nearest_street_point(point, features)
+      roads = features.roads.select { |r| PUBLIC_HIGHWAYS.include?(r.highway) }
+      points = roads.flat_map do |road|
+        road.xy.each_cons(2).map { |a, b| Geometry.closest_point_on_segment(point, a, b) }
+      end
+      points.min_by { |p| Math.hypot(p[0] - point[0], p[1] - point[1]) }
     end
 
     # Never less than halfway: a narrow gap is still split down the middle.

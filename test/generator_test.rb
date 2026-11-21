@@ -74,14 +74,26 @@ class GeneratorTest < Minitest::Test
     assert_in_delta 30, xs.max, 0.5
   end
 
-  # The neighbour east (x 50-70) is a house: split halfway (x = 30), flagged.
-  def test_houses_are_split_halfway_and_flagged
+  # The house east (x 50-70) faces the road to the south, so the site is
+  # beside it: the lot runs to the usual 3 m strip (x = 47), flagged.
+  def test_lot_beside_a_house_runs_to_the_strip
     house = polygon("building", 2, 50, -10, 70, 10, type: "house")
     with_house = scene.each_with_index.map { |f, i| i == 1 ? house : f }
     result = Curtilage.generate(PIN, with_house, method: :grow_trim, grow_m: 60)
 
-    assert_in_delta 30, xy(result).map(&:first).max, 0.5
+    assert_in_delta 47, xy(result).map(&:first).max, 0.5
     assert_includes result.flags, :near_houses
+  end
+
+  # The house north (y 50-70) faces a street further north, so the site is
+  # behind it, across its back yard: split halfway (y = 28.75), flagged.
+  def test_lot_behind_a_house_stops_halfway
+    behind = [scene.first, polygon("building", 2, -10, 50, 10, 70, type: "house"),
+              road(4, "secondary", [[-200, -40], [200, -40]]), road(5, "residential", [[-200, 90], [200, 90]])]
+    result = Curtilage.generate(PIN, behind, method: :grow_trim, grow_m: 60)
+
+    assert_in_delta 28.75, xy(result).map(&:last).max, 0.5
+    assert(result.explanation.any? { |n| n.include?("backs onto a home") })
   end
 
   # A parking garage beside the building is part of the premises, not a
@@ -149,11 +161,13 @@ class GeneratorTest < Minitest::Test
     assert(result.explanation.any? { |n| n.include?("parking 3") })
   end
 
-  def test_shared_parking_is_split_halfway_with_the_neighbour
+  # A lot touching one other building is still the site's: claimed whole.
+  def test_lot_touching_one_neighbour_is_claimed_whole
     shared = scene + [polygon("building", 6, -70, -10, -50, 10)]
-    xs = xy(Curtilage.generate(PIN, shared, method: :grow_trim, grow_m: 10)).map(&:first)
+    result = Curtilage.generate(PIN, shared, method: :grow_trim, grow_m: 10)
 
-    assert_in_delta(-30, xs.min, 0.5)
+    assert_in_delta(-45, xy(result).map(&:first).min, 0.5)
+    assert(result.explanation.any? { |n| n.include?("also touches building 6") })
   end
 
   # A lot touching three other buildings is a shopping-centre lot.
@@ -205,6 +219,17 @@ class GeneratorTest < Minitest::Test
 
     assert_equal :ok, report.verdict
     assert_in_delta 1.0, report.overlap, 0.01
+  end
+
+  # A driveway from the lot to the street (x = -30, from the lot south to the
+  # road at y = -40) is taken in, up to the kerb (y = -32) within its 2 m
+  # sampling.
+  def test_driveway_to_the_street_is_taken_in
+    drive = scene + [road(9, "service", [[-30, -15], [-30, -40]])]
+    result = Curtilage.generate(PIN, drive, method: :grow_trim, grow_m: 10)
+
+    assert(result.explanation.any? { |n| n.include?("driveway 9") })
+    assert_in_delta(-31, xy(result).map(&:last).min, 1.1)
   end
 
   def test_propose_uses_grow_trim_when_it_validates
