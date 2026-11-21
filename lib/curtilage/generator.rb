@@ -243,36 +243,107 @@ module Curtilage
       end
     end
 
+    # Cuts along each public road's stretch beside the site, following its
+    # overall direction: premises line up with the kerb, which may be at an
+    # angle to the building. A stretch within ROAD_SNAP_DEG of a building side
+    # is snapped square to it, so short bends at junctions average out.
+    #
+    # Stretches are applied nearest first: once the nearest road has trimmed
+    # the polygon, a road beyond it (say the far side of a junction) no
+    # longer reaches it, so its extended line can't slice across the lot.
     def trim_at_roads(poly, features, target, opts, log)
-      features.roads.each do |road|
-        next unless PUBLIC_HIGHWAYS.include?(road.highway)
+      road_stretches(features, target, opts).each do |road, run, offset|
+        next unless run.any? { |p| Geometry.contains?(poly, p) || Geometry.distance_to_edges(poly, p) < offset }
 
-        road.xy.each_cons(2) do |a, b|
-          next unless segment_meets_polygon?(a, b, poly)
+        trimmed, used = trim_along(poly, fit_direction(run, target), target, offset)
+        next log.note("kept the part beyond #{road_label(road)}: it would cut the building") unless trimmed
+        next if trimmed.size < 3
 
-          trimmed, offset = trim_at_segment(poly, [a, b], target, road_offset(road, opts))
-          if trimmed.nil?
-            log.note("kept the part beyond #{road_label(road)}: it would cut the building")
-            next
-          end
-          next if trimmed.size < 3
-
-          label = "trimmed at #{road_label(road)}, #{offset.round} m short of its centreline"
-          log.note(label) unless log.notes.include?(label)
-          poly = trimmed
-        end
+        label = "trimmed at #{road_label(road)}, #{used.round} m short of its centreline"
+        log.note(label) unless log.notes.include?(label)
+        poly = trimmed
       end
       poly
     end
 
-    # Clips at the segment's line, moved toward the pin by up to offset
-    # metres but never into the building. Returns [polygon, offset used], or
-    # nil when the road's centreline itself would cut the building.
-    def trim_at_segment(poly, segment, target, offset)
-      origin, normal = road_half_plane(*segment, 0)
-      return [poly, 0] unless normal
+    # [road, stretch points, offset] for every public road near the
+    # building, nearest stretch first.
+    def road_stretches(features, target, opts)
+      features.roads.select { |road| PUBLIC_HIGHWAYS.include?(road.highway) }
+              .flat_map { |road| road_runs(road, target).map { |run| [road, run, road_offset(road, opts)] } }
+              .sort_by { |_, run, _| run.map { |p| Geometry.distance_to_edges(target.hull, p) }.min }
+    end
 
-      origin, normal = square_to_building(segment, origin, normal, target.rectangle[:angle])
+    ROAD_REACH_M = 60   # only the road this close to the building bounds the site
+    ROAD_BEND_DEG = 30  # a sharper turn starts a new stretch
+    ROAD_SNAP_DEG = 5   # a stretch this close to a building side is squared to it
+
+    # Points every 2 m along the road within reach of the building, split
+    # into stretches wherever the road turns by more than ROAD_BEND_DEG.
+    def road_runs(road, target)
+      runs = []
+      run = nil
+      road.xy.each_cons(2) do |a, b|
+        heading = Math.atan2(b[1] - a[1], b[0] - a[0]) % Math::PI
+        samples(a, b).each do |p|
+          if Geometry.distance_to_edges(target.hull, p) > ROAD_REACH_M
+            run = nil
+            next
+          end
+          if run.nil? || angle_between(run[:heading], heading) > ROAD_BEND_DEG * Math::PI / 180
+            run = { heading: heading, points: [] }
+            runs << run
+          end
+          run[:points] << p
+        end
+      end
+      runs.map { |r| r[:points] }.select { |pts| pts.size >= 2 }
+    end
+
+    def samples(a, b)
+      n = [(Math.hypot(b[0] - a[0], b[1] - a[1]) / 2).ceil, 1].max
+      (0..n).map { |i| Geometry.lerp(a, b, i.fdiv(n)) }
+    end
+
+    # Smallest angle between two undirected headings (radians, mod pi).
+    def angle_between(first, second)
+      d = (first - second).abs % Math::PI
+      [d, Math::PI - d].min
+    end
+
+    # [centroid, unit direction] of the stretch's best-fit line, snapped to a
+    # building side when nearly parallel.
+    def fit_direction(points, target)
+      centre = Geometry.centroid(points)
+      heading = principal_heading(points, centre)
+      axis = target.rectangle[:angle]
+      2.times do |k|
+        side = axis + (k * Math::PI / 2)
+        heading = side if angle_between(heading % Math::PI, side % Math::PI) <= ROAD_SNAP_DEG * Math::PI / 180
+      end
+      [centre, [Math.cos(heading), Math.sin(heading)]]
+    end
+
+    # Direction of greatest spread (the first principal axis), in radians.
+    def principal_heading(points, centre)
+      cx, cy = centre
+      sxx = points.sum { |x, _| (x - cx)**2 }
+      syy = points.sum { |_, y| (y - cy)**2 }
+      sxy = points.sum { |x, y| (x - cx) * (y - cy) }
+      0.5 * Math.atan2(2 * sxy, sxx - syy)
+    end
+
+    # Clips at the line, moved toward the pin by up to offset metres but
+    # never into the building. Returns [polygon, offset used], [poly, 0]
+    # when the pin is on the line, or nil when the centreline itself would
+    # cut the building.
+    def trim_along(poly, line, target, offset)
+      origin, direction = line
+      normal = [direction[1], -direction[0]]
+      pin_side = side([0.0, 0.0], origin, normal)
+      return [poly, 0] if pin_side.abs < 1e-6
+
+      normal = normal.map(&:-@) if pin_side.positive?
       building_side = target.hull.map { |p| side(p, origin, normal) }.max
       return nil if building_side > 0.5
 
@@ -281,39 +352,9 @@ module Curtilage
       [Geometry.clip_half_plane(poly, origin, normal), offset]
     end
 
-    # A road running within 30 degrees of a building side is cut square to
-    # that side, at the segment's end nearest the pin, so a slanted stretch
-    # near a junction doesn't leave a diagonal corner. Kept as is otherwise,
-    # or when squaring would cut off the pin.
-    def square_to_building(segment, origin, normal, angle)
-      4.times do |k|
-        axis = [Math.cos(angle + (k * Math::PI / 2)), Math.sin(angle + (k * Math::PI / 2))]
-        next unless Geometry.dot(axis, normal) > Math.cos(30 * Math::PI / 180)
-
-        near = segment.min_by { |p| Geometry.dot(p, axis) }
-        return [near, axis] if Geometry.dot(near, axis).positive?
-      end
-      [origin, normal]
-    end
-
     # Half the road's width when the caller gives no fixed offset.
     def road_offset(road, opts)
       opts[:road_offset_m] || ROAD_HALF_WIDTH_M.fetch(road.highway, ROAD_HALF_WIDTH_M["link"])
-    end
-
-    # The half-plane on the pin's side of the road segment's line, moved
-    # offset metres toward the pin. nil when the pin is on the line.
-    def road_half_plane(a, b, offset)
-      normal = [b[1] - a[1], a[0] - b[0]]
-      length = Math.hypot(*normal)
-      return [nil, nil] if length < 1e-6
-
-      normal = normal.map { |v| v / length }
-      pin_side = side([0.0, 0.0], a, normal)
-      return [nil, nil] if pin_side.abs < 1e-6
-
-      normal = normal.map(&:-@) if pin_side.positive?
-      [[a[0] - (normal[0] * offset), a[1] - (normal[1] * offset)], normal]
     end
 
     def trim_at_neighbours(poly, features, target, opts, log)
@@ -370,12 +411,6 @@ module Curtilage
 
       at = stop.call(near, far)
       Geometry.clip_half_plane(poly, [normal[0] * at, normal[1] * at], normal)
-    end
-
-    def segment_meets_polygon?(a, b, poly)
-      return true if Geometry.contains?(poly, a) || Geometry.contains?(poly, b)
-
-      poly.each_index.any? { |i| Geometry.segments_cross?(a, b, poly[i], poly[(i + 1) % poly.size]) }
     end
 
     def side(point, origin, normal)
