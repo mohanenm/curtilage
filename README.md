@@ -2,122 +2,134 @@
 
 *Curtilage: the land immediately around a building, such as its yard, drive and lot.*
 
-Generates a site's **premises polygon** (the building plus its pickup and parking area) from OpenStreetMap data, so nobody has to draw it by hand.
+Generates a site's **premises polygon** (the building plus its customer-facing lot) and a **store zone** (the building's own outline) from free map data, so nobody has to draw them by hand.
 
-**Status:** early. Build, lookup, generation and validation work; the method is being evaluated against hand-drawn premises.
+**Status:** pre-release (0.0.1). Checked on 20 real store sites across five US states against hand-drawn premises and by eye on aerial imagery; the reviewer was happy with all of them after the latest rules. Not yet published to RubyGems.
 
 ## How it works
 
-1. **Build** (once a month per region, in the background). `curtilage build tennessee` downloads the region's newest dated OpenStreetMap shapefiles from [Geofabrik](https://download.geofabrik.de/), keeps buildings, parking, drivable roads and railways, and writes one Parquet file sorted by location. Any US state works, and so does any Geofabrik region path (`europe/germany/bayern`). With memory capped at 400 MB and 1 thread, so it fits a 1 GB dyno: mid-size states take 1-2 minutes including the download, and Texas (6.3M buildings) 268 s, all under 650 MB peak.
-2. **Look up.** Read the features around a point from that file: about 5 ms of query, or about 85 ms per call through the DuckDB CLI, because only the row groups near the point are read.
-3. **Generate.** Propose a polygon from the building under the pin: grow its rectangle toward the lot, then trim at the kerb of public roads, at railways and short of neighbouring buildings, and take in mapped parking that touches the building. If that fails validation, fall back to the building's rectangle plus a margin. Each result carries an explanation of every step and review flags (a large or attached building, no building under the pin, a fallback).
-4. **Validate.** Reject or flag polygons that are unsafe to use: pin outside, unclosed, self-intersecting, swapped coordinates, too far from the pin, an implausible size.
+1. **Data.** Buildings, parking lots, roads and railways from OpenStreetMap, from one of:
+   - **Geofabrik, built on demand** (default): the gem finds each pin's region in Geofabrik's region index, downloads only the layers it needs from that region's shapefiles, and builds a compact Parquet file. 1-5 minutes per US state the first time; nothing to host.
+   - **Overture Maps, read in place**: the same OpenStreetMap data from Overture's public release, read straight from their storage with no download up front. About 11 s per area; nearby pins share the read.
+   - **Your own prebuilt files** (`curtilage build`), local or in a bucket, for instant lookups.
+2. **Generate.** Start from the building at the pin and grow its rectangle 30 m toward its lot, then:
+   - stop at public roads, half a typical road width short of the centreline (by road class) but at least 3 m out from the building, following each road's direction; and at railways;
+   - take in the site's mapped parking (a lot shared with a few buildings is claimed whole; a shopping-centre lot is split by nearest building), parking garages, canopies, and driveways to the street;
+   - stop 3 m short of neighbouring buildings, or halfway when the site is behind a house (its back yard);
+   - fall back to the building's rectangle plus a margin if that fails validation.
+   Every result explains each step and carries review flags.
+3. **Validate.** Reject or flag polygons that are unsafe to use: pin outside, unclosed, self-intersecting, swapped coordinates, too far from the pin, an implausible size. The store zone always sits inside the premises.
 
-Nothing calls an outside service at runtime. The only network access is the build's download of public map files (Geofabrik, and Microsoft's footprint files if asked for).
-
-Coordinates are `[lng, lat]` throughout, as in GeoJSON.
-
-## Layout
-
-| Path | What |
-|---|---|
-| `lib/curtilage/geometry.rb` | Plain-Ruby planar geometry (area, containment, hull, minimum rotated rectangle) |
-| `lib/curtilage/validation.rb` | Checks a polygon against its pin, returning errors, warnings and metrics |
-| `lib/curtilage/features.rb` | Parses nearby OSM features (untrusted) and projects them to metres |
-| `lib/curtilage/generator.rb` | Generation methods, the fallback chain and review flags |
-| `lib/curtilage/lookup.rb` | Reads the features around a pin from a features Parquet file via the DuckDB CLI |
-| `lib/curtilage/build.rb` | Downloads a region's Geofabrik shapefiles and builds its features Parquet file |
-| `lib/curtilage/footprints.rb` | Optional machine-learned building footprints (Microsoft) |
-| `lib/curtilage/download.rb` | HTTPS downloads from allowed hosts, with size caps |
-| `lib/curtilage/catalogue.rb` | Finds the built region file(s) covering a pin |
-| `lib/curtilage/regions.rb` | Geofabrik's region index: which region a pin is in |
-| `lib/curtilage/auto_data.rb` | Builds the regions pins need on demand, into a temporary or cache folder |
-| `lib/curtilage/overture.rb` | Reads features in place from Overture Maps' public release |
-| `lib/curtilage/zip_range.rb` | Downloads only the needed files from a remote zip |
-| `lib/curtilage/audit.rb` | Checks an existing polygon against the map and the generated one |
-| `exe/curtilage` | `curtilage build REGION` and `curtilage generate --parquet FILE --pin LNG,LAT` (prints GeoJSON) |
-| `sql/build_from_shapefiles.sql` | DuckDB query: Geofabrik shapefiles to a features Parquet file |
-| `test/` | Tests, using synthetic coordinates only |
-
-## Building footprints: OSM, or OSM plus machine-learned
-
-By default everything comes from OpenStreetMap, and the method is plain rules: no machine learning anywhere. Where OSM is missing buildings, you can opt in to [Microsoft's Global ML Building Footprints](https://github.com/microsoft/GlobalMLBuildingFootprints) (ODbL, like OSM):
-
-- Build with `--ml-footprints microsoft` (or `ml_footprints: "microsoft"`) to add them to the Parquet file.
-- Generate with `buildings:`
-  - `:osm` (default): OSM buildings only.
-  - `:osm_filled`: OSM buildings, plus ML footprints where OSM has no building.
-  - `:ml`: ML footprints only, for comparison.
-
-A result built on an ML footprint says so in its explanation and carries the `ml_footprint` flag.
+It's rule-based: no machine learning in the method. Coordinates are `[lng, lat]` throughout, as in GeoJSON.
 
 ## Usage
-
-With no setup at all, `generate_many` builds what it needs: it finds each pin's region from Geofabrik's region index, downloads and builds only those regions, and cleans up afterwards. Nothing has to be hosted:
-
-```ruby
-results = Curtilage.generate_many(pins)                              # temporary data, deleted after
-results = Curtilage.generate_many(pins, cache_dir: "/var/cache/cl")  # reuse builds for a month
-```
-
-That suits background jobs (a US state takes 1-5 minutes the first time; Rhode Island took 25 s end to end).
-
-Or read from [Overture Maps](https://overturemaps.org/)' public release instead, in place: nothing downloaded up front or hosted, about 10 s for each area plus a few seconds per extra pin nearby. Overture's buildings, roads and rail come from OSM, so results match the Geofabrik build:
-
-```ruby
-results = Curtilage.generate_many(pins, source: :overture)
-```
-
-Either way, the data host sees roughly which areas are read. For instant single lookups, build ahead of time instead:
-
-```sh
-curtilage build tennessee            # writes data/features/tennessee.parquet and tennessee.json
-curtilage build europe/germany/bayern
-```
-
-Then, in Ruby:
 
 ```ruby
 require "curtilage"
 
-catalogue = Curtilage::Catalogue.from_dir("data/features")   # or base_url: "s3://bucket/features"
-results = Curtilage.generate_many([[-80.0, 35.0], [-80.1, 35.2]], catalogue: catalogue)
+pins = [[-80.0, 35.0], [-80.1, 35.2]]                 # [lng, lat]
+results = Curtilage.generate_many(pins)              # Geofabrik, built on demand, cleaned up after
+results = Curtilage.generate_many(pins, cache_dir: "/var/cache/curtilage")  # reuse builds for a month
+results = Curtilage.generate_many(pins, source: :overture)                  # no download at all
 
 result = results.first
-result.ok?          # a ring that passed validation; never save one that isn't
+result.ok?          # passed validation; never save one that isn't
 result.ring         # [[lng, lat], ...], closed: the premises
-result.store_ring   # the building's own outline, for an in-store zone (store_zone: false to skip)
-result.flags        # reasons a person should look: near_houses, large_building, fallback, ...
+result.store_ring   # the building's outline, inside the premises (store_zone: false to skip)
+result.flags        # reasons a person should look first (see below)
 result.explanation  # how it was made, step by step
 result.to_geojson   # a GeoJSON Feature with all of the above and the attribution
 result.to_geojson(include_store: true)  # a FeatureCollection: premises and store zone
 ```
 
-- One pin: `Curtilage.generate(pin, Curtilage::Lookup.features(parquet: path, pin: pin))`.
-- Styles: `preset: :whole_lot` (the default: the building and its whole lot), `preset: :tight` (the building plus a small margin) or `preset: :centre` (like whole_lot, but a store on a shared shopping-centre lot gets the whole centre, flagged `shopping_centre`). Any option overrides a preset.
-- Check an existing polygon: `Curtilage::Audit.check(pin, ring, features)` returns `:ok`, `:review` (with reasons such as `crosses_road` or `covers_neighbour`) or `:invalid`.
-- Parquet files can be local or in a bucket (`s3://`, `gs://`, `https://`, read in place). Credentials for a private bucket go in `lookup: { setup_sql: "CREATE SECRET ..." }`.
+Options (pass to `generate_many` or `generate`):
 
-From the shell: `curtilage generate --catalogue data/features --pin -80.0,35.0` prints the GeoJSON. Set `CURTILAGE_DUCKDB` and `CURTILAGE_EXTENSIONS` if the DuckDB CLI or its extensions aren't in the default places.
+- `preset:` `:whole_lot` (default: the building and its whole lot), `:tight` (the building plus a small margin), or `:centre` (like whole_lot, but a store on a shared shopping-centre lot gets the whole centre). Any option overrides a preset.
+- `buildings:` `:osm` (default), `:osm_filled` (machine-learned footprints only where OSM has no building) or `:ml`. See below.
+- `store_zone: false` to skip the store zone; `building_clearance_m:` for the room kept in front of the building; the rest of `Curtilage::Generator::DEFAULTS` can be overridden too.
+
+Built ahead of time instead, for instant single lookups:
+
+```sh
+curtilage build tennessee                # writes data/features/tennessee.parquet and tennessee.json
+curtilage build europe/germany/bayern    # any Geofabrik region path
+curtilage generate --catalogue data/features --pin -80.0,35.0   # GeoJSON; --no-store for premises only
+```
+
+```ruby
+catalogue = Curtilage::Catalogue.from_dir("data/features")     # or base_url: "s3://bucket/features"
+results = Curtilage.generate_many(pins, catalogue: catalogue)
+```
+
+Parquet files can be local or in a bucket (`s3://`, `gs://`, `https://`, read in place); credentials for a private bucket go in `lookup: { setup_sql: "CREATE SECRET ..." }`. To check an existing polygon, `Curtilage::Audit.check(pin, ring, features)` returns `:ok`, `:review` (with reasons such as `crosses_road` or `covers_neighbour`) or `:invalid`.
+
+### Flags
+
+| Flag | Meaning |
+|---|---|
+| `near_houses` | The lot borders a home: check where the yard or property line is |
+| `large_building` | Building over 5,000 m2: may be shared by several tenants |
+| `small_building` | Building under 50 m2: may be a kiosk or canopy rather than the store |
+| `building_not_under_pin` | No building under the pin; the nearest one within 30 m was used |
+| `store_may_be_unit` | Store zone is a building over 1,500 m2: the store may be one unit of it |
+| `shopping_centre` | `scope: :centre` mapped the whole centre |
+| `fallback` | The main method failed validation; the building rectangle was used |
+| `ml_footprint` | Built on a machine-learned footprint, not an OSM building |
+| `no_data` | No map data covers the pin |
 
 ### Speed
 
-Per site: about 85 ms to look features up (one DuckDB call can serve many pins) and about 100 ms to generate (median; a few hundred milliseconds in dense blocks). Building a state takes 1-5 minutes and happens ahead of time.
+- Generate: about 100 ms per site (median; a few hundred ms in dense blocks).
+- Prebuilt files: about 85 ms per lookup through the DuckDB CLI; one call serves many pins.
+- Built on demand: 1-5 minutes per US state the first time (Texas, the largest tested, about 4.5 minutes and under 650 MB of memory), then as above.
+- Overture: about 11 s per area; pins within a few km of each other share it.
+
+## Building footprints: OSM, or OSM plus machine-learned
+
+By default all buildings come from OpenStreetMap. Where OSM is missing buildings, you can opt in to [Microsoft's Global ML Building Footprints](https://github.com/microsoft/GlobalMLBuildingFootprints) (ODbL, like OSM): build with `--ml-footprints microsoft` (or `ml_footprints: "microsoft"`), then generate with `buildings: :osm_filled` or `:ml`. With `source: :overture`, Overture's non-OSM buildings play the same role. Results built on one carry the `ml_footprint` flag.
+
+## Network access
+
+The gem only talks to public map-data hosts, and only when it needs data: Geofabrik (region index and extracts), Overture Maps (file index and data), Microsoft's footprint files (opt-in), and your own bucket if you point it at one. Reading by area tells the host roughly which areas you're interested in. Nothing else is sent anywhere.
+
+## Layout
+
+| Path | What |
+|---|---|
+| `lib/curtilage.rb` | Entry points: `generate`, `generate_many`, presets |
+| `lib/curtilage/generator.rb` | Methods, the fallback chain, road and neighbour trims, flags |
+| `lib/curtilage/generator_lot.rb` | Which parking, garages, canopies and driveways are the site's |
+| `lib/curtilage/generator_store.rb` | The store zone |
+| `lib/curtilage/features.rb` | Parses nearby map features (untrusted) and projects them to metres |
+| `lib/curtilage/geometry.rb` | Plain-Ruby planar geometry |
+| `lib/curtilage/validation.rb` | Checks a polygon against its pin |
+| `lib/curtilage/audit.rb` | Checks an existing polygon against the map and the generated one |
+| `lib/curtilage/auto_data.rb` | Builds the regions pins need on demand, into a temporary or cache folder |
+| `lib/curtilage/regions.rb` | Geofabrik's region index: which region a pin is in |
+| `lib/curtilage/build.rb` | Builds a region's features Parquet file from Geofabrik shapefiles |
+| `lib/curtilage/zip_range.rb` | Downloads only the needed files from a remote zip |
+| `lib/curtilage/catalogue.rb` | Finds the built region file(s) covering a pin |
+| `lib/curtilage/lookup.rb` | Reads the features around pins from Parquet files |
+| `lib/curtilage/overture.rb` | Reads features in place from Overture Maps |
+| `lib/curtilage/footprints.rb` | Optional machine-learned footprints (Microsoft) |
+| `lib/curtilage/download.rb` | HTTPS downloads from allowed hosts, with size caps |
+| `exe/curtilage` | `curtilage build` and `curtilage generate` |
+| `sql/build_from_shapefiles.sql` | DuckDB query: shapefiles to a features Parquet file |
+| `test/` | Tests, using made-up coordinates only |
 
 ## Development
 
 ```sh
-bundle install
-bundle exec rake test
+bin/setup
+bundle exec rake        # tests and RuboCop
 ```
 
-Building and lookup need the [DuckDB](https://duckdb.org/) CLI (1.4 LTS) with the `spatial` extension, and `unzip`. Point `CURTILAGE_DUCKDB` and `CURTILAGE_EXTENSIONS` at them if they aren't in the default places.
+The gem itself is plain Ruby with no runtime gem dependencies. Getting data needs the [DuckDB](https://duckdb.org/) CLI (1.4 LTS) with its `spatial` extension, plus `httpfs` for Overture or bucket reads; point `CURTILAGE_DUCKDB` and `CURTILAGE_EXTENSIONS` at them if they aren't in the default places. `unzip` is only needed if a server can't serve byte ranges.
 
 ## Data and licensing
 
-- Map data © [OpenStreetMap contributors](https://www.openstreetmap.org/copyright), available under the [ODbL](https://opendatacommons.org/licenses/odbl/). Show this attribution wherever generated premises are displayed.
-- If you opt in to ML footprints: Microsoft Global ML Building Footprints, also ODbL. Attribute them too.
-- With `source: :overture`, data comes from the Overture Maps Foundation's release (buildings and transportation under ODbL); results carry the attribution to show.
-- Downloaded files and the Parquet output are OSM-derived data. They're never committed to this repository (see `.gitignore`).
+- Map data © [OpenStreetMap contributors](https://www.openstreetmap.org/copyright), available under the [ODbL](https://opendatacommons.org/licenses/odbl/). Show this attribution wherever generated premises are displayed; results carry it (`to_geojson`).
+- With `source: :overture`: also © Overture Maps Foundation. With ML footprints: also Microsoft Global ML Building Footprints (ODbL).
+- Downloaded files and built Parquet files are OSM-derived data. They're never committed to this repository (see `.gitignore`).
 - This repository must never contain real site locations, client data or credentials. Tests and examples use made-up coordinates.
-- The code is MIT-licensed (see `LICENSE.txt`). The map data it works with keeps its own licence (ODbL), above.
+- The code is MIT-licensed (see `LICENSE.txt`). The map data keeps its own licence (ODbL).

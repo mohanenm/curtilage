@@ -4,10 +4,11 @@ module Curtilage
   # The OSM features around a pin, projected to metres around it.
   #
   # Input is a list of hashes (string or symbol keys) with "feature"
-  # ("building", "ml_building", "parking", "road" or "railway"), "geometry" (a GeoJSON
-  # geometry hash), and optionally "id", "highway" (the road or railway
-  # class) and "name". OSM data is untrusted, so
-  # oversized inputs and broken geometry are dropped and counted, not raised.
+  # ("building", "ml_building", "parking", "road" or "railway"), "geometry"
+  # (a GeoJSON geometry hash), and optionally "id", "name" and "highway"
+  # (the class: road or railway class, or building type). Map data is
+  # untrusted, so oversized inputs and broken geometry are dropped and
+  # counted, not raised.
   class Features
     MAX_FEATURES = 20_000
     MAX_VERTICES = 5_000

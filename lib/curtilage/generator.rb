@@ -4,10 +4,14 @@ module Curtilage
   # Proposes a premises polygon for a pin from the OSM features around it.
   #
   # Methods are pure functions of (pin, features, options). Each returns a
-  # Result with the ring ([lng, lat], closed), a step-by-step explanation,
-  # review flags and the validation result. Outputs are convex, which keeps
-  # clipping simple and matches hand-drawn premises (near-rectangles that line
-  # up with the building).
+  # Result with the premises ring ([lng, lat], closed), the store zone (the
+  # building's own outline, always inside the premises), a step-by-step
+  # explanation, review flags and the validation result. Premises are convex,
+  # which keeps clipping simple and matches hand-drawn premises
+  # (near-rectangles that line up with the building).
+  #
+  # The lot steps live in generator_lot.rb and the store zone in
+  # generator_store.rb; they reopen this module.
   #
   # Compared against hand-drawn premises, grow_trim was the best method and
   # building the best fallback. box is only a baseline: it crosses public
@@ -74,13 +78,13 @@ module Curtilage
       "rail" => 5, "light_rail" => 4, "subway" => 4, "narrow_gauge" => 3
     }.freeze
 
-    # Building types (OSM building=*) that are homes: their yards aren't the
-    # site's, so the lot is only split halfway with them.
     # A driveway reaches a public road when it comes this close to one.
     ENTRANCE_MAX_M = 15
     # How far beyond the lot a driveway is followed toward the street.
     ENTRANCE_REACH_M = 25
 
+    # Building types (OSM building=*) that are homes: the lot never takes
+    # their yards (see home? and behind_home?).
     HOUSE_TYPES = %w[house detached residential semidetached_house terrace bungalow static_caravan cabin
                      apartments].freeze
     # Structures that are part of a site's lot when next to its building:
@@ -218,8 +222,10 @@ module Curtilage
       result.validation.errors.join(", ")
     end
 
-    # Grow from the building toward its lot, then trim at public roads (the
-    # premises never cross one) and halfway to neighbouring buildings.
+    # Grow from the building toward its lot; trim at public roads and
+    # railways (the premises never cross one) and short of neighbouring
+    # buildings; then take in the site's parking, garages, canopies and
+    # driveways (generator_lot.rb).
     def grow_trim(features, opts, log)
       target = find_building(features, opts, log)
       return [nil, nil] unless target

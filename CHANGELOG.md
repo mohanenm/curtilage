@@ -2,27 +2,33 @@
 
 ## [Unreleased]
 
-- MIT licence.
+First release, not yet published. What it does:
 
-- Geometry and validation for premises polygons.
-- DuckDB query that builds a region's features Parquet from Geofabrik shapefiles.
-- Premises generation: grow from the building and trim at public roads and neighbours, with a building-rectangle fallback, review flags and an explanation.
-- Premises stop near the kerb (half a typical road width short of the centreline, by road class, but always at least 3 m out from the building, so the pavement in front of a building on the street stays in), cuts follow each road's overall direction beside the site (nearest road first, snapped square to the building within 5 degrees), and cuts at neighbours are square to the building, 3 m short of the neighbour's wall (halfway when the gap is narrower). Grow distance 30 m.
-- Mapped parking within 20 m of the building is claimed as its lot (up to the kerb, at most 60 m out), split halfway where a lot also touches a neighbour, and kept 1 m clear of neighbouring buildings.
-- Railways at ground level bound premises like public roads (5 m short of the track). The build keeps surface rail, light rail, subway and narrow gauge, and drops roads and railways in tunnels or on bridges.
-- Store zone: `result.store_ring` is the building's OSM outline (any shape, simplified to at most 20 corners without crossing itself), for an in-store zone; `to_geojson(include_store: true)` returns both; `store_zone: false` turns it off. Buildings over 1,500 m2 are flagged `store_may_be_unit`. The store zone always sits inside the premises: the premises are widened to take in the whole building if needed and simplified only in ways that keep it, and the store outline is clipped 5 cm inside them.
-- `scope: :centre` (preset `:centre`): a store on a shared shopping-centre lot gets the whole centre (the shared lots and every building on them, bounded by roads), flagged `shopping_centre`.
-- Feature lookup from a features Parquet file through the DuckDB CLI, and a `curtilage generate` command.
-- `curtilage build REGION`: downloads the newest dated Geofabrik extract for any US state or Geofabrik region, checks the zip, reads every part of split layers, and builds the Parquet file with memory capped for a 1 GB dyno.
-- Optional machine-learned building footprints (Microsoft, ODbL): `--ml-footprints microsoft` at build time, `buildings: :osm_filled` or `:ml` at generate time, flagged `ml_footprint`. OSM only remains the default.
-- A parking lot touching three or more other buildings is treated as shared (a shopping-centre lot) and claimed only within 30 m of the building; a lot shared with one or two buildings is claimed whole (split halfway only with homes). Driveways linking the lot to a public road are taken in up to the kerb. Buildings under 50 m2 are flagged `small_building`; when the pin isn't on a building, a real building in reach beats a tiny canopy, which then counts as lot.
-- The build keeps OSM's building type. Parking garages, carports and canopies next to the building are claimed as part of the lot; homes (typed, or untyped small buildings in a row) are flagged `near_houses`: split halfway when the site is behind the home (its back yard, judged by which way it faces its street), otherwise the usual 3 m strip.
-- Flags were checked against site ratings and trimmed to the ones that point at problems: `large_building` now means over 5,000 m2, and attached buildings and shared lots are explained but no longer flagged.
-- The build downloads only the layers it uses, with HTTP range requests (about 30-60% fewer bytes), checks every file's CRC, and no longer needs `unzip` unless a server can't do ranges.
-- Features repeated along the seam of a multi-part region are read once.
-- Builds write `<region>.json` beside the Parquet file (source dates, extent, counts, licence, attribution); `Catalogue.from_dir` uses them to pick the file(s) covering each pin, locally or in a bucket.
-- `Curtilage.generate_many`, batch lookups (`Lookup.features_many`), reading Parquet from `s3://`, `gs://` and `https://`, `Result#to_geojson`, presets (`:whole_lot`, `:tight`) and `Audit.check` for existing polygons.
-- Data on demand: `generate_many(pins)` with no data finds each pin's region in Geofabrik's index (worldwide), builds only those regions into a temporary folder (or `cache_dir:`, reused for a month, with a lock so concurrent jobs build once) and cleans up. Nothing to host.
-- `source: :overture`: read features in place from Overture Maps' latest release, using its file index to touch only the files covering each pin. No download, no hosting; about 10 s per area. Matches the Geofabrik build on test points (overlap 0.93-1.0).
-- Generation is several times faster in dense areas: cheap bounding-box checks before exact geometry tests.
-- Validation errors on polygons over 100,000 m2 (`too_large`).
+### Premises
+- Grows the building's rectangle 30 m toward its lot, trims at public roads and railways, and claims the site's parking; falls back to the building rectangle plus a margin when that fails validation. Every result has a step-by-step explanation.
+- Roads: stops half a typical road width short of the centreline (by road class), but always at least 3 m out from the building (`building_clearance_m`). Cuts follow each road's fitted direction beside the site, nearest road first, snapped square to the building within 5 degrees. Roads and railways in tunnels or on bridges are ignored.
+- Railways at ground level bound the premises like roads.
+- Neighbours: stops 3 m short of a neighbouring building, square to the building (halfway when the gap is narrower). Homes (typed in OSM, or untyped small buildings in a row) get the halfway split when the site is behind them (their back yard, judged by which way they face their street).
+- Lot: mapped parking within 20 m of the building is the site's, up to the kerb and at most 60 m out. A lot shared with one or two other buildings is claimed whole (split halfway only with homes); a shopping-centre lot (three or more buildings) is split by nearest building. Parking garages, carports and canopies next to the building count as lot, and driveways linking the lot to a public road are taken in up to the kerb.
+- When the pin isn't on a building, the nearest real building within 30 m is used, not a tiny canopy next to it.
+- Presets: `:whole_lot` (default), `:tight` (building plus a small margin) and `:centre` (a store on a shared lot gets the whole shopping centre, flagged `shopping_centre`).
+
+### Store zone
+- `result.store_ring` is the building's OSM outline (any shape, at most 20 corners, never self-crossing), always inside the premises: the premises take in the whole building and the outline is clipped 5 cm inside them. `store_zone: false` turns it off.
+
+### Flags and validation
+- Flags, checked against reviewed sites: `near_houses`, `large_building` (over 5,000 m2), `small_building` (under 50 m2), `building_not_under_pin`, `store_may_be_unit` (over 1,500 m2), `shopping_centre`, `fallback`, `ml_footprint`, `no_data`.
+- `Validation.check` errors on missing, unclosed, self-intersecting or swapped rings, a pin outside, vertices too far away, too many vertices, or an area over 100,000 m2; warns on small, large or off-centre polygons.
+- `Audit.check` scores an existing polygon (crosses a road, covers a neighbour, differs from what would be generated).
+
+### Data
+- On demand: `generate_many(pins)` finds each pin's region in Geofabrik's index (worldwide), builds only those regions into a temporary folder or `cache_dir:` (reused for a month, locked so concurrent jobs build once) and cleans up.
+- `source: :overture`: reads features in place from Overture Maps' latest release, using its file index and sharing reads between nearby pins.
+- `curtilage build REGION`: any US state or Geofabrik region path; downloads only the layers it uses with HTTP range requests (CRC-checked, full-file fallback), reads every part of split layers and multi-part regions (California), keeps building types, and builds with DuckDB capped at 400 MB and 1 thread. Writes `<region>.json` metadata beside the Parquet file.
+- `Catalogue`, batch lookups (`Lookup.features_many`), Parquet read from `s3://`, `gs://` or `https://`.
+- Optional machine-learned building footprints (Microsoft, ODbL): `--ml-footprints microsoft`, then `buildings: :osm_filled` or `:ml`. OSM only is the default.
+- Map data is treated as untrusted: size and vertex caps, invalid geometry dropped and counted.
+
+### Interface
+- `Curtilage.generate`, `Curtilage.generate_many`, `Result#to_geojson` (with attribution; `include_store: true` for both shapes), and the `curtilage build` / `curtilage generate` commands.
+- MIT licence.

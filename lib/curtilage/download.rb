@@ -4,9 +4,10 @@ require "net/http"
 require "uri"
 
 module Curtilage
-  # HTTPS downloads of public map files, from an allowed host only, streamed
-  # to disk with a size cap. This is the gem's only network access, and only
-  # the build uses it.
+  # HTTPS downloads of public map data, from an allowed host only, streamed
+  # to disk with a size cap: Geofabrik extracts and region index, Overture's
+  # file index, Microsoft's footprint tiles. (DuckDB itself reads Overture
+  # and bucket files.) Nothing else in the gem talks to the network.
   module Download
     class Error < StandardError; end
 
