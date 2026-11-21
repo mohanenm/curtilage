@@ -5,18 +5,20 @@ require_relative "lib/curtilage/version"
 Gem::Specification.new do |spec|
   spec.name = "curtilage"
   spec.version = Curtilage::VERSION
-  spec.authors = ["mohanenm"]
+  spec.authors = ["Emil M"]
+  spec.email = ["curtilage.cohesive702@8shield.net"]
   spec.summary = "Generate a site's premises polygon (building + lot) from OpenStreetMap data."
   spec.description = <<~TEXT
-    Builds compact per-region Parquet files of OpenStreetMap buildings, parking and roads,
-    looks up the features around a point, and proposes a premises polygon with validation
-    and an explanation of how it was made. No outside services are called at runtime.
+    Proposes a premises polygon for a location (the building and its customer-facing lot,
+    bounded by roads, railways and neighbours) plus the building's own outline, with review
+    flags, validation and an explanation of each step. Map data is free and needs no hosting:
+    OpenStreetMap regions are built on demand from Geofabrik, or read in place from Overture
+    Maps. Rule-based; machine-learned footprints are opt-in.
   TEXT
   spec.required_ruby_version = ">= 3.2"
   spec.license = "MIT"
   # To do before publishing: spec.homepage (the GitHub repo) and the
   # homepage_uri, source_code_uri, changelog_uri and bug_tracker_uri metadata.
-  # spec.email is optional; it is shown publicly on rubygems.org.
 
   spec.metadata["rubygems_mfa_required"] = "true"
 
