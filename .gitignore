@@ -1,0 +1,13 @@
+# Map downloads and generated data are ODbL-licensed OSM data, and can be
+# large. Never commit them.
+/data/
+*.osm.pbf
+*.shp.zip
+*.parquet
+*.duckdb
+*.duckdb.wal
+
+/tmp/
+/pkg/
+/.bundle/
+Gemfile.lock
