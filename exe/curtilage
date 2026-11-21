@@ -9,8 +9,8 @@
 #
 # curtilage generate (--parquet FILE | --catalogue DIR) --pin LNG,LAT [--preset whole_lot|tight]
 #                    [--method NAME] [--buildings osm|osm_filled|ml]
-#   Prints the proposed premises as JSON: a GeoJSON Feature with the method,
-#   review flags, explanation and validation in its properties.
+#   Prints the proposed premises and the store zone (the building's outline)
+#   as a GeoJSON FeatureCollection; --no-store prints the premises alone.
 #
 # Both take --duckdb PATH and --extension-directory DIR (or CURTILAGE_DUCKDB
 # and CURTILAGE_EXTENSIONS).
@@ -34,6 +34,7 @@ OptionParser.new do |o|
   o.on("--parquet FILE") { |v| opts[:parquet] = v }
   o.on("--catalogue DIR") { |v| opts[:catalogue] = v }
   o.on("--preset NAME", Curtilage::PRESETS.keys.map(&:to_s)) { |v| opts[:preset] = v.to_sym }
+  o.on("--[no-]store", "also print the store zone (default: yes)") { |v| opts[:store_zone] = v }
   o.on("--pin LNG,LAT") { |v| opts[:pin] = v.split(",").map { |n| Float(n) } }
   o.on("--method NAME", Curtilage::Generator::METHODS.map(&:to_s)) { |v| opts[:method] = v.to_sym }
   o.on("--duckdb PATH") { |v| opts[:duckdb] = v }
@@ -55,8 +56,9 @@ abort "--parquet or --catalogue, and --pin, are required" unless have_data && op
 catalogue = opts[:catalogue] && Curtilage::Catalogue.from_dir(opts[:catalogue])
 lookup = opts.slice(:duckdb, :extension_directory)
 result = Curtilage.generate_many([opts[:pin]], catalogue: catalogue, parquet: opts[:parquet], lookup: lookup,
-                                               **opts.slice(:method, :preset, :buildings)).first
+                                               **opts.slice(:method, :preset, :buildings, :store_zone)).first
 osm = ["© OpenStreetMap contributors"]
 attribution = catalogue ? catalogue.attribution(catalogue.files_for(opts[:pin])) : osm
-puts JSON.pretty_generate(result.to_geojson(attribution: attribution.empty? ? osm : attribution))
+puts JSON.pretty_generate(result.to_geojson(attribution: attribution.empty? ? osm : attribution,
+                                            include_store: opts.fetch(:store_zone, true)))
 exit(result.ok? ? 0 : 1)

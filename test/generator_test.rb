@@ -207,6 +207,13 @@ class GeneratorTest < Minitest::Test
     refute_includes result.flags, :store_may_be_unit
   end
 
+  def test_store_zone_can_be_turned_off
+    result = Curtilage.generate(PIN, scene, store_zone: false)
+
+    assert_predicate result, :ok?
+    assert_nil result.store_ring
+  end
+
   # A jagged 60-corner footprint comes back with at most 20 corners and
   # still doesn't cross itself.
   def test_store_ring_is_simplified

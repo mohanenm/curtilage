@@ -107,6 +107,7 @@ module Curtilage
       building_margin_m: 20,         # building: margin around its rectangle
       box_side_m: 60,                # box: side of the square around the pin
       max_vertices: 10,
+      store_zone: true,              # also return the building's outline as the store zone
       max_store_vertices: 20,        # the store outline is simplified to at most this many corners
       buildings: :osm,               # :osm, :osm_filled (ML footprints where OSM has none) or :ml
       scope: :site,                  # :site, or :centre (the whole shopping centre when on a shared lot)
@@ -182,7 +183,7 @@ module Curtilage
 
       premises = premises_xy(xy, target, opts, log)
       result.ring = ring_of(premises, pin)
-      result.store_ring = ring_of(store_xy(target, premises, opts, log), pin) if target
+      result.store_ring = ring_of(store_xy(target, premises, opts, log), pin) if target && opts[:store_zone]
       result.validation = Validation.check(pin, result.ring)
       result
     end
