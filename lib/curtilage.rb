@@ -13,6 +13,7 @@ require_relative "curtilage/build"
 require_relative "curtilage/catalogue"
 require_relative "curtilage/regions"
 require_relative "curtilage/auto_data"
+require_relative "curtilage/overture"
 require_relative "curtilage/audit"
 
 # Premises generation from OpenStreetMap data. Coordinates are [lng, lat]
@@ -40,16 +41,23 @@ module Curtilage
   # of pins that share data files.
   #
   # Where the data comes from:
-  # - nothing given: built on demand from Geofabrik for just the regions the
-  #   pins are in (AutoData), in cache_dir if given (reused for a month), else
-  #   in a temporary folder deleted afterwards. Nothing to host.
+  # - source: :geofabrik (the default): built on demand from Geofabrik for
+  #   just the regions the pins are in (AutoData), in cache_dir if given
+  #   (reused for a month), else in a temporary folder deleted afterwards.
+  #   Minutes per region the first time; nothing to host.
+  # - source: :overture: read in place from Overture Maps' public release,
+  #   seconds per batch, nothing downloaded or hosted (Overture).
   # - catalogue: a Catalogue of regions built ahead of time.
   # - parquet: a path or URL, or a list of them.
   #
   # lookup: options for Lookup and the build (duckdb:, extension_directory:,
   # setup_sql:). data: options for AutoData (max_age_days:, ml_footprints:).
   # Other options go to generate.
-  def self.generate_many(pins, catalogue: nil, parquet: nil, cache_dir: nil, lookup: {}, data: {}, **options)
+  def self.generate_many(pins, source: :geofabrik, catalogue: nil, parquet: nil, cache_dir: nil, lookup: {}, data: {},
+                         **options)
+    return from_overture(pins, lookup, data, options) if source == :overture && !(catalogue || parquet)
+    raise ArgumentError, "unknown source #{source.inspect} (have: geofabrik, overture)" unless source == :geofabrik
+
     auto = nil
     unless catalogue || parquet
       auto = AutoData.new(cache_dir: cache_dir, **lookup.slice(:duckdb, :extension_directory), **data)
@@ -58,6 +66,14 @@ module Curtilage
     run_many(pins, catalogue, parquet, lookup, options)
   ensure
     auto&.cleanup
+  end
+
+  def self.from_overture(pins, lookup, data, options)
+    lists = Overture.features_many(pins, **lookup.slice(:duckdb, :extension_directory, :radius_deg),
+                                   **data.slice(:release))
+    pins.zip(lists).map do |pin, features|
+      generate(pin, features, **options).tap { |r| r.attribution = Overture::ATTRIBUTION }
+    end
   end
 
   def self.run_many(pins, catalogue, parquet, lookup, options)

@@ -32,6 +32,8 @@ Coordinates are `[lng, lat]` throughout, as in GeoJSON.
 | `lib/curtilage/catalogue.rb` | Finds the built region file(s) covering a pin |
 | `lib/curtilage/regions.rb` | Geofabrik's region index: which region a pin is in |
 | `lib/curtilage/auto_data.rb` | Builds the regions pins need on demand, into a temporary or cache folder |
+| `lib/curtilage/overture.rb` | Reads features in place from Overture Maps' public release |
+| `lib/curtilage/zip_range.rb` | Downloads only the needed files from a remote zip |
 | `lib/curtilage/audit.rb` | Checks an existing polygon against the map and the generated one |
 | `exe/curtilage` | `curtilage build REGION` and `curtilage generate --parquet FILE --pin LNG,LAT` (prints GeoJSON) |
 | `sql/build_from_shapefiles.sql` | DuckDB query: Geofabrik shapefiles to a features Parquet file |
@@ -58,7 +60,15 @@ results = Curtilage.generate_many(pins)                              # temporary
 results = Curtilage.generate_many(pins, cache_dir: "/var/cache/cl")  # reuse builds for a month
 ```
 
-That suits background jobs (a US state takes 1-5 minutes the first time; Rhode Island took 25 s end to end). For instant single lookups, build ahead of time instead:
+That suits background jobs (a US state takes 1-5 minutes the first time; Rhode Island took 25 s end to end).
+
+Or read from [Overture Maps](https://overturemaps.org/)' public release instead, in place: nothing downloaded up front or hosted, about 10 s for each area plus a few seconds per extra pin nearby. Overture's buildings, roads and rail come from OSM, so results match the Geofabrik build:
+
+```ruby
+results = Curtilage.generate_many(pins, source: :overture)
+```
+
+Either way, the data host sees roughly which areas are read. For instant single lookups, build ahead of time instead:
 
 ```sh
 curtilage build tennessee            # writes data/features/tennessee.parquet and tennessee.json
@@ -105,6 +115,7 @@ Building and lookup need the [DuckDB](https://duckdb.org/) CLI (1.4 LTS) with th
 
 - Map data © [OpenStreetMap contributors](https://www.openstreetmap.org/copyright), available under the [ODbL](https://opendatacommons.org/licenses/odbl/). Show this attribution wherever generated premises are displayed.
 - If you opt in to ML footprints: Microsoft Global ML Building Footprints, also ODbL. Attribute them too.
+- With `source: :overture`, data comes from the Overture Maps Foundation's release (buildings and transportation under ODbL); results carry the attribution to show.
 - Downloaded files and the Parquet output are OSM-derived data. They're never committed to this repository (see `.gitignore`).
 - This repository must never contain real site locations, client data or credentials. Tests and examples use made-up coordinates.
 - The licence for this code is to be decided before publishing.

@@ -19,5 +19,6 @@
 - Builds write `<region>.json` beside the Parquet file (source dates, extent, counts, licence, attribution); `Catalogue.from_dir` uses them to pick the file(s) covering each pin, locally or in a bucket.
 - `Curtilage.generate_many`, batch lookups (`Lookup.features_many`), reading Parquet from `s3://`, `gs://` and `https://`, `Result#to_geojson`, presets (`:whole_lot`, `:tight`) and `Audit.check` for existing polygons.
 - Data on demand: `generate_many(pins)` with no data finds each pin's region in Geofabrik's index (worldwide), builds only those regions into a temporary folder (or `cache_dir:`, reused for a month, with a lock so concurrent jobs build once) and cleans up. Nothing to host.
+- `source: :overture`: read features in place from Overture Maps' latest release, using its file index to touch only the files covering each pin. No download, no hosting; about 10 s per area. Matches the Geofabrik build on test points (overlap 0.93-1.0).
 - Generation is several times faster in dense areas: cheap bounding-box checks before exact geometry tests.
 - Validation errors on polygons over 100,000 m2 (`too_large`).

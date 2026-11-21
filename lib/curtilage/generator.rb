@@ -13,14 +13,15 @@ module Curtilage
   # building the best fallback. box is only a baseline: it crosses public
   # roads on most sites, so propose never offers it.
   module Generator
-    Result = Struct.new(:method_name, :ring, :explanation, :flags, :validation, :building, keyword_init: true) do
+    Result = Struct.new(:method_name, :ring, :explanation, :flags, :validation, :building, :attribution,
+                        keyword_init: true) do
       def ok?
         !ring.nil? && validation.ok?
       end
 
       # A GeoJSON Feature (as a Hash) with everything about the result in
       # its properties. Show the attribution wherever the polygon is shown.
-      def to_geojson(attribution: ["© OpenStreetMap contributors"])
+      def to_geojson(attribution: self.attribution || ["© OpenStreetMap contributors"])
         {
           type: "Feature",
           geometry: ring && { type: "Polygon", coordinates: [ring] },
