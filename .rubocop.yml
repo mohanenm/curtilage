@@ -1,0 +1,41 @@
+AllCops:
+  TargetRubyVersion: 3.2
+  NewCops: enable
+  SuggestExtensions: false
+  Exclude:
+    - "data/**/*"
+    - "vendor/**/*"
+
+Style/StringLiterals:
+  EnforcedStyle: double_quotes
+
+Style/StringLiteralsInInterpolation:
+  EnforcedStyle: double_quotes
+
+# Geometry code reads best with the usual maths names.
+Naming/MethodParameterName:
+  AllowedNames: [a, b, id, o, p, q, p1, p2, p3, p4, x, y, x0, y0, x1, y1, dx, dy, xy]
+
+Style/TrailingCommaInHashLiteral:
+  EnforcedStyleForMultiline: comma
+
+Style/TrailingCommaInArrayLiteral:
+  EnforcedStyleForMultiline: comma
+
+# Numeric geometry routines are long and branchy by nature; keep the limits
+# as a warning sign, not a straitjacket.
+Metrics/AbcSize:
+  Max: 30
+Metrics/MethodLength:
+  Max: 25
+Metrics/CyclomaticComplexity:
+  Max: 12
+Metrics/PerceivedComplexity:
+  Max: 12
+Metrics/ModuleLength:
+  Max: 400
+Metrics/ClassLength:
+  Exclude: ["test/**/*"]
+
+Metrics/ParameterLists:
+  Exclude: ["test/**/*"]

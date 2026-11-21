@@ -13,10 +13,13 @@ Gem::Specification.new do |spec|
     and an explanation of how it was made. No outside services are called at runtime.
   TEXT
   spec.required_ruby_version = ">= 3.2"
-  # License to be chosen before publishing.
+  # To do before publishing: spec.license, spec.email, spec.homepage, and the
+  # homepage_uri, source_code_uri, changelog_uri and bug_tracker_uri metadata.
 
-  spec.files = Dir["lib/**/*.rb", "sql/**/*.sql", "exe/*", "README.md"]
+  spec.metadata["rubygems_mfa_required"] = "true"
+
+  spec.files = Dir["lib/**/*.rb", "sql/**/*.sql", "exe/*", "README.md", "CHANGELOG.md"]
   spec.bindir = "exe"
-  spec.executables = []
+  spec.executables = spec.files.grep(%r{\Aexe/}) { |f| File.basename(f) }
   spec.require_paths = ["lib"]
 end
