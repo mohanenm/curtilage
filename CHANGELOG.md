@@ -23,12 +23,15 @@ First release, not yet published. What it does:
 
 ### Data
 - On demand: `generate_many(pins)` finds each pin's region in Geofabrik's index (worldwide), builds only those regions into a temporary folder or `cache_dir:` (reused for a month, locked so concurrent jobs build once) and cleans up.
-- `source: :overture`: reads features in place from Overture Maps' latest release, using its file index and sharing reads between nearby pins.
+- `source: :overture`: reads features in place from Overture Maps' latest release, using its file index and sharing reads between nearby pins; a silent network stall is retried once.
 - `curtilage build REGION`: any US state or Geofabrik region path; downloads only the layers it uses with HTTP range requests (CRC-checked, full-file fallback), reads every part of split layers and multi-part regions (California), keeps building types, and builds with DuckDB capped at 400 MB and 1 thread. Writes `<region>.json` metadata beside the Parquet file.
 - `Catalogue`, batch lookups (`Lookup.features_many`), Parquet read from `s3://`, `gs://` or `https://`.
 - Optional machine-learned building footprints (Microsoft, ODbL): `--ml-footprints microsoft`, then `buildings: :osm_filled` or `:ml`. OSM only is the default.
 - Map data is treated as untrusted: size and vertex caps, invalid geometry dropped and counted.
 
 ### Interface
-- `Curtilage.generate`, `Curtilage.generate_many`, `Result#to_geojson` (with attribution; `include_store: true` for both shapes), and the `curtilage build` / `curtilage generate` commands.
+- `Curtilage.premises(pin)` for one pin with no setup; `Curtilage.generate_many`, `Curtilage.generate`, `Result#to_geojson` (with attribution; `include_store: true` for both shapes).
+- `Curtilage.configure` (or `CURTILAGE_*` environment variables) for the DuckDB path, cache folder and data source; DuckDB's extensions install themselves.
+- Commands: `curtilage generate` (works with only `--pin`), `curtilage build`, `curtilage doctor`.
+- `docs/reference.md` documents every option, setting, flag and command.
 - MIT licence.

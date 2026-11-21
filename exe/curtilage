@@ -1,64 +1,134 @@
 #!/usr/bin/env ruby
 # frozen_string_literal: true
 
-# curtilage build REGION [--out DIR] [--work DIR] [--date YYMMDD] [--keep-downloads]
-#                       [--ml-footprints microsoft]
-#   Downloads a region's Geofabrik shapefiles (a US state such as "tennessee",
-#   or a Geofabrik path such as "europe/germany/bayern") and writes
-#   DIR/REGION.parquet, optionally with machine-learned building footprints.
-#
-# curtilage generate (--parquet FILE | --catalogue DIR) --pin LNG,LAT [--preset whole_lot|tight]
-#                    [--method NAME] [--buildings osm|osm_filled|ml]
-#   Prints the proposed premises and the store zone (the building's outline)
-#   as a GeoJSON FeatureCollection; --no-store prints the premises alone.
-#
-# Both take --duckdb PATH and --extension-directory DIR (or CURTILAGE_DUCKDB
-# and CURTILAGE_EXTENSIONS).
 require "optparse"
 require "json"
+require "open3"
+require "tmpdir"
 require "curtilage"
 
-command = ARGV.shift
-usage = "usage: curtilage build REGION [options] | curtilage generate --parquet FILE --pin LNG,LAT [options]"
-abort usage unless %w[build generate].include?(command)
+USAGE = <<~TEXT
+  Usage:
+    curtilage generate --pin LNG,LAT [--pin LNG,LAT ...] [options]
+    curtilage build REGION [options]
+    curtilage doctor
 
-opts = { duckdb: ENV.fetch("CURTILAGE_DUCKDB", "duckdb"), extension_directory: ENV.fetch("CURTILAGE_EXTENSIONS", nil),
-         out: "data/features", work: "data/downloads" }
-OptionParser.new do |o|
-  o.on("--out DIR") { |v| opts[:out] = v }
-  o.on("--work DIR") { |v| opts[:work] = v }
-  o.on("--date YYMMDD", /\A\d{6}\z/) { |v| opts[:date] = v }
-  o.on("--keep-downloads") { opts[:keep] = true }
-  o.on("--ml-footprints SOURCE", Curtilage::Footprints::SOURCES) { |v| opts[:ml] = v }
-  o.on("--buildings FLAVOUR", Curtilage::Generator::BUILDING_SOURCES.map(&:to_s)) { |v| opts[:buildings] = v.to_sym }
-  o.on("--parquet FILE") { |v| opts[:parquet] = v }
-  o.on("--catalogue DIR") { |v| opts[:catalogue] = v }
-  o.on("--preset NAME", Curtilage::PRESETS.keys.map(&:to_s)) { |v| opts[:preset] = v.to_sym }
-  o.on("--[no-]store", "also print the store zone (default: yes)") { |v| opts[:store_zone] = v }
-  o.on("--pin LNG,LAT") { |v| opts[:pin] = v.split(",").map { |n| Float(n) } }
-  o.on("--method NAME", Curtilage::Generator::METHODS.map(&:to_s)) { |v| opts[:method] = v.to_sym }
-  o.on("--duckdb PATH") { |v| opts[:duckdb] = v }
-  o.on("--extension-directory DIR") { |v| opts[:extension_directory] = File.expand_path(v) }
-end.parse!
+  generate   Print the premises (and store zone) for one or more pins as GeoJSON.
+             Map data is fetched as needed: nothing to set up or host.
+  build      Build a region's map data ahead of time (a US state such as
+             "tennessee", or a Geofabrik path such as "europe/germany/bayern").
+  doctor     Check that DuckDB and its extensions are ready.
 
-if command == "build"
-  region = ARGV.shift or abort usage
-  path = Curtilage::Build.run(region, out_dir: opts[:out], work_dir: opts[:work], date: opts[:date],
-                                      duckdb: opts[:duckdb], extension_directory: opts[:extension_directory],
-                                      ml_footprints: opts[:ml], keep_downloads: opts[:keep])
-  puts path
-  exit
+  Run "curtilage COMMAND --help" for a command's options.
+TEXT
+
+def duckdb_flags(parser, opts)
+  parser.on("--duckdb PATH", "DuckDB CLI (default: $CURTILAGE_DUCKDB or duckdb on PATH)") { |v| opts[:duckdb] = v }
+  parser.on("--extension-directory DIR", "DuckDB extension folder (default: $CURTILAGE_EXTENSIONS)") do |v|
+    opts[:extension_directory] = File.expand_path(v)
+  end
 end
 
-have_data = opts[:parquet] || opts[:catalogue]
-abort "--parquet or --catalogue, and --pin, are required" unless have_data && opts[:pin]&.size == 2
+def generate_options(args)
+  opts = { pins: [] }
+  OptionParser.new do |o|
+    o.banner = "Usage: curtilage generate --pin LNG,LAT [--pin LNG,LAT ...] [options]"
+    o.on("--pin LNG,LAT", "A location; repeat for several") { |v| opts[:pins] << v.split(",").map { |n| Float(n) } }
+    data_flags(o, opts)
+    style_flags(o, opts)
+    duckdb_flags(o, opts)
+  end.parse!(args)
+  opts
+end
 
-catalogue = opts[:catalogue] && Curtilage::Catalogue.from_dir(opts[:catalogue])
-lookup = opts.slice(:duckdb, :extension_directory)
-result = Curtilage.generate_many([opts[:pin]], catalogue: catalogue, parquet: opts[:parquet], lookup: lookup,
-                                               **opts.slice(:method, :preset, :buildings, :store_zone)).first
-osm = ["© OpenStreetMap contributors"]
-attribution = catalogue ? catalogue.attribution(catalogue.files_for(opts[:pin])) : osm
-puts JSON.pretty_generate(result.to_geojson(attribution: attribution.empty? ? osm : attribution,
-                                            include_store: opts.fetch(:store_zone, true)))
-exit(result.ok? ? 0 : 1)
+def data_flags(o, opts)
+  o.on("--source NAME", %w[geofabrik overture], "geofabrik (default: built on demand) or overture") do |v|
+    opts[:source] = v.to_sym
+  end
+  o.on("--cache-dir DIR", "Keep on-demand builds here and reuse them for a month") { |v| opts[:cache_dir] = v }
+  o.on("--catalogue DIR", "Use regions built ahead of time (curtilage build)") { |v| opts[:catalogue] = v }
+  o.on("--parquet FILE", "Use one built region file") { |v| opts[:parquet] = v }
+end
+
+def style_flags(o, opts)
+  o.on("--preset NAME", Curtilage::PRESETS.keys.map(&:to_s), "whole_lot (default), tight or centre") do |v|
+    opts[:preset] = v.to_sym
+  end
+  o.on("--buildings FLAVOUR", Curtilage::Generator::BUILDING_SOURCES.map(&:to_s),
+       "osm (default), osm_filled or ml") { |v| opts[:buildings] = v.to_sym }
+  o.on("--[no-]store", "Include the store zone (default: yes)") { |v| opts[:store_zone] = v }
+end
+
+def generate(args)
+  opts = generate_options(args)
+  abort "curtilage generate: give at least one --pin LNG,LAT" if opts[:pins].empty?
+  abort "curtilage generate: --pin takes LNG,LAT" unless opts[:pins].all? { |p| p.size == 2 }
+
+  catalogue = opts[:catalogue] && Curtilage::Catalogue.from_dir(opts[:catalogue])
+  results = Curtilage.generate_many(opts[:pins], catalogue: catalogue, **opts.slice(:parquet, :source, :cache_dir),
+                                                 lookup: opts.slice(:duckdb, :extension_directory),
+                                                 **opts.slice(:preset, :buildings, :store_zone))
+  json = results.map { |r| r.to_geojson(include_store: opts.fetch(:store_zone, true)) }
+  puts JSON.pretty_generate(json.size == 1 ? json.first : json)
+  exit(results.all?(&:ok?) ? 0 : 1)
+end
+
+def build(args)
+  opts = { out: ".", work: File.join(Dir.tmpdir, "curtilage-build") }
+  OptionParser.new do |o|
+    o.banner = "Usage: curtilage build REGION [options]"
+    o.on("--out DIR", "Where to write REGION.parquet and REGION.json (default: .)") { |v| opts[:out] = v }
+    o.on("--work DIR", "Download folder (default: a temporary one)") { |v| opts[:work] = v }
+    o.on("--date YYMMDD", /\A\d{6}\z/, "A specific Geofabrik extract date (default: newest)") { |v| opts[:date] = v }
+    o.on("--keep-downloads", "Keep downloaded files in the work folder") { opts[:keep] = true }
+    o.on("--ml-footprints SOURCE", Curtilage::Footprints::SOURCES, "Add machine-learned footprints (microsoft)") do |v|
+      opts[:ml] = v
+    end
+    duckdb_flags(o, opts)
+  end.parse!(args)
+  region = args.shift or abort "curtilage build: give a REGION, e.g. tennessee"
+
+  puts Curtilage::Build.run(region, out_dir: opts[:out], work_dir: opts[:work], date: opts[:date],
+                                    ml_footprints: opts[:ml], keep_downloads: opts[:keep],
+                                    **opts.slice(:duckdb, :extension_directory))
+end
+
+def doctor(args)
+  opts = {}
+  OptionParser.new { |o| duckdb_flags(o, opts) }.parse!(args)
+  settings = Curtilage.duckdb_options(opts)
+  check_duckdb(settings)
+  check_extensions(settings)
+  puts "Ready."
+end
+
+def check_duckdb(settings)
+  version, status = Open3.capture2(settings[:duckdb], "--version")
+  raise Errno::ENOENT unless status.success?
+
+  puts "DuckDB: #{version.strip}"
+rescue Errno::ENOENT
+  abort "DuckDB CLI not found (#{settings[:duckdb]}). Install DuckDB 1.4 (https://duckdb.org/docs/installation/), " \
+        "or set CURTILAGE_DUCKDB to its path."
+end
+
+def check_extensions(settings)
+  dir = settings[:extension_directory]
+  sql = [("SET extension_directory = '#{dir.gsub("'", "''")}';" if dir),
+         "INSTALL spatial; LOAD spatial; INSTALL httpfs; LOAD httpfs;"].compact.join("\n")
+  _, err, status = Open3.capture3(settings[:duckdb], stdin_data: sql)
+  unless status.success?
+    abort "DuckDB extensions (spatial, httpfs) could not be installed or loaded: #{err.strip[0,
+                                                                                             300]}"
+  end
+
+  puts "Extensions: spatial and httpfs ready"
+end
+
+case ARGV.shift
+when "generate" then generate(ARGV)
+when "build" then build(ARGV)
+when "doctor" then doctor(ARGV)
+when "-h", "--help", "help", nil then puts USAGE
+else abort USAGE
+end

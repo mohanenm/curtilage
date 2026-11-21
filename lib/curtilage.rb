@@ -1,6 +1,7 @@
 # frozen_string_literal: true
 
 require_relative "curtilage/version"
+require_relative "curtilage/config"
 require_relative "curtilage/geometry"
 require_relative "curtilage/validation"
 require_relative "curtilage/features"
@@ -32,8 +33,18 @@ module Curtilage
     centre: { scope: :centre },
   }.freeze
 
-  # Premises for one pin from its features (Lookup.features). With no method
-  # or preset, the recommended method with its fallback (Generator.propose).
+  # Premises for one pin, fetching its map data as configured (see
+  # generate_many for the options). The simplest way in:
+  #
+  #   result = Curtilage.premises([-80.0, 35.0])
+  #   result.ok? && result.ring
+  def self.premises(pin, **)
+    generate_many([pin], **).first
+  end
+
+  # Premises for one pin from features you already have (Lookup.features).
+  # With no method or preset, the recommended method with its fallback
+  # (Generator.propose).
   def self.generate(pin, features, method: nil, preset: nil, **options)
     opts = preset_options(preset).merge(options)
     method ||= opts.delete(:method)
@@ -45,7 +56,7 @@ module Curtilage
   # of pins that share data files.
   #
   # Where the data comes from:
-  # - source: :geofabrik (the default): built on demand from Geofabrik for
+  # - source: :geofabrik (the default, or Curtilage.config.source): built on demand from Geofabrik for
   #   just the regions the pins are in (AutoData), in cache_dir if given
   #   (reused for a month), else in a temporary folder deleted afterwards.
   #   Minutes per region the first time; nothing to host.
@@ -57,8 +68,11 @@ module Curtilage
   # lookup: options for Lookup and the build (duckdb:, extension_directory:,
   # setup_sql:). data: options for AutoData (max_age_days:, ml_footprints:).
   # Other options go to generate.
-  def self.generate_many(pins, source: :geofabrik, catalogue: nil, parquet: nil, cache_dir: nil, lookup: {}, data: {},
+  def self.generate_many(pins, source: nil, catalogue: nil, parquet: nil, cache_dir: nil, lookup: {}, data: {},
                          **options)
+    source = (source || config.source).to_sym
+    cache_dir ||= config.cache_dir
+    lookup = duckdb_options(lookup)
     return from_overture(pins, lookup, data, options) if source == :overture && !(catalogue || parquet)
     raise ArgumentError, "unknown source #{source.inspect} (have: geofabrik, overture)" unless source == :geofabrik
 

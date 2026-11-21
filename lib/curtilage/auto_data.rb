@@ -17,7 +17,7 @@ module Curtilage
     INDEX_FILE = "geofabrik-index.json"
 
     OPTIONS = {
-      cache_dir: nil, max_age_days: 31, ml_footprints: nil, duckdb: "duckdb", extension_directory: nil,
+      cache_dir: nil, max_age_days: 31, ml_footprints: nil, duckdb: nil, extension_directory: nil,
       log: $stderr, builder: nil, regions: nil
     }.freeze
 

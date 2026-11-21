@@ -33,6 +33,7 @@ module Curtilage
     # A list of feature lists, in pin order. options: duckdb:,
     # extension_directory:, radius_deg:, release: (default: the latest).
     def features_many(pins, **options)
+      options = Curtilage.duckdb_options(options)
       radius = Float(options.fetch(:radius_deg, Lookup::DEFAULT_RADIUS_DEG))
       boxes = pins.map { |pin| box(pin, radius) }
       Dir.mktmpdir("curtilage-overture") do |dir|
@@ -156,17 +157,23 @@ module Curtilage
 
     def setup(options, remote:)
       ext = options[:extension_directory]
-      [("SET extension_directory = #{quote(File.expand_path(ext))};" if ext), "LOAD spatial;",
+      [("SET extension_directory = #{quote(File.expand_path(ext))};" if ext), "INSTALL spatial; LOAD spatial;",
        # Pins in the same files share one read of each file's metadata.
        (if remote
-          "LOAD httpfs; SET s3_region = 'us-west-2'; SET parquet_metadata_cache = true; " \
+          "INSTALL httpfs; LOAD httpfs; SET s3_region = 'us-west-2'; SET parquet_metadata_cache = true; " \
             "SET enable_http_metadata_cache = true;"
         end)].compact.join("\n")
     end
 
-    def run(sql, options)
+    # Remote reads occasionally stall and DuckDB exits without a message;
+    # one retry gets past that.
+    def run(sql, options, attempts: 2)
       out, err, status = Open3.capture3(options.fetch(:duckdb, "duckdb"), "-json", stdin_data: sql)
-      raise Error, "duckdb failed: #{err.strip[0, 500]}" unless status.success?
+      unless status.success?
+        return run(sql, options, attempts: attempts - 1) if err.strip.empty? && attempts > 1
+
+        raise Error, "duckdb failed: #{err.strip.empty? ? "no message (network?)" : err.strip[0, 500]}"
+      end
       raise Error, "duckdb output too large" if out.bytesize > MAX_OUTPUT_BYTES
 
       out.strip.empty? ? [] : JSON.parse(out)

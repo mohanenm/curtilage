@@ -110,7 +110,7 @@ module Curtilage
       parking_max_extent_m: 60,      # grow_trim: claim parking at most this far from the building
       building_margin_m: 20,         # building: margin around its rectangle
       box_side_m: 60,                # box: side of the square around the pin
-      max_vertices: 10,
+      max_vertices: 10,              # the premises are simplified to at most this many corners
       store_zone: true,              # also return the building's outline as the store zone
       max_store_vertices: 20,        # the store outline is simplified to at most this many corners
       buildings: :osm,               # :osm, :osm_filled (ML footprints where OSM has none) or :ml

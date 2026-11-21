@@ -31,7 +31,7 @@ module Curtilage
     SQL_FILE = File.expand_path("../../sql/build_from_shapefiles.sql", __dir__)
 
     OPTIONS = {
-      duckdb: "duckdb", extension_directory: nil, date: nil, memory_limit: "400MB", threads: 1,
+      date: nil, memory_limit: "400MB", threads: 1,
       ml_footprints: nil, keep_downloads: false, name: nil, log: $stderr
     }.freeze
 
@@ -39,11 +39,12 @@ module Curtilage
 
     # region: a US state ("tennessee", "new-york") or any Geofabrik region
     # path ("europe/germany/bayern", "north-america/canada/ontario").
-    # options: see OPTIONS; ml_footprints: "microsoft" adds ML footprints.
+    # options: see OPTIONS; ml_footprints: "microsoft" adds ML footprints;
+    # duckdb: and extension_directory: default to Curtilage.config.
     # Returns the Parquet path, named after the region's last part unless
     # name: says otherwise.
     def run(region, out_dir:, work_dir:, **options)
-      opts = OPTIONS.merge(options.compact)
+      opts = OPTIONS.merge(Curtilage.duckdb_options(options))
       path = region_path(region)
       check_footprints(opts[:ml_footprints])
       FileUtils.mkdir_p([out_dir, work_dir])
@@ -158,7 +159,7 @@ module Curtilage
     def extent(dirs, opts)
       query = "SELECT min(ST_XMin(geom)) a, min(ST_YMin(geom)) b, max(ST_XMax(geom)) c, max(ST_YMax(geom)) d " \
               "FROM roads_src;"
-      out = run_duckdb([setup(opts), "LOAD spatial;", layer_view("roads", dirs), query].join("\n"),
+      out = run_duckdb([setup(opts), "INSTALL spatial; LOAD spatial;", layer_view("roads", dirs), query].join("\n"),
                        opts[:duckdb], "-json")
       row = JSON.parse(out).first
       %w[a b c d].map { |k| Float(row[k]) }
@@ -168,7 +169,7 @@ module Curtilage
     # (_1, _2, ...) and multi-part regions in several folders.
     def sql(dirs, out, opts, ml_files: [])
       views = LAYERS.map { |layer| layer_view(layer, dirs) }
-      [setup(opts), "LOAD spatial;", *views, ml_view(ml_files, opts[:ml_bbox]),
+      [setup(opts), "INSTALL spatial; LOAD spatial;", *views, ml_view(ml_files, opts[:ml_bbox]),
        "SET VARIABLE out_path = #{quote(out)};", File.read(SQL_FILE)].join("\n")
     end
 

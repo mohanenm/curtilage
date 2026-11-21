@@ -6,6 +6,26 @@ Generates a site's **premises polygon** (the building plus its customer-facing l
 
 **Status:** pre-release (0.0.1). Checked on 20 real store sites across five US states against hand-drawn premises and by eye on aerial imagery; the reviewer was happy with all of them after the latest rules. Not yet published to RubyGems.
 
+## Quick start
+
+1. Install the gem (`gem "curtilage"` in your Gemfile, once published) and the [DuckDB CLI](https://duckdb.org/docs/installation/) 1.4. Check with `curtilage doctor`; DuckDB's extensions install themselves.
+2. Ask for premises:
+
+```ruby
+require "curtilage"
+
+result = Curtilage.premises([-80.0, 35.0])   # [lng, lat]
+result.ok?          # true when it passed validation
+result.ring         # the premises polygon, [[lng, lat], ...]
+result.store_ring   # the building's outline, inside the premises
+result.flags        # anything a person should check, e.g. [:near_houses]
+result.to_geojson   # ready to draw or save, with the attribution to show
+```
+
+Or from the shell: `curtilage generate --pin -80.0,35.0`.
+
+That's all the setup: map data is fetched for the pin's region as needed. Everything else (batches, Overture instead of Geofabrik, caching, styles, every option and flag) is in the [reference](docs/reference.md).
+
 ## How it works
 
 1. **Data.** Buildings, parking lots, roads and railways from OpenStreetMap, from one of:
@@ -25,43 +45,19 @@ It's rule-based: no machine learning in the method. Coordinates are `[lng, lat]`
 ## Usage
 
 ```ruby
-require "curtilage"
+pins = [[-80.0, 35.0], [-80.1, 35.2]]
+results = Curtilage.generate_many(pins)                       # Geofabrik, built on demand, cleaned up after
+results = Curtilage.generate_many(pins, source: :overture)    # Overture Maps, nothing downloaded up front
+results = Curtilage.generate_many(pins, preset: :centre)      # whole shopping centre where on a shared lot
 
-pins = [[-80.0, 35.0], [-80.1, 35.2]]                 # [lng, lat]
-results = Curtilage.generate_many(pins)              # Geofabrik, built on demand, cleaned up after
-results = Curtilage.generate_many(pins, cache_dir: "/var/cache/curtilage")  # reuse builds for a month
-results = Curtilage.generate_many(pins, source: :overture)                  # no download at all
-
-result = results.first
-result.ok?          # passed validation; never save one that isn't
-result.ring         # [[lng, lat], ...], closed: the premises
-result.store_ring   # the building's outline, inside the premises (store_zone: false to skip)
-result.flags        # reasons a person should look first (see below)
-result.explanation  # how it was made, step by step
-result.to_geojson   # a GeoJSON Feature with all of the above and the attribution
-result.to_geojson(include_store: true)  # a FeatureCollection: premises and store zone
+Curtilage.configure do |c|                                    # once, instead of options on every call
+  c.cache_dir = "/var/cache/curtilage"                        # reuse on-demand builds for a month
+end
 ```
 
-Options (pass to `generate_many` or `generate`):
-
-- `preset:` `:whole_lot` (default: the building and its whole lot), `:tight` (the building plus a small margin), or `:centre` (like whole_lot, but a store on a shared shopping-centre lot gets the whole centre). Any option overrides a preset.
-- `buildings:` `:osm` (default), `:osm_filled` (machine-learned footprints only where OSM has no building) or `:ml`. See below.
-- `store_zone: false` to skip the store zone; `building_clearance_m:` for the room kept in front of the building; the rest of `Curtilage::Generator::DEFAULTS` can be overridden too.
-
-Built ahead of time instead, for instant single lookups:
-
-```sh
-curtilage build tennessee                # writes data/features/tennessee.parquet and tennessee.json
-curtilage build europe/germany/bayern    # any Geofabrik region path
-curtilage generate --catalogue data/features --pin -80.0,35.0   # GeoJSON; --no-store for premises only
-```
-
-```ruby
-catalogue = Curtilage::Catalogue.from_dir("data/features")     # or base_url: "s3://bucket/features"
-results = Curtilage.generate_many(pins, catalogue: catalogue)
-```
-
-Parquet files can be local or in a bucket (`s3://`, `gs://`, `https://`, read in place); credentials for a private bucket go in `lookup: { setup_sql: "CREATE SECRET ..." }`. To check an existing polygon, `Curtilage::Audit.check(pin, ring, features)` returns `:ok`, `:review` (with reasons such as `crosses_road` or `covers_neighbour`) or `:invalid`.
+- Styles: `preset: :whole_lot` (default), `:tight` (building plus a small margin) or `:centre`. `store_zone: false` skips the store zone. Every rule's distance is an option ([reference](docs/reference.md#generation-options)).
+- Built ahead of time, for instant lookups: `curtilage build tennessee`, then `generate_many(pins, catalogue: Curtilage::Catalogue.from_dir("."))`. Files can also live in a bucket (`s3://`, `gs://`, `https://`).
+- Check an existing polygon: `Curtilage::Audit.check(pin, ring, features)` returns `:ok`, `:review` (with reasons) or `:invalid`.
 
 ### Flags
 
@@ -113,7 +109,9 @@ The gem only talks to public map-data hosts, and only when it needs data: Geofab
 | `lib/curtilage/overture.rb` | Reads features in place from Overture Maps |
 | `lib/curtilage/footprints.rb` | Optional machine-learned footprints (Microsoft) |
 | `lib/curtilage/download.rb` | HTTPS downloads from allowed hosts, with size caps |
-| `exe/curtilage` | `curtilage build` and `curtilage generate` |
+| `lib/curtilage/config.rb` | Shared settings (`Curtilage.configure`, environment variables) |
+| `exe/curtilage` | `curtilage generate`, `build` and `doctor` |
+| `docs/reference.md` | Every option, setting, flag and command |
 | `sql/build_from_shapefiles.sql` | DuckDB query: shapefiles to a features Parquet file |
 | `test/` | Tests, using made-up coordinates only |
 
@@ -124,7 +122,7 @@ bin/setup
 bundle exec rake        # tests and RuboCop
 ```
 
-The gem itself is plain Ruby with no runtime gem dependencies. Getting data needs the [DuckDB](https://duckdb.org/) CLI (1.4 LTS) with its `spatial` extension, plus `httpfs` for Overture or bucket reads; point `CURTILAGE_DUCKDB` and `CURTILAGE_EXTENSIONS` at them if they aren't in the default places. `unzip` is only needed if a server can't serve byte ranges.
+The gem itself is plain Ruby with no runtime gem dependencies. Getting data needs the [DuckDB](https://duckdb.org/) CLI (1.4 LTS); its `spatial` and `httpfs` extensions install themselves on first use. Point `CURTILAGE_DUCKDB` and `CURTILAGE_EXTENSIONS` at them if they aren't in the default places (`curtilage doctor` checks). `unzip` is only needed if a server can't serve byte ranges.
 
 ## Data and licensing
 

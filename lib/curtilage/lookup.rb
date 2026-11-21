@@ -32,8 +32,10 @@ module Curtilage
     # One DuckDB call for many pins; returns a list of feature lists in pin
     # order.
     #
-    # options: duckdb (CLI path), extension_directory, radius_deg, setup_sql.
+    # options: duckdb (CLI path), extension_directory (both default to
+    # Curtilage.config), radius_deg, setup_sql.
     def features_many(parquet:, pins:, **options)
+      options = Curtilage.duckdb_options(options)
       files = Array(parquet)
       check_files(files)
       raise ArgumentError, "between 1 and #{MAX_PINS} pins" unless pins.size.between?(1, MAX_PINS)
@@ -75,8 +77,8 @@ module Curtilage
 
     def setup(files, extension_directory, setup_sql)
       [("SET extension_directory = #{quote(File.expand_path(extension_directory))};" if extension_directory),
-       "LOAD spatial;",
-       ("LOAD httpfs;" if files.any? { |f| f.to_s.match?(REMOTE) }),
+       "INSTALL spatial; LOAD spatial;",
+       ("INSTALL httpfs; LOAD httpfs;" if files.any? { |f| f.to_s.match?(REMOTE) }),
        setup_sql].compact.join("\n")
     end
 

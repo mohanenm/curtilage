@@ -1,11 +1,11 @@
 # curtilage
 
-Ruby gem that generates a site's premises polygon (the building and its customer-facing lot) and a store zone (the building's outline) from free map data. See [README.md](README.md) for what it does, the options and the measured numbers.
+Ruby gem that generates a site's premises polygon (the building and its customer-facing lot) and a store zone (the building's outline) from free map data. See [README.md](README.md) for what it does and [docs/reference.md](docs/reference.md) for every option. Keep both in step with the code: the gem must stay simple to use and fully documented.
 
 ## Commands
 
 - Tests and lint: `bundle exec rake` (Minitest, then RuboCop). Tests only: `bundle exec rake test`.
-- Build a region's features file: `CURTILAGE_DUCKDB=$PWD/data/bin/duckdb CURTILAGE_EXTENSIONS=$PWD/data/bin/extensions bundle exec exe/curtilage build <state or geofabrik/path> [--ml-footprints microsoft]`. It finds the newest dated Geofabrik extract, range-downloads only the layers it uses, and writes `data/features/<region>.parquet` and `.json` with memory capped at 400 MB. On macOS the extension directory must be an absolute path.
+- Build a region's features file: `CURTILAGE_DUCKDB=$PWD/data/bin/duckdb CURTILAGE_EXTENSIONS=$PWD/data/bin/extensions bundle exec exe/curtilage build <state or geofabrik/path> --out data/features [--ml-footprints microsoft]`. It finds the newest dated Geofabrik extract, range-downloads only the layers it uses, and writes `data/features/<region>.parquet` and `.json` with memory capped at 400 MB. On macOS the extension directory must be an absolute path.
 - Private evaluation scripts and the review pages live in gitignored `data/eval/`; `data/HANDOFF.md` (also gitignored) has the project state and how to run them.
 
 ## Conventions
