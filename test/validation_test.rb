@@ -17,8 +17,8 @@ class ValidationTest < Minitest::Test
          [dx + (width / 2.0), dy + (height / 2.0)], [dx - (width / 2.0), dy + (height / 2.0)])
   end
 
-  def check(premises, **opts)
-    Curtilage::Validation.check(PIN, premises, **opts)
+  def check(premises, **)
+    Curtilage::Validation.check(PIN, premises, **)
   end
 
   def test_typical_store_premises_pass_cleanly
@@ -51,6 +51,7 @@ class ValidationTest < Minitest::Test
     assert_includes check(rectangle(20, 20)).warnings, "small"
     assert_includes check(rectangle(300, 200)).warnings, "large"
     assert_includes check(rectangle(600, 100, dx: 250)).warnings, "off_centre"
+    assert_includes check(rectangle(500, 300)).errors, "too_large"
   end
 
   def test_thresholds_can_be_overridden

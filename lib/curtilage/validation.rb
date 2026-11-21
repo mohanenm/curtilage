@@ -17,6 +17,7 @@ module Curtilage
     DEFAULTS = {
       min_area_m2: 1_000,      # warn below
       max_area_m2: 40_000,     # warn above
+      max_area_error_m2: 100_000, # error above: a block, not a store's lot
       max_vertex_distance_m: 1_000, # error above
       max_vertices: 50,        # error above
       off_centre_m: 200,       # warn above
@@ -32,24 +33,32 @@ module Curtilage
       return Result.new(["missing"], [], {}) if ring.nil? || ring.empty?
       return Result.new(["invalid_coordinates"], [], {}) unless Geometry.valid_coordinates?(ring)
 
-      errors = []
-      warnings = []
-      errors << "unclosed" unless Geometry.closed?(ring)
+      errors = Geometry.closed?(ring) ? [] : ["unclosed"]
       open = Geometry.open_ring(ring)
-      return Result.new(errors + ["too_few_points"], warnings, {}) if open.uniq.size < 3
+      return Result.new(errors + ["too_few_points"], [], {}) if open.uniq.size < 3
 
       xy = Geometry.project(open, pin)
-      metrics = measure(xy)
+      metrics = measure(xy).merge(points: open.size)
       errors << "swapped" if swapped?(open, pin, xy, opts)
       errors << "self_intersecting" if Geometry.self_intersects?(xy)
+      Result.new(errors + metric_errors(metrics, opts), metric_warnings(metrics, opts), metrics)
+    end
+
+    def metric_errors(metrics, opts)
+      errors = []
       errors << "pin_outside" unless metrics[:pin_inside]
       errors << "too_far_from_pin" if metrics[:max_vertex_distance_m] > opts[:max_vertex_distance_m]
-      errors << "too_many_vertices" if open.size > opts[:max_vertices]
+      errors << "too_many_vertices" if metrics[:points] > opts[:max_vertices]
+      errors << "too_large" if metrics[:area_m2] > opts[:max_area_error_m2]
+      errors
+    end
+
+    def metric_warnings(metrics, opts)
+      warnings = []
       warnings << "small" if metrics[:area_m2] < opts[:min_area_m2]
       warnings << "large" if metrics[:area_m2] > opts[:max_area_m2]
       warnings << "off_centre" if metrics[:centroid_offset_m] > opts[:off_centre_m]
-
-      Result.new(errors, warnings, metrics.merge(points: open.size))
+      warnings
     end
 
     def measure(xy)
