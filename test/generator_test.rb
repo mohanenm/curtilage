@@ -59,11 +59,26 @@ class GeneratorTest < Minitest::Test
     assert_in_delta(-32, ys.min, 0.5)
   end
 
-  def test_grow_trim_stops_at_the_kerb_and_halfway_to_the_neighbour
+  # The neighbour's wall is at x = 50: the lot runs to 3 m short of it.
+  def test_grow_trim_stops_at_the_kerb_and_short_of_the_neighbour
     points = xy(Curtilage.generate(PIN, scene, method: :grow_trim, grow_m: 60))
 
     assert_in_delta(-32, points.map(&:last).min, 0.5)
-    assert_in_delta 30, points.map(&:first).max, 0.5
+    assert_in_delta 47, points.map(&:first).max, 0.5
+  end
+
+  def test_neighbour_gap_nil_splits_halfway
+    xs = xy(Curtilage.generate(PIN, scene, method: :grow_trim, grow_m: 60, neighbour_gap_m: nil)).map(&:first)
+
+    assert_in_delta 30, xs.max, 0.5
+  end
+
+  # A gap narrower than two strips is still split down the middle.
+  def test_narrow_gap_is_split_halfway
+    close = scene.first(1) + [polygon("building", 2, 14, -10, 30, 10)]
+    xs = xy(Curtilage.generate(PIN, close, method: :grow_trim)).map(&:first)
+
+    assert_in_delta 12, xs.max, 0.5
   end
 
   def test_kerb_offset_never_cuts_into_the_building

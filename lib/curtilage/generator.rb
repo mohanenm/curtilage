@@ -55,6 +55,8 @@ module Curtilage
       grow_m: 30,                    # grow_trim: how far to grow before trimming
       road_offset_m: nil,            # trim this far short of road centrelines; nil: by road class
       neighbour_min_area_m2: 40,     # grow_trim: smaller buildings (sheds) don't bound a lot
+      neighbour_gap_m: 3,            # grow_trim: strip left to a neighbouring building (nil: halfway)
+      neighbour_strip_min_area_m2: 0, # grow_trim: smaller neighbours are split halfway
       parking_reach_m: 20,           # grow_trim: parking this close (an aisle and a walkway) is its lot
       parking_max_extent_m: 60,      # grow_trim: claim parking at most this far from the building
       building_margin_m: 20,         # building: margin around its rectangle
@@ -367,16 +369,34 @@ module Curtilage
           log.flag(:attached_building, "building #{other.id} touches the building, so it can't be split off")
           next
         end
-        trimmed = split_from_neighbour(poly, hull, other_hull, target.rectangle[:angle])
+        strip = neighbour_strip(other, opts)
+        trimmed = split_from_neighbour(poly, hull, other_hull, target.rectangle[:angle], stop: strip_stop(strip))
         next if trimmed.size < 3
 
-        log.note("trimmed halfway to building #{other.id}")
+        log.note(strip ? "stopped #{strip} m short of building #{other.id}" : "trimmed halfway to building #{other.id}")
         poly = trimmed
       end
       poly
     end
 
     HALFWAY = ->(near, far) { (near + far) / 2 }
+
+    # The strip left to a neighbour, or nil to split halfway. Pavement
+    # between two buildings usually belongs to one of them, and the site's
+    # own lot is the likelier owner, so claim it up to a narrow strip.
+    # Small neighbours (houses, below neighbour_strip_min_area_m2) keep the
+    # halfway split: their yard isn't the site's.
+    def neighbour_strip(other, opts)
+      gap = opts[:neighbour_gap_m]
+      gap if gap && other.area >= opts[:neighbour_strip_min_area_m2]
+    end
+
+    # Never less than halfway: a narrow gap is still split down the middle.
+    def strip_stop(strip)
+      return HALFWAY unless strip
+
+      ->(near, far) { [(near + far) / 2, far - strip].max }
+    end
 
     # Cuts between the building and a neighbour (halfway by default), square
     # to one of the building's sides (hand-drawn premises are rectangles): of
