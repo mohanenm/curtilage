@@ -140,6 +140,41 @@ class GeneratorTest < Minitest::Test
     assert_includes Curtilage.generate(PIN, kiosk).flags, :small_building
   end
 
+  def test_presets
+    tight = Curtilage.generate(PIN, scene, preset: :tight)
+
+    assert_equal :building, tight.method_name
+    assert_in_delta 36 * 31, tight.validation.metrics[:area_m2], 5
+    assert_equal :grow_trim, Curtilage.generate(PIN, scene, preset: :whole_lot).method_name
+    assert_in_delta 40 * 35, Curtilage.generate(PIN, scene, preset: :tight, building_margin_m: 10)
+                                      .validation.metrics[:area_m2], 5
+    assert_raises(ArgumentError) { Curtilage.generate(PIN, scene, preset: :roomy) }
+  end
+
+  def test_to_geojson
+    json = Curtilage.generate(PIN, scene).to_geojson
+
+    assert_equal "Polygon", json[:geometry][:type]
+    assert json[:properties][:ok]
+    assert_equal ["© OpenStreetMap contributors"], json[:properties][:attribution]
+  end
+
+  def test_audit_flags_a_polygon_over_the_road_and_the_neighbour
+    sprawling = [lnglat(-20, -60), lnglat(70, -60), lnglat(70, 20), lnglat(-20, 20), lnglat(-20, -60)]
+    report = Curtilage::Audit.check(PIN, sprawling, scene)
+
+    assert_equal :review, report.verdict
+    assert_includes report.reasons, "crosses_road"
+    assert_includes report.reasons, "covers_neighbour"
+  end
+
+  def test_audit_passes_the_generated_polygon
+    report = Curtilage::Audit.check(PIN, Curtilage.generate(PIN, scene).ring, scene)
+
+    assert_equal :ok, report.verdict
+    assert_in_delta 1.0, report.overlap, 0.01
+  end
+
   def test_propose_uses_grow_trim_when_it_validates
     result = Curtilage.generate(PIN, scene)
 

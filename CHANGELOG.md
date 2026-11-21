@@ -13,4 +13,7 @@
 - Optional machine-learned building footprints (Microsoft, ODbL): `--ml-footprints microsoft` at build time, `buildings: :osm_filled` or `:ml` at generate time, flagged `ml_footprint`. OSM only remains the default.
 - A parking lot touching three or more other buildings is treated as shared (a shopping-centre lot): left out and flagged `shared_parking`. Buildings under 50 m2 are flagged `small_building`.
 - Features repeated along the seam of a multi-part region are read once.
+- Builds write `<region>.json` beside the Parquet file (source dates, extent, counts, licence, attribution); `Catalogue.from_dir` uses them to pick the file(s) covering each pin, locally or in a bucket.
+- `Curtilage.generate_many`, batch lookups (`Lookup.features_many`), reading Parquet from `s3://`, `gs://` and `https://`, `Result#to_geojson`, presets (`:whole_lot`, `:tight`) and `Audit.check` for existing polygons.
+- Generation is several times faster in dense areas: cheap bounding-box checks before exact geometry tests.
 - Validation errors on polygons over 100,000 m2 (`too_large`).

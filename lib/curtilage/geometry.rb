@@ -263,6 +263,19 @@ module Curtilage
       candidates.min_by(&:first)
     end
 
+    # [min_x, min_y, max_x, max_y].
+    def bounds(xy)
+      xs = xy.map(&:first)
+      ys = xy.map(&:last)
+      [xs.min, ys.min, xs.max, ys.max]
+    end
+
+    # Whether two bounds come within margin of each other: a cheap test
+    # before the exact ones.
+    def bounds_near?(a, b, margin = 0)
+      a[0] - margin <= b[2] && b[0] - margin <= a[2] && a[1] - margin <= b[3] && b[1] - margin <= a[3]
+    end
+
     def overlap?(poly_a, poly_b)
       return true if poly_a.any? { |p| contains?(poly_b, p) } || poly_b.any? { |p| contains?(poly_a, p) }
 

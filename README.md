@@ -29,6 +29,8 @@ Coordinates are `[lng, lat]` throughout, as in GeoJSON.
 | `lib/curtilage/build.rb` | Downloads a region's Geofabrik shapefiles and builds its features Parquet file |
 | `lib/curtilage/footprints.rb` | Optional machine-learned building footprints (Microsoft) |
 | `lib/curtilage/download.rb` | HTTPS downloads from allowed hosts, with size caps |
+| `lib/curtilage/catalogue.rb` | Finds the built region file(s) covering a pin |
+| `lib/curtilage/audit.rb` | Checks an existing polygon against the map and the generated one |
 | `exe/curtilage` | `curtilage build REGION` and `curtilage generate --parquet FILE --pin LNG,LAT` (prints GeoJSON) |
 | `sql/build_from_shapefiles.sql` | DuckDB query: Geofabrik shapefiles to a features Parquet file |
 | `test/` | Tests, using synthetic coordinates only |
@@ -47,19 +49,39 @@ A result built on an ML footprint says so in its explanation and carries the `ml
 
 ## Usage
 
+Build the regions you need once (and again monthly, in the background):
+
+```sh
+curtilage build tennessee            # writes data/features/tennessee.parquet and tennessee.json
+curtilage build europe/germany/bayern
+```
+
+Then, in Ruby:
+
 ```ruby
 require "curtilage"
 
-pin = [-80.0, 35.0] # [lng, lat]
-features = Curtilage::Lookup.features(parquet: "data/features/<region>.parquet", pin: pin)
-result = Curtilage.generate(pin, features)
-result.ok?         # usable: a ring that passed validation
-result.ring        # [[lng, lat], ...], closed
-result.flags       # reasons a person should look first
-result.explanation # how it was made, step by step
+catalogue = Curtilage::Catalogue.from_dir("data/features")   # or base_url: "s3://bucket/features"
+results = Curtilage.generate_many([[-80.0, 35.0], [-80.1, 35.2]], catalogue: catalogue)
+
+result = results.first
+result.ok?          # a ring that passed validation; never save one that isn't
+result.ring         # [[lng, lat], ...], closed
+result.flags        # reasons a person should look: large_building, shared_parking, fallback, ...
+result.explanation  # how it was made, step by step
+result.to_geojson   # a GeoJSON Feature with all of the above and the attribution
 ```
 
-Or from the shell: `curtilage generate --parquet data/features/<region>.parquet --pin -80.0,35.0`. Set `CURTILAGE_DUCKDB` and `CURTILAGE_EXTENSIONS` if the DuckDB CLI or its extensions aren't in the default places.
+- One pin: `Curtilage.generate(pin, Curtilage::Lookup.features(parquet: path, pin: pin))`.
+- Styles: `preset: :whole_lot` (the default: the building and its whole lot) or `preset: :tight` (the building plus a small margin). Any option overrides a preset.
+- Check an existing polygon: `Curtilage::Audit.check(pin, ring, features)` returns `:ok`, `:review` (with reasons such as `crosses_road` or `covers_neighbour`) or `:invalid`.
+- Parquet files can be local or in a bucket (`s3://`, `gs://`, `https://`, read in place). Credentials for a private bucket go in `lookup: { setup_sql: "CREATE SECRET ..." }`.
+
+From the shell: `curtilage generate --catalogue data/features --pin -80.0,35.0` prints the GeoJSON. Set `CURTILAGE_DUCKDB` and `CURTILAGE_EXTENSIONS` if the DuckDB CLI or its extensions aren't in the default places.
+
+### Speed
+
+Per site: about 85 ms to look features up (one DuckDB call can serve many pins) and about 100 ms to generate (median; a few hundred milliseconds in dense blocks). Building a state takes 1-5 minutes and happens ahead of time.
 
 ## Development
 

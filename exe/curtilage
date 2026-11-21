@@ -7,7 +7,8 @@
 #   or a Geofabrik path such as "europe/germany/bayern") and writes
 #   DIR/REGION.parquet, optionally with machine-learned building footprints.
 #
-# curtilage generate --parquet FILE --pin LNG,LAT [--method NAME] [--buildings osm|osm_filled|ml]
+# curtilage generate (--parquet FILE | --catalogue DIR) --pin LNG,LAT [--preset whole_lot|tight]
+#                    [--method NAME] [--buildings osm|osm_filled|ml]
 #   Prints the proposed premises as JSON: a GeoJSON Feature with the method,
 #   review flags, explanation and validation in its properties.
 #
@@ -31,6 +32,8 @@ OptionParser.new do |o|
   o.on("--ml-footprints SOURCE", Curtilage::Footprints::SOURCES) { |v| opts[:ml] = v }
   o.on("--buildings FLAVOUR", Curtilage::Generator::BUILDING_SOURCES.map(&:to_s)) { |v| opts[:buildings] = v.to_sym }
   o.on("--parquet FILE") { |v| opts[:parquet] = v }
+  o.on("--catalogue DIR") { |v| opts[:catalogue] = v }
+  o.on("--preset NAME", Curtilage::PRESETS.keys.map(&:to_s)) { |v| opts[:preset] = v.to_sym }
   o.on("--pin LNG,LAT") { |v| opts[:pin] = v.split(",").map { |n| Float(n) } }
   o.on("--method NAME", Curtilage::Generator::METHODS.map(&:to_s)) { |v| opts[:method] = v.to_sym }
   o.on("--duckdb PATH") { |v| opts[:duckdb] = v }
@@ -46,18 +49,14 @@ if command == "build"
   exit
 end
 
-abort "--parquet and --pin are required" unless opts[:parquet] && opts[:pin]&.size == 2
+have_data = opts[:parquet] || opts[:catalogue]
+abort "--parquet or --catalogue, and --pin, are required" unless have_data && opts[:pin]&.size == 2
 
-features = Curtilage::Lookup.features(parquet: opts[:parquet], pin: opts[:pin], duckdb: opts[:duckdb],
-                                      extension_directory: opts[:extension_directory])
-result = Curtilage.generate(opts[:pin], features, method: opts[:method], **opts.slice(:buildings))
-puts JSON.pretty_generate(
-  type: "Feature",
-  geometry: result.ring && { type: "Polygon", coordinates: [result.ring] },
-  properties: {
-    ok: result.ok?, method: result.method_name, flags: result.flags, building: result.building,
-    errors: result.validation.errors, warnings: result.validation.warnings, metrics: result.validation.metrics,
-    explanation: result.explanation, attribution: "© OpenStreetMap contributors (ODbL)"
-  }
-)
+catalogue = opts[:catalogue] && Curtilage::Catalogue.from_dir(opts[:catalogue])
+lookup = opts.slice(:duckdb, :extension_directory)
+result = Curtilage.generate_many([opts[:pin]], catalogue: catalogue, parquet: opts[:parquet], lookup: lookup,
+                                               **opts.slice(:method, :preset, :buildings)).first
+osm = ["© OpenStreetMap contributors"]
+attribution = catalogue ? catalogue.attribution(catalogue.files_for(opts[:pin])) : osm
+puts JSON.pretty_generate(result.to_geojson(attribution: attribution.empty? ? osm : attribution))
 exit(result.ok? ? 0 : 1)

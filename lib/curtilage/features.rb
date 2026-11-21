@@ -21,15 +21,13 @@ module Curtilage
         @rectangle ||= Geometry.minimum_rectangle(xy)
       end
 
-      # [min_x, min_y, max_x, max_y], for a cheap overlap pre-check.
+      # [min_x, min_y, max_x, max_y], for a cheap pre-check.
       def bounds
-        @bounds ||= [xy.map(&:first).min, xy.map(&:last).min, xy.map(&:first).max, xy.map(&:last).max]
+        @bounds ||= Geometry.bounds(xy)
       end
 
-      def near?(other)
-        a = bounds
-        b = other.bounds
-        a[0] <= b[2] && b[0] <= a[2] && a[1] <= b[3] && b[1] <= a[3]
+      def near?(other, margin = 0)
+        Geometry.bounds_near?(bounds, other.bounds, margin)
       end
     end
     Line = Struct.new(:id, :highway, :name, :xy, keyword_init: true)

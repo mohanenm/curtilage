@@ -4,6 +4,7 @@ require "date"
 require "fileutils"
 require "json"
 require "open3"
+require "time"
 
 module Curtilage
   # Builds a region's features Parquet from Geofabrik's free shapefiles:
@@ -45,13 +46,15 @@ module Curtilage
       path = region_path(region)
       check_footprints(opts[:ml_footprints])
       FileUtils.mkdir_p([out_dir, work_dir])
-      dirs = PARTS.fetch(path, [path]).map { |part| fetch(part, opts[:date], work_dir, opts[:log]) }
+      fetched = PARTS.fetch(path, [path]).map { |part| fetch(part, opts[:date], work_dir, opts[:log]) }
+      dirs = fetched.map(&:first)
       opts = opts.merge(temp_directory: File.join(work_dir, "duckdb_tmp"))
       ml = ml_files(dirs, work_dir, opts)
       out = File.join(out_dir, "#{File.basename(path)}.parquet")
       opts[:log].puts "building #{out}"
       run_duckdb(sql(dirs, "#{out}.tmp", opts, ml_files: ml), opts[:duckdb])
       File.rename("#{out}.tmp", out)
+      write_metadata(out, path, fetched.map(&:last), opts)
       out
     ensure
       cleanup(work_dir, dirs, opts[:keep_downloads]) if dirs
@@ -70,8 +73,8 @@ module Curtilage
       raise ArgumentError, "unknown ml_footprints source #{source.inspect} (have: #{Footprints::SOURCES.join(", ")})"
     end
 
-    # Downloads and unzips one Geofabrik extract; returns the folder with
-    # its shapefiles.
+    # Downloads and unzips one Geofabrik extract; returns [folder with its
+    # shapefiles, extract date].
     def fetch(part, date, work_dir, log)
       date ||= latest_date(part)
       name = "#{part.tr("/", "-")}-#{date}-free.shp.zip"
@@ -83,7 +86,7 @@ module Curtilage
       check_zip(zip)
       dir = File.join(work_dir, File.basename(name, ".shp.zip"))
       unzip_layers(zip, dir)
-      dir
+      [dir, date]
     end
 
     def url_path(part, date) = "/#{part}-#{date}-free.shp.zip"
@@ -178,6 +181,33 @@ module Curtilage
       raise Error, "duckdb failed: #{err.strip[0, 500]}" unless status.success? && err.strip.empty?
 
       out
+    end
+
+    # Writes <region>.json next to the Parquet file: what it holds, where it
+    # came from and how to attribute it. Catalogue reads these.
+    def write_metadata(parquet, path, dates, opts)
+      stats = run_duckdb([setup(opts), "SELECT feature, count(*) AS n, min(min_lng) a, min(min_lat) b, " \
+                                       "max(max_lng) c, max(max_lat) d FROM read_parquet(#{quote(parquet)}) " \
+                                       "GROUP BY feature;"].join("\n"), opts[:duckdb], "-json")
+      rows = JSON.parse(stats)
+      File.write(parquet.sub(/\.parquet\z/, ".json"), JSON.pretty_generate(metadata(parquet, path, dates, rows, opts)))
+    end
+
+    def metadata(parquet, path, dates, rows, opts)
+      source_dates = dates.map { |d| Date.strptime(d, "%y%m%d").iso8601 }
+      {
+        region: path, parquet: File.basename(parquet), format: 1,
+        source: "Geofabrik OpenStreetMap shapefiles", source_dates: source_dates,
+        built_at: Time.now.utc.iso8601, ml_footprints: opts[:ml_footprints],
+        bbox: [rows.map { |r| r["a"] }.min, rows.map { |r| r["b"] }.min, rows.map { |r| r["c"] }.max,
+               rows.map { |r| r["d"] }.max],
+        counts: rows.to_h { |r| [r["feature"], r["n"]] },
+        licence: "ODbL-1.0", attribution: attribution(opts[:ml_footprints])
+      }
+    end
+
+    def attribution(ml_footprints)
+      ["© OpenStreetMap contributors", ("Microsoft Global ML Building Footprints" if ml_footprints)].compact
     end
 
     def cleanup(work_dir, dirs, keep_downloads)

@@ -52,6 +52,17 @@ class BuildTest < Minitest::Test
     assert_raises(ArgumentError) { B.run("tennessee", out_dir: "/x", work_dir: "/x", ml_footprints: "acme") }
   end
 
+  def test_metadata
+    rows = [{ "feature" => "building", "n" => 5, "a" => -81, "b" => 34, "c" => -80, "d" => 35 },
+            { "feature" => "road", "n" => 2, "a" => -82, "b" => 33.5, "c" => -79.5, "d" => 35 }]
+    meta = B.metadata("/x/tennessee.parquet", "north-america/us/tennessee", %w[261119], rows, ml_footprints: nil)
+
+    assert_equal [-82, 33.5, -79.5, 35], meta[:bbox]
+    assert_equal({ "building" => 5, "road" => 2 }, meta[:counts])
+    assert_equal ["2026-11-19"], meta[:source_dates]
+    assert_equal ["© OpenStreetMap contributors"], meta[:attribution]
+  end
+
   def test_multi_part_regions
     assert_equal 2, B::PARTS["north-america/us/california"].size
   end

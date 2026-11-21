@@ -17,6 +17,20 @@ module Curtilage
       def ok?
         !ring.nil? && validation.ok?
       end
+
+      # A GeoJSON Feature (as a Hash) with everything about the result in
+      # its properties. Show the attribution wherever the polygon is shown.
+      def to_geojson(attribution: ["© OpenStreetMap contributors"])
+        {
+          type: "Feature",
+          geometry: ring && { type: "Polygon", coordinates: [ring] },
+          properties: {
+            ok: ok?, method: method_name, flags: flags, building: building,
+            errors: validation.errors, warnings: validation.warnings, metrics: validation.metrics,
+            explanation: explanation, attribution: attribution
+          },
+        }
+      end
     end
 
     # What the parking steps need about the site being generated.
@@ -187,6 +201,8 @@ module Curtilage
     end
 
     def touches?(lot, building, opts)
+      return false unless lot.near?(building, opts[:parking_reach_m])
+
       Geometry.overlap?(lot.xy, building.xy) ||
         Geometry.closest_points(lot.xy, building.xy).first <= opts[:parking_reach_m]
     end
@@ -206,9 +222,7 @@ module Curtilage
     def share_lot(part, lot, site)
       features, target, opts, log = site.to_a
       neighbours(features, target, opts).each do |other|
-        next if Geometry.overlap?(other.hull, target.hull)
-        next unless Geometry.overlap?(lot.xy, other.xy) ||
-                    Geometry.closest_points(lot.xy, other.xy).first <= opts[:parking_reach_m]
+        next if !touches?(lot, other, opts) || Geometry.overlap?(other.hull, target.hull)
 
         log.note("parking #{lot.id} also touches building #{other.id}: split halfway")
         part = split_from_neighbour(part, target.hull, other.hull, target.rectangle[:angle]) if part.size >= 3
@@ -218,7 +232,9 @@ module Curtilage
 
     # Stops 1 m short of any neighbouring building the lot reached.
     def keep_off_neighbours(poly, features, target, opts, log)
+      area = Geometry.bounds(poly)
       neighbours(features, target, opts).each do |other|
+        next unless Geometry.bounds_near?(area, other.bounds)
         next if Geometry.overlap?(other.hull, target.hull) || !Geometry.overlap?(other.hull, poly)
 
         trimmed = split_from_neighbour(poly, target.hull, other.hull, target.rectangle[:angle],
@@ -409,7 +425,10 @@ module Curtilage
 
     def trim_at_neighbours(poly, features, target, opts, log)
       hull = target.hull
+      area = Geometry.bounds(poly)
       neighbours(features, target, opts).each do |other|
+        next unless Geometry.bounds_near?(area, other.bounds)
+
         other_hull = other.hull
         next unless Geometry.overlap?(other_hull, poly)
 
