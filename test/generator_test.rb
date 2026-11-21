@@ -82,6 +82,22 @@ class GeneratorTest < Minitest::Test
     assert_equal 4, points.size
   end
 
+  # The parking west of the building (x -45 to -11) touches it, so the
+  # premises take the whole lot instead of stopping at the 30 m grow.
+  def test_grow_trim_claims_adjacent_mapped_parking
+    result = Curtilage.generate(PIN, scene, method: :grow_trim, grow_m: 10)
+
+    assert_in_delta(-45, xy(result).map(&:first).min, 0.5)
+    assert(result.explanation.any? { |n| n.include?("parking 3") })
+  end
+
+  def test_shared_parking_is_split_halfway_with_the_neighbour
+    shared = scene + [polygon("building", 6, -70, -10, -50, 10)]
+    xs = xy(Curtilage.generate(PIN, shared, method: :grow_trim, grow_m: 10)).map(&:first)
+
+    assert_in_delta(-30, xs.min, 0.5)
+  end
+
   def test_propose_uses_grow_trim_when_it_validates
     result = Curtilage.generate(PIN, scene)
 

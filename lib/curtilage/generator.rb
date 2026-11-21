@@ -19,6 +19,9 @@ module Curtilage
       end
     end
 
+    # What the parking steps need about the site being generated.
+    Site = Struct.new(:features, :target, :opts, :log)
+
     # Notes explain each step; flags are reasons a person should look first.
     Log = Struct.new(:notes, :flags) do
       def note(text) = notes << text
@@ -52,6 +55,8 @@ module Curtilage
       grow_m: 30,                    # grow_trim: how far to grow before trimming
       road_offset_m: nil,            # trim this far short of road centrelines; nil: by road class
       neighbour_min_area_m2: 40,     # grow_trim: smaller buildings (sheds) don't bound a lot
+      parking_reach_m: 20,           # grow_trim: parking this close (an aisle and a walkway) is its lot
+      parking_max_extent_m: 60,      # grow_trim: claim parking at most this far from the building
       building_margin_m: 20,         # building: margin around its rectangle
       box_side_m: 60,                # box: side of the square around the pin
       max_vertices: 10,
@@ -128,7 +133,64 @@ module Curtilage
       poly = Geometry.counter_clockwise(Geometry.convex_hull(grown + pin_square(opts)))
       poly = trim_at_roads(poly, features, target, opts, log)
       poly = trim_at_neighbours(poly, features, target, opts, log)
+      lots = own_parking(features, target, opts, log)
+      poly = add_parking(poly, lots, Site.new(features, target, opts, log)) unless lots.empty?
       [poly, target]
+    end
+
+    # Mapped parking that touches the building or holds the pin is the
+    # site's lot.
+    def own_parking(features, target, opts, log)
+      features.parking.select do |lot|
+        mine = Geometry.contains?(lot.xy, [0.0, 0.0]) || Geometry.overlap?(lot.xy, target.xy) ||
+               Geometry.closest_points(lot.xy, target.xy).first <= opts[:parking_reach_m]
+        log.note("parking #{lot.id} (#{lot.area.round} m2) touches the building, so it's part of the lot") if mine
+        mine
+      end
+    end
+
+    # Claims the site's parking up to the kerb (at most parking_max_extent_m
+    # from the building), splitting a lot halfway where it also touches a
+    # neighbour, then keeps clear of neighbouring buildings.
+    def add_parking(poly, lots, site)
+      rect = site.target.rectangle
+      reach = Geometry.oriented_box(rect[:corners], rect[:angle], site.opts[:parking_max_extent_m])
+      fence = trim_at_roads(Geometry.counter_clockwise(reach), site.features, site.target, site.opts, Log.new([], []))
+      parts = lots.map { |lot| share_lot(Geometry.clip_convex(lot.xy, fence), lot, site) }
+      grown = Geometry.counter_clockwise(Geometry.convex_hull(poly + parts.select { |p| p.size >= 3 }.flatten(1)))
+      keep_off_neighbours(grown, site.features, site.target, site.opts, site.log)
+    end
+
+    def share_lot(part, lot, site)
+      features, target, opts, log = site.to_a
+      neighbours(features, target, opts).each do |other|
+        next if Geometry.overlap?(other.hull, target.hull)
+        next unless Geometry.overlap?(lot.xy, other.xy) ||
+                    Geometry.closest_points(lot.xy, other.xy).first <= opts[:parking_reach_m]
+
+        log.note("parking #{lot.id} also touches building #{other.id}: split halfway")
+        part = split_from_neighbour(part, target.hull, other.hull, target.rectangle[:angle]) if part.size >= 3
+      end
+      part
+    end
+
+    # Stops 1 m short of any neighbouring building the lot reached.
+    def keep_off_neighbours(poly, features, target, opts, log)
+      neighbours(features, target, opts).each do |other|
+        next if Geometry.overlap?(other.hull, target.hull) || !Geometry.overlap?(other.hull, poly)
+
+        trimmed = split_from_neighbour(poly, target.hull, other.hull, target.rectangle[:angle],
+                                       stop: ->(near, far) { [far - 1, near].max })
+        next if trimmed.size < 3
+
+        log.note("stopped 1 m short of building #{other.id}")
+        poly = trimmed
+      end
+      poly
+    end
+
+    def neighbours(features, target, opts)
+      features.buildings.reject { |b| b.equal?(target) || b.area < opts[:neighbour_min_area_m2] }
     end
 
     # The building's minimum rectangle plus a margin, trimmed at public
@@ -219,14 +281,14 @@ module Curtilage
       [Geometry.clip_half_plane(poly, origin, normal), offset]
     end
 
-    # A road running within 20 degrees of a building side is cut square to
+    # A road running within 30 degrees of a building side is cut square to
     # that side, at the segment's end nearest the pin, so a slanted stretch
     # near a junction doesn't leave a diagonal corner. Kept as is otherwise,
     # or when squaring would cut off the pin.
     def square_to_building(segment, origin, normal, angle)
       4.times do |k|
         axis = [Math.cos(angle + (k * Math::PI / 2)), Math.sin(angle + (k * Math::PI / 2))]
-        next unless Geometry.dot(axis, normal) > Math.cos(20 * Math::PI / 180)
+        next unless Geometry.dot(axis, normal) > Math.cos(30 * Math::PI / 180)
 
         near = segment.min_by { |p| Geometry.dot(p, axis) }
         return [near, axis] if Geometry.dot(near, axis).positive?
@@ -256,9 +318,7 @@ module Curtilage
 
     def trim_at_neighbours(poly, features, target, opts, log)
       hull = target.hull
-      features.buildings.each do |other|
-        next if other.equal?(target) || other.area < opts[:neighbour_min_area_m2]
-
+      neighbours(features, target, opts).each do |other|
         other_hull = other.hull
         next unless Geometry.overlap?(other_hull, poly)
 
@@ -275,28 +335,41 @@ module Curtilage
       poly
     end
 
-    # Cuts halfway between the building and a neighbour, square to one of the
-    # building's sides (hand-drawn premises are rectangles): of the sides
-    # facing the neighbour with a clear gap, the cut that keeps the most lot.
-    # Falls back to the line halfway between their nearest points.
-    def split_from_neighbour(poly, hull, other, angle)
-      cuts = 4.times.filter_map { |k| square_cut(poly, hull, other, angle + (k * Math::PI / 2)) }
+    HALFWAY = ->(near, far) { (near + far) / 2 }
+
+    # Cuts between the building and a neighbour (halfway by default), square
+    # to one of the building's sides (hand-drawn premises are rectangles): of
+    # the sides facing the neighbour with a clear gap, the cut that keeps the
+    # most lot. Falls back to a cut across the line between their nearest
+    # points.
+    def split_from_neighbour(poly, hull, other, angle, stop: HALFWAY)
+      cuts = 4.times.filter_map { |k| square_cut(poly, hull, other, angle + (k * Math::PI / 2), stop) }
       return cuts.max_by { |c| c.size >= 3 ? Geometry.area(c) : 0 } unless cuts.empty?
 
-      _, p, q = Geometry.closest_points(hull, other)
-      Geometry.clip_half_plane(poly, [(p[0] + q[0]) / 2, (p[1] + q[1]) / 2], [q[0] - p[0], q[1] - p[1]])
+      diagonal_cut(poly, hull, other, stop)
     end
 
-    # The cut facing direction (radians) halfway across the gap, or nil when
-    # the buildings overlap along that direction.
-    def square_cut(poly, hull, other, direction)
+    def diagonal_cut(poly, hull, other, stop)
+      _, p, q = Geometry.closest_points(hull, other)
+      normal = [q[0] - p[0], q[1] - p[1]]
+      length = Math.hypot(*normal)
+      return poly if length < 1e-6
+
+      normal = normal.map { |v| v / length }
+      at = stop.call(Geometry.dot(p, normal), Geometry.dot(q, normal))
+      Geometry.clip_half_plane(poly, [normal[0] * at, normal[1] * at], normal)
+    end
+
+    # The cut facing direction (radians) where stop puts it in the gap, or
+    # nil when the buildings overlap along that direction.
+    def square_cut(poly, hull, other, direction, stop)
       normal = [Math.cos(direction), Math.sin(direction)]
       near = hull.map { |p| Geometry.dot(p, normal) }.max
       far = other.map { |p| Geometry.dot(p, normal) }.min
       return nil unless far > near
 
-      mid = (near + far) / 2
-      Geometry.clip_half_plane(poly, [normal[0] * mid, normal[1] * mid], normal)
+      at = stop.call(near, far)
+      Geometry.clip_half_plane(poly, [normal[0] * at, normal[1] * at], normal)
     end
 
     def segment_meets_polygon?(a, b, poly)
