@@ -5,6 +5,7 @@ require_relative "curtilage/geometry"
 require_relative "curtilage/validation"
 require_relative "curtilage/features"
 require_relative "curtilage/generator"
+require_relative "curtilage/lookup"
 
 # Premises generation from OpenStreetMap data. Coordinates are [lng, lat]
 # throughout, matching GeoJSON.

@@ -1,0 +1,38 @@
+#!/usr/bin/env ruby
+# frozen_string_literal: true
+
+# curtilage generate --parquet FILE --pin LNG,LAT [--method NAME]
+#                    [--duckdb PATH] [--extension-directory DIR]
+#
+# Prints the proposed premises as JSON: a GeoJSON Feature with the method,
+# review flags, explanation and validation in its properties.
+require "optparse"
+require "json"
+require "curtilage"
+
+command = ARGV.shift
+abort "usage: curtilage generate --parquet FILE --pin LNG,LAT [options]" unless command == "generate"
+
+opts = { duckdb: ENV.fetch("CURTILAGE_DUCKDB", "duckdb"), extension_directory: ENV.fetch("CURTILAGE_EXTENSIONS", nil) }
+OptionParser.new do |o|
+  o.on("--parquet FILE") { |v| opts[:parquet] = v }
+  o.on("--pin LNG,LAT") { |v| opts[:pin] = v.split(",").map { |n| Float(n) } }
+  o.on("--method NAME", Curtilage::Generator::METHODS.map(&:to_s)) { |v| opts[:method] = v.to_sym }
+  o.on("--duckdb PATH") { |v| opts[:duckdb] = v }
+  o.on("--extension-directory DIR") { |v| opts[:extension_directory] = File.expand_path(v) }
+end.parse!
+abort "--parquet and --pin are required" unless opts[:parquet] && opts[:pin]&.size == 2
+
+features = Curtilage::Lookup.features(parquet: opts[:parquet], pin: opts[:pin], duckdb: opts[:duckdb],
+                                      extension_directory: opts[:extension_directory])
+result = Curtilage.generate(opts[:pin], features, method: opts[:method])
+puts JSON.pretty_generate(
+  type: "Feature",
+  geometry: result.ring && { type: "Polygon", coordinates: [result.ring] },
+  properties: {
+    ok: result.ok?, method: result.method_name, flags: result.flags, building: result.building,
+    errors: result.validation.errors, warnings: result.validation.warnings, metrics: result.validation.metrics,
+    explanation: result.explanation, attribution: "© OpenStreetMap contributors (ODbL)"
+  }
+)
+exit(result.ok? ? 0 : 1)
