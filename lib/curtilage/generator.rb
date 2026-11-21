@@ -45,7 +45,9 @@ module Curtilage
     # no width or lane count, so this is a typical figure, not a measurement.
     ROAD_HALF_WIDTH_M = {
       "motorway" => 12, "trunk" => 10, "primary" => 9, "secondary" => 8, "tertiary" => 7,
-      "unclassified" => 5, "residential" => 5, "link" => 5
+      "unclassified" => 5, "residential" => 5, "link" => 5,
+      # Railways: the track bed plus clearance to the lineside fence.
+      "rail" => 5, "light_rail" => 4, "subway" => 4, "narrow_gauge" => 3
     }.freeze
 
     DEFAULTS = {
@@ -268,12 +270,12 @@ module Curtilage
       poly
     end
 
-    # [road, stretch points, offset] for every public road near the
-    # building, nearest stretch first.
+    # [road, stretch points, offset] for every public road and railway near
+    # the building, nearest stretch first.
     def road_stretches(features, target, opts)
-      features.roads.select { |road| PUBLIC_HIGHWAYS.include?(road.highway) }
-              .flat_map { |road| road_runs(road, target).map { |run| [road, run, road_offset(road, opts)] } }
-              .sort_by { |_, run, _| run.map { |p| Geometry.distance_to_edges(target.hull, p) }.min }
+      (features.roads.select { |road| PUBLIC_HIGHWAYS.include?(road.highway) } + features.railways)
+        .flat_map { |road| road_runs(road, target).map { |run| [road, run, road_offset(road, opts)] } }
+        .sort_by { |_, run, _| run.map { |p| Geometry.distance_to_edges(target.hull, p) }.min }
     end
 
     ROAD_REACH_M = 60   # only the road this close to the building bounds the site
@@ -443,7 +445,8 @@ module Curtilage
     end
 
     def road_label(road)
-      name = road.name.to_s.empty? ? "road #{road.id}" : road.name
+      kind = PUBLIC_HIGHWAYS.include?(road.highway) ? "road" : "railway"
+      name = road.name.to_s.empty? ? "#{kind} #{road.id}" : road.name
       "#{name} (#{road.highway})"
     end
   end

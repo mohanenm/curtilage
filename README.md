@@ -8,9 +8,9 @@ Generates a site's **premises polygon** (the building plus its pickup and parkin
 
 ## How it works
 
-1. **Build** (once a month per region). Download a region's OpenStreetMap shapefiles from [Geofabrik](https://download.geofabrik.de/), keep buildings, parking and drivable roads, and write one Parquet file sorted by location. Tennessee: a 363 MB download becomes a 256 MB file, built in about 15 seconds with under 1 GB of memory.
+1. **Build** (once a month per region). Download a region's OpenStreetMap shapefiles from [Geofabrik](https://download.geofabrik.de/), keep buildings, parking, drivable roads and railways, and write one Parquet file sorted by location. Tennessee: a 363 MB download becomes a 256 MB file, built in about 15 seconds with under 1 GB of memory.
 2. **Look up.** Read the buildings, parking and roads around a point from that file. That takes about 5 ms, because only the row groups near the point are read.
-3. **Generate.** Propose a polygon from the building under the pin: grow its rectangle toward the lot, then trim at public roads and halfway to neighbouring buildings. If that fails validation, fall back to the building's rectangle plus a margin. Each result carries an explanation of every step and review flags (a large or attached building, no building under the pin, a fallback).
+3. **Generate.** Propose a polygon from the building under the pin: grow its rectangle toward the lot, then trim at the kerb of public roads, at railways and short of neighbouring buildings, and take in mapped parking that touches the building. If that fails validation, fall back to the building's rectangle plus a margin. Each result carries an explanation of every step and review flags (a large or attached building, no building under the pin, a fallback).
 4. **Validate.** Reject or flag polygons that are unsafe to use: pin outside, unclosed, self-intersecting, swapped coordinates, too far from the pin, an implausible size.
 
 Nothing calls an outside service at runtime. The only network access is the monthly download of public map files.

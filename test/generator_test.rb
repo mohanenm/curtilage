@@ -81,6 +81,17 @@ class GeneratorTest < Minitest::Test
     assert_in_delta 12, xs.max, 0.5
   end
 
+  # A railway 30 m north bounds the lot like a road: 5 m short of the track.
+  def test_railway_bounds_the_premises
+    with_rail = scene + [{ "feature" => "railway", "id" => 7, "highway" => "rail",
+                           "geometry" => { "type" => "LineString",
+                                           "coordinates" => [lnglat(-200, 30), lnglat(200, 30)] } }]
+    result = Curtilage.generate(PIN, with_rail, method: :grow_trim, grow_m: 60)
+
+    assert_in_delta 25, xy(result).map(&:last).max, 0.5
+    assert(result.explanation.any? { |n| n.include?("railway 7 (rail)") })
+  end
+
   def test_kerb_offset_never_cuts_into_the_building
     tight = scene.first(3) + [road(4, "secondary", [[-200, -11], [200, -11]])]
     ys = xy(Curtilage.generate(PIN, tight, method: :grow_trim)).map(&:last)

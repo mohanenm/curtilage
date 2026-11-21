@@ -4,8 +4,9 @@ module Curtilage
   # The OSM features around a pin, projected to metres around it.
   #
   # Input is a list of hashes (string or symbol keys) with "feature"
-  # ("building", "parking" or "road"), "geometry" (a GeoJSON geometry hash),
-  # and optionally "id", "highway" and "name". OSM data is untrusted, so
+  # ("building", "parking", "road" or "railway"), "geometry" (a GeoJSON
+  # geometry hash), and optionally "id", "highway" (the road or railway
+  # class) and "name". OSM data is untrusted, so
   # oversized inputs and broken geometry are dropped and counted, not raised.
   class Features
     MAX_FEATURES = 20_000
@@ -22,13 +23,14 @@ module Curtilage
     end
     Line = Struct.new(:id, :highway, :name, :xy, keyword_init: true)
 
-    attr_reader :pin, :buildings, :parking, :roads, :dropped
+    attr_reader :pin, :buildings, :parking, :roads, :railways, :dropped
 
     def initialize(pin, features)
       @pin = pin
       @buildings = []
       @parking = []
       @roads = []
+      @railways = []
       @dropped = 0
       Array(features).first(MAX_FEATURES).each { |f| add(f) }
       @dropped += [Array(features).size - MAX_FEATURES, 0].max
@@ -50,11 +52,12 @@ module Curtilage
       return @dropped += 1 unless Geometry.valid_coordinates?(coords)
 
       xy = Geometry.project(coords, pin)
-      if kind == "road"
+      if %w[road railway].include?(kind)
         return @dropped += 1 if xy.size < 2
 
-        @roads << Line.new(id: field(feature, :id), highway: field(feature, :highway)&.to_s,
-                           name: field(feature, :name), xy: xy)
+        line = Line.new(id: field(feature, :id), highway: field(feature, :highway)&.to_s,
+                        name: field(feature, :name), xy: xy)
+        (kind == "road" ? @roads : @railways) << line
       else
         add_polygon(feature, kind, xy)
       end
