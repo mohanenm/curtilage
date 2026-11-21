@@ -120,4 +120,4 @@ Building and lookup need the [DuckDB](https://duckdb.org/) CLI (1.4 LTS) with th
 - With `source: :overture`, data comes from the Overture Maps Foundation's release (buildings and transportation under ODbL); results carry the attribution to show.
 - Downloaded files and the Parquet output are OSM-derived data. They're never committed to this repository (see `.gitignore`).
 - This repository must never contain real site locations, client data or credentials. Tests and examples use made-up coordinates.
-- The licence for this code is to be decided before publishing.
+- The code is MIT-licensed (see `LICENSE.txt`). The map data it works with keeps its own licence (ODbL), above.
