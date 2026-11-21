@@ -32,7 +32,7 @@ module Curtilage
 
     OPTIONS = {
       duckdb: "duckdb", extension_directory: nil, date: nil, memory_limit: "400MB", threads: 1,
-      ml_footprints: nil, keep_downloads: false, log: $stderr
+      ml_footprints: nil, keep_downloads: false, name: nil, log: $stderr
     }.freeze
 
     module_function
@@ -40,7 +40,8 @@ module Curtilage
     # region: a US state ("tennessee", "new-york") or any Geofabrik region
     # path ("europe/germany/bayern", "north-america/canada/ontario").
     # options: see OPTIONS; ml_footprints: "microsoft" adds ML footprints.
-    # Returns the Parquet path, named after the region's last part.
+    # Returns the Parquet path, named after the region's last part unless
+    # name: says otherwise.
     def run(region, out_dir:, work_dir:, **options)
       opts = OPTIONS.merge(options.compact)
       path = region_path(region)
@@ -50,7 +51,7 @@ module Curtilage
       dirs = fetched.map(&:first)
       opts = opts.merge(temp_directory: File.join(work_dir, "duckdb_tmp"))
       ml = ml_files(dirs, work_dir, opts)
-      out = File.join(out_dir, "#{File.basename(path)}.parquet")
+      out = File.join(out_dir, "#{output_name(path, opts[:name])}.parquet")
       opts[:log].puts "building #{out}"
       run_duckdb(sql(dirs, "#{out}.tmp", opts, ml_files: ml), opts[:duckdb])
       File.rename("#{out}.tmp", out)
@@ -58,6 +59,13 @@ module Curtilage
       out
     ensure
       cleanup(work_dir, dirs, opts[:keep_downloads]) if dirs
+    end
+
+    def output_name(path, name)
+      name ||= File.basename(path)
+      raise ArgumentError, "bad output name #{name.inspect}" unless name.match?(/\A[a-z0-9-]+\z/)
+
+      name
     end
 
     def region_path(region)

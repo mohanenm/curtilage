@@ -30,6 +30,8 @@ Coordinates are `[lng, lat]` throughout, as in GeoJSON.
 | `lib/curtilage/footprints.rb` | Optional machine-learned building footprints (Microsoft) |
 | `lib/curtilage/download.rb` | HTTPS downloads from allowed hosts, with size caps |
 | `lib/curtilage/catalogue.rb` | Finds the built region file(s) covering a pin |
+| `lib/curtilage/regions.rb` | Geofabrik's region index: which region a pin is in |
+| `lib/curtilage/auto_data.rb` | Builds the regions pins need on demand, into a temporary or cache folder |
 | `lib/curtilage/audit.rb` | Checks an existing polygon against the map and the generated one |
 | `exe/curtilage` | `curtilage build REGION` and `curtilage generate --parquet FILE --pin LNG,LAT` (prints GeoJSON) |
 | `sql/build_from_shapefiles.sql` | DuckDB query: Geofabrik shapefiles to a features Parquet file |
@@ -49,7 +51,14 @@ A result built on an ML footprint says so in its explanation and carries the `ml
 
 ## Usage
 
-Build the regions you need once (and again monthly, in the background):
+With no setup at all, `generate_many` builds what it needs: it finds each pin's region from Geofabrik's region index, downloads and builds only those regions, and cleans up afterwards. Nothing has to be hosted:
+
+```ruby
+results = Curtilage.generate_many(pins)                              # temporary data, deleted after
+results = Curtilage.generate_many(pins, cache_dir: "/var/cache/cl")  # reuse builds for a month
+```
+
+That suits background jobs (a US state takes 1-5 minutes the first time; Rhode Island took 25 s end to end). For instant single lookups, build ahead of time instead:
 
 ```sh
 curtilage build tennessee            # writes data/features/tennessee.parquet and tennessee.json

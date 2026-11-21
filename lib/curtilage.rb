@@ -10,6 +10,8 @@ require_relative "curtilage/download"
 require_relative "curtilage/footprints"
 require_relative "curtilage/build"
 require_relative "curtilage/catalogue"
+require_relative "curtilage/regions"
+require_relative "curtilage/auto_data"
 require_relative "curtilage/audit"
 
 # Premises generation from OpenStreetMap data. Coordinates are [lng, lat]
@@ -34,12 +36,30 @@ module Curtilage
   end
 
   # Results for many pins, in pin order, looking features up once per group
-  # of pins that share data files. Give a catalogue (Catalogue.from_dir) or
-  # parquet (path or URL, or a list). lookup: options for Lookup (duckdb:,
-  # extension_directory:, setup_sql:). Other options go to generate.
-  def self.generate_many(pins, catalogue: nil, parquet: nil, lookup: {}, **options)
-    raise ArgumentError, "give catalogue: or parquet:" unless catalogue || parquet
+  # of pins that share data files.
+  #
+  # Where the data comes from:
+  # - nothing given: built on demand from Geofabrik for just the regions the
+  #   pins are in (AutoData), in cache_dir if given (reused for a month), else
+  #   in a temporary folder deleted afterwards. Nothing to host.
+  # - catalogue: a Catalogue of regions built ahead of time.
+  # - parquet: a path or URL, or a list of them.
+  #
+  # lookup: options for Lookup and the build (duckdb:, extension_directory:,
+  # setup_sql:). data: options for AutoData (max_age_days:, ml_footprints:).
+  # Other options go to generate.
+  def self.generate_many(pins, catalogue: nil, parquet: nil, cache_dir: nil, lookup: {}, data: {}, **options)
+    auto = nil
+    unless catalogue || parquet
+      auto = AutoData.new(cache_dir: cache_dir, **lookup.slice(:duckdb, :extension_directory), **data)
+      catalogue = auto.catalogue_for(pins)
+    end
+    run_many(pins, catalogue, parquet, lookup, options)
+  ensure
+    auto&.cleanup
+  end
 
+  def self.run_many(pins, catalogue, parquet, lookup, options)
     results = Array.new(pins.size)
     groups = pins.each_index.group_by { |i| catalogue ? catalogue.files_for(pins[i]) : Array(parquet) }
     groups.each do |files, indexes|
@@ -66,6 +86,6 @@ module Curtilage
 
   def self.no_data(result)
     result.flags << :no_data
-    result.explanation.unshift("no built region covers this pin: build its state first")
+    result.explanation.unshift("no map data covers this pin")
   end
 end

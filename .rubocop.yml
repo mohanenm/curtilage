@@ -37,5 +37,7 @@ Metrics/ModuleLength:
 Metrics/ClassLength:
   Exclude: ["test/**/*"]
 
+# Keyword options are the public API's style; count positional ones only.
 Metrics/ParameterLists:
+  CountKeywordArgs: false
   Exclude: ["test/**/*"]
