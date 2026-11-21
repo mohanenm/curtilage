@@ -17,8 +17,11 @@ Gem::Specification.new do |spec|
   TEXT
   spec.required_ruby_version = ">= 3.2"
   spec.license = "MIT"
-  # To do before publishing: spec.homepage (the GitHub repo) and the
-  # homepage_uri, source_code_uri, changelog_uri and bug_tracker_uri metadata.
+  spec.homepage = "https://github.com/mohanenm/curtilage"
+  spec.metadata["source_code_uri"] = spec.homepage
+  spec.metadata["changelog_uri"] = "#{spec.homepage}/blob/main/CHANGELOG.md"
+  spec.metadata["bug_tracker_uri"] = "#{spec.homepage}/issues"
+  spec.metadata["documentation_uri"] = "#{spec.homepage}/blob/main/docs/reference.md"
 
   spec.metadata["rubygems_mfa_required"] = "true"
 
