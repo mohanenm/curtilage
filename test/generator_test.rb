@@ -52,17 +52,34 @@ class GeneratorTest < Minitest::Test
     assert_equal 1, result.building
   end
 
-  def test_building_method_stops_at_the_road
+  # The secondary road's centreline is at y = -40; half its width is 8 m.
+  def test_building_method_stops_at_the_kerb
     ys = xy(Curtilage.generate(PIN, scene, method: :building, building_margin_m: 40)).map(&:last)
 
-    assert_in_delta(-40, ys.min, 0.5)
+    assert_in_delta(-32, ys.min, 0.5)
   end
 
-  def test_grow_trim_stops_at_the_road_and_halfway_to_the_neighbour
+  def test_grow_trim_stops_at_the_kerb_and_halfway_to_the_neighbour
     points = xy(Curtilage.generate(PIN, scene, method: :grow_trim, grow_m: 60))
 
-    assert_in_delta(-40, points.map(&:last).min, 0.5)
+    assert_in_delta(-32, points.map(&:last).min, 0.5)
     assert_in_delta 30, points.map(&:first).max, 0.5
+  end
+
+  def test_kerb_offset_never_cuts_into_the_building
+    tight = scene.first(3) + [road(4, "secondary", [[-200, -11], [200, -11]])]
+    ys = xy(Curtilage.generate(PIN, tight, method: :grow_trim)).map(&:last)
+
+    assert_in_delta(-7.5, ys.min, 0.5)
+  end
+
+  # A neighbour off the building's corner is cut square to a building side,
+  # not along a diagonal.
+  def test_neighbour_cut_is_square_to_the_building
+    corner = [polygon("building", 1, -10, -7.5, 10, 7.5), polygon("building", 2, 20, 20, 40, 40)]
+    points = xy(Curtilage.generate(PIN, corner, method: :grow_trim, grow_m: 40))
+
+    assert_equal 4, points.size
   end
 
   def test_propose_uses_grow_trim_when_it_validates

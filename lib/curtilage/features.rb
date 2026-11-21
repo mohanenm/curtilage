@@ -15,6 +15,10 @@ module Curtilage
       def hull
         @hull ||= Geometry.convex_hull(xy)
       end
+
+      def rectangle
+        @rectangle ||= Geometry.minimum_rectangle(xy)
+      end
     end
     Line = Struct.new(:id, :highway, :name, :xy, keyword_init: true)
 

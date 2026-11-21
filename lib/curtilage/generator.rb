@@ -37,12 +37,20 @@ module Curtilage
       motorway_link trunk_link primary_link secondary_link tertiary_link
     ].freeze
 
+    # Roughly half a carriageway (lanes, turn lane, kerb) by road class, so
+    # premises stop near the kerb rather than mid-street. The shapefiles carry
+    # no width or lane count, so this is a typical figure, not a measurement.
+    ROAD_HALF_WIDTH_M = {
+      "motorway" => 12, "trunk" => 10, "primary" => 9, "secondary" => 8, "tertiary" => 7,
+      "unclassified" => 5, "residential" => 5, "link" => 5
+    }.freeze
+
     DEFAULTS = {
       building_max_distance_m: 30,   # use the nearest building only this close
       large_building_m2: 1_500,      # flag: likely shared (strip mall, multi-tenant)
       pin_clearance_m: 5,            # keep this much room around the pin
-      grow_m: 35,                    # grow_trim: how far to grow before trimming
-      road_offset_m: 0,              # grow_trim: trim this far short of the road centreline
+      grow_m: 30,                    # grow_trim: how far to grow before trimming
+      road_offset_m: nil,            # trim this far short of road centrelines; nil: by road class
       neighbour_min_area_m2: 40,     # grow_trim: smaller buildings (sheds) don't bound a lot
       building_margin_m: 20,         # building: margin around its rectangle
       box_side_m: 60,                # box: side of the square around the pin
@@ -114,11 +122,11 @@ module Curtilage
       target = find_building(features, opts, log)
       return [nil, nil] unless target
 
-      rect = Geometry.minimum_rectangle(target.xy)
+      rect = target.rectangle
       grown = Geometry.oriented_box(rect[:corners], rect[:angle], opts[:grow_m])
       log.note("grew the building rectangle by #{opts[:grow_m]} m")
       poly = Geometry.counter_clockwise(Geometry.convex_hull(grown + pin_square(opts)))
-      poly = trim_at_roads(poly, features, target.hull, opts, log)
+      poly = trim_at_roads(poly, features, target, opts, log)
       poly = trim_at_neighbours(poly, features, target, opts, log)
       [poly, target]
     end
@@ -133,7 +141,7 @@ module Curtilage
       log.note("building rectangle grown by #{opts[:building_margin_m]} m")
       box = Geometry.oriented_box(rect[:corners], rect[:angle], opts[:building_margin_m])
       poly = Geometry.counter_clockwise(Geometry.convex_hull(box + pin_square(opts)))
-      [trim_at_roads(poly, features, target.hull, opts, log), target]
+      [trim_at_roads(poly, features, target, opts, log), target]
     end
 
     # A square around the pin: the baseline the other methods must beat.
@@ -173,29 +181,62 @@ module Curtilage
       end
     end
 
-    def trim_at_roads(poly, features, hull, opts, log)
+    def trim_at_roads(poly, features, target, opts, log)
       features.roads.each do |road|
         next unless PUBLIC_HIGHWAYS.include?(road.highway)
 
         road.xy.each_cons(2) do |a, b|
           next unless segment_meets_polygon?(a, b, poly)
 
-          origin, normal = road_half_plane(a, b, opts[:road_offset_m])
-          next unless normal
-
-          if hull.any? { |p| side(p, origin, normal) > 0.5 }
+          trimmed, offset = trim_at_segment(poly, [a, b], target, road_offset(road, opts))
+          if trimmed.nil?
             log.note("kept the part beyond #{road_label(road)}: it would cut the building")
             next
           end
-          trimmed = Geometry.clip_half_plane(poly, origin, normal)
           next if trimmed.size < 3
 
-          label = "trimmed at #{road_label(road)}"
-          log.note(label) unless log.notes.last == label
+          label = "trimmed at #{road_label(road)}, #{offset.round} m short of its centreline"
+          log.note(label) unless log.notes.include?(label)
           poly = trimmed
         end
       end
       poly
+    end
+
+    # Clips at the segment's line, moved toward the pin by up to offset
+    # metres but never into the building. Returns [polygon, offset used], or
+    # nil when the road's centreline itself would cut the building.
+    def trim_at_segment(poly, segment, target, offset)
+      origin, normal = road_half_plane(*segment, 0)
+      return [poly, 0] unless normal
+
+      origin, normal = square_to_building(segment, origin, normal, target.rectangle[:angle])
+      building_side = target.hull.map { |p| side(p, origin, normal) }.max
+      return nil if building_side > 0.5
+
+      offset = offset.clamp(0, [-building_side, 0].max)
+      origin = [origin[0] - (normal[0] * offset), origin[1] - (normal[1] * offset)]
+      [Geometry.clip_half_plane(poly, origin, normal), offset]
+    end
+
+    # A road running within 20 degrees of a building side is cut square to
+    # that side, at the segment's end nearest the pin, so a slanted stretch
+    # near a junction doesn't leave a diagonal corner. Kept as is otherwise,
+    # or when squaring would cut off the pin.
+    def square_to_building(segment, origin, normal, angle)
+      4.times do |k|
+        axis = [Math.cos(angle + (k * Math::PI / 2)), Math.sin(angle + (k * Math::PI / 2))]
+        next unless Geometry.dot(axis, normal) > Math.cos(20 * Math::PI / 180)
+
+        near = segment.min_by { |p| Geometry.dot(p, axis) }
+        return [near, axis] if Geometry.dot(near, axis).positive?
+      end
+      [origin, normal]
+    end
+
+    # Half the road's width when the caller gives no fixed offset.
+    def road_offset(road, opts)
+      opts[:road_offset_m] || ROAD_HALF_WIDTH_M.fetch(road.highway, ROAD_HALF_WIDTH_M["link"])
     end
 
     # The half-plane on the pin's side of the road segment's line, moved
@@ -225,7 +266,7 @@ module Curtilage
           log.flag(:attached_building, "building #{other.id} touches the building, so it can't be split off")
           next
         end
-        trimmed = Geometry.clip_half_plane(poly, *separating_line(hull, other_hull))
+        trimmed = split_from_neighbour(poly, hull, other_hull, target.rectangle[:angle])
         next if trimmed.size < 3
 
         log.note("trimmed halfway to building #{other.id}")
@@ -234,11 +275,28 @@ module Curtilage
       poly
     end
 
-    # The line halfway between two disjoint hulls, as [origin, normal] with
-    # the first hull on the kept side.
-    def separating_line(hull, other)
+    # Cuts halfway between the building and a neighbour, square to one of the
+    # building's sides (hand-drawn premises are rectangles): of the sides
+    # facing the neighbour with a clear gap, the cut that keeps the most lot.
+    # Falls back to the line halfway between their nearest points.
+    def split_from_neighbour(poly, hull, other, angle)
+      cuts = 4.times.filter_map { |k| square_cut(poly, hull, other, angle + (k * Math::PI / 2)) }
+      return cuts.max_by { |c| c.size >= 3 ? Geometry.area(c) : 0 } unless cuts.empty?
+
       _, p, q = Geometry.closest_points(hull, other)
-      [[(p[0] + q[0]) / 2, (p[1] + q[1]) / 2], [q[0] - p[0], q[1] - p[1]]]
+      Geometry.clip_half_plane(poly, [(p[0] + q[0]) / 2, (p[1] + q[1]) / 2], [q[0] - p[0], q[1] - p[1]])
+    end
+
+    # The cut facing direction (radians) halfway across the gap, or nil when
+    # the buildings overlap along that direction.
+    def square_cut(poly, hull, other, direction)
+      normal = [Math.cos(direction), Math.sin(direction)]
+      near = hull.map { |p| Geometry.dot(p, normal) }.max
+      far = other.map { |p| Geometry.dot(p, normal) }.min
+      return nil unless far > near
+
+      mid = (near + far) / 2
+      Geometry.clip_half_plane(poly, [normal[0] * mid, normal[1] * mid], normal)
     end
 
     def segment_meets_polygon?(a, b, poly)
