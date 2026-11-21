@@ -11,5 +11,6 @@
 - Feature lookup from a features Parquet file through the DuckDB CLI, and a `curtilage generate` command.
 - `curtilage build REGION`: downloads the newest dated Geofabrik extract for any US state or Geofabrik region, checks the zip, reads every part of split layers, and builds the Parquet file with memory capped for a 1 GB dyno.
 - Optional machine-learned building footprints (Microsoft, ODbL): `--ml-footprints microsoft` at build time, `buildings: :osm_filled` or `:ml` at generate time, flagged `ml_footprint`. OSM only remains the default.
+- A parking lot touching three or more other buildings is treated as shared (a shopping-centre lot): left out and flagged `shared_parking`. Buildings under 50 m2 are flagged `small_building`.
 - Features repeated along the seam of a multi-part region are read once.
 - Validation errors on polygons over 100,000 m2 (`too_large`).

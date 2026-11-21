@@ -60,6 +60,8 @@ module Curtilage
       neighbour_gap_m: 3,            # grow_trim: strip left to a neighbouring building (nil: halfway)
       neighbour_strip_min_area_m2: 0, # grow_trim: smaller neighbours are split halfway
       parking_reach_m: 20,           # grow_trim: parking this close (an aisle and a walkway) is its lot
+      shared_lot_buildings: 3,       # grow_trim: a lot touching this many other buildings is shared
+      small_building_m2: 50,         # flag: a building this small may be a kiosk or shed, not the site
       parking_max_extent_m: 60,      # grow_trim: claim parking at most this far from the building
       building_margin_m: 20,         # building: margin around its rectangle
       box_side_m: 60,                # box: side of the square around the pin
@@ -166,13 +168,27 @@ module Curtilage
 
     # Mapped parking that touches the building or holds the pin is the
     # site's lot.
+    # A lot touching shared_lot_buildings or more other buildings is a shared
+    # (shopping-centre) lot: splitting it between them leaves slivers, and it
+    # isn't this site's alone, so it's left out and flagged.
     def own_parking(features, target, opts, log)
       features.parking.select do |lot|
-        mine = Geometry.contains?(lot.xy, [0.0, 0.0]) || Geometry.overlap?(lot.xy, target.xy) ||
-               Geometry.closest_points(lot.xy, target.xy).first <= opts[:parking_reach_m]
-        log.note("parking #{lot.id} (#{lot.area.round} m2) touches the building, so it's part of the lot") if mine
-        mine
+        next false unless Geometry.contains?(lot.xy, [0.0, 0.0]) || touches?(lot, target, opts)
+
+        sharers = neighbours(features, target, opts).count { |other| touches?(lot, other, opts) }
+        if sharers >= opts[:shared_lot_buildings]
+          log.flag(:shared_parking, "parking #{lot.id} (#{lot.area.round} m2) is shared with #{sharers} other " \
+                                    "buildings, so it's left out: check how much of it belongs to the site")
+          next false
+        end
+        log.note("parking #{lot.id} (#{lot.area.round} m2) touches the building, so it's part of the lot")
+        true
       end
+    end
+
+    def touches?(lot, building, opts)
+      Geometry.overlap?(lot.xy, building.xy) ||
+        Geometry.closest_points(lot.xy, building.xy).first <= opts[:parking_reach_m]
     end
 
     # Claims the site's parking up to the kerb (at most parking_max_extent_m
@@ -246,6 +262,10 @@ module Curtilage
       if target&.kind == "ml_building"
         log.flag(:ml_footprint, "building #{target.id} is a machine-learned footprint, not mapped in OSM: " \
                                 "check it exists")
+      end
+      if target && target.area < opts[:small_building_m2]
+        log.flag(:small_building, "building is only #{target.area.round} m2: check it's the site " \
+                                  "(a kiosk or drive-through), not a shed or canopy next to it")
       end
       if target && target.area > opts[:large_building_m2]
         log.flag(:large_building, "building is over #{opts[:large_building_m2]} m2: if it's shared " \

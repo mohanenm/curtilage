@@ -124,6 +124,22 @@ class GeneratorTest < Minitest::Test
     assert_in_delta(-30, xs.min, 0.5)
   end
 
+  # A lot touching three other buildings is a shopping-centre lot.
+  def test_shared_lot_is_left_out_and_flagged
+    centre = scene + [polygon("building", 11, -40, 22, -30, 32), polygon("building", 12, -40, -32, -30, -22),
+                      polygon("building", 13, -60, -5, -50, 5)]
+    result = Curtilage.generate(PIN, centre, method: :grow_trim, grow_m: 10)
+
+    assert_includes result.flags, :shared_parking
+    assert_operator xy(result).map(&:first).min, :>, -25
+  end
+
+  def test_tiny_building_is_flagged
+    kiosk = [polygon("building", 1, -3, -3, 3, 3), road(4, "secondary", [[-200, -40], [200, -40]])]
+
+    assert_includes Curtilage.generate(PIN, kiosk).flags, :small_building
+  end
+
   def test_propose_uses_grow_trim_when_it_validates
     result = Curtilage.generate(PIN, scene)
 
@@ -193,6 +209,7 @@ class GeneratorTest < Minitest::Test
 
     assert_equal 2, features.buildings.size
     assert_equal 1, features.roads.size
+    assert_equal 2, Curtilage::Features.new(PIN, [ml(-1, 0, 0, 5, 5), ml(-1, 20, 20, 25, 25)]).ml_buildings.size
   end
 
   def test_untrusted_geometry_is_dropped_not_raised

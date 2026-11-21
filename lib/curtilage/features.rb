@@ -58,11 +58,15 @@ module Curtilage
 
     def add(feature)
       kind = field(feature, :feature).to_s
-      # A state built from several extracts repeats features along the seam.
+      # A region built from several extracts repeats OSM features along the
+      # seam. ML footprints' ids are only unique within one file, so they're
+      # never treated as repeats.
       id = field(feature, :id)
-      return if id && @seen.key?([kind, id])
+      if id && kind != "ml_building"
+        return if @seen.key?([kind, id])
 
-      @seen[[kind, id]] = true if id
+        @seen[[kind, id]] = true
+      end
       geometry = field(feature, :geometry)
       parts = parts_of(geometry)
       return @dropped += 1 if parts.nil? || parts.empty?
