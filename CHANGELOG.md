@@ -9,4 +9,7 @@
 - Mapped parking within 20 m of the building is claimed as its lot (up to the kerb, at most 60 m out), split halfway where a lot also touches a neighbour, and kept 1 m clear of neighbouring buildings.
 - Railways at ground level bound premises like public roads (5 m short of the track). The build keeps surface rail, light rail, subway and narrow gauge, and drops roads and railways in tunnels or on bridges.
 - Feature lookup from a features Parquet file through the DuckDB CLI, and a `curtilage generate` command.
+- `curtilage build REGION`: downloads the newest dated Geofabrik extract for any US state or Geofabrik region, checks the zip, reads every part of split layers, and builds the Parquet file with memory capped for a 1 GB dyno.
+- Optional machine-learned building footprints (Microsoft, ODbL): `--ml-footprints microsoft` at build time, `buildings: :osm_filled` or `:ml` at generate time, flagged `ml_footprint`. OSM only remains the default.
+- Features repeated along the seam of a multi-part region are read once.
 - Validation errors on polygons over 100,000 m2 (`too_large`).

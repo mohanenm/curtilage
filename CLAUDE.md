@@ -5,15 +5,7 @@ Ruby gem that generates a site's premises polygon (building + pickup/parking are
 ## Commands
 
 - Tests: `bundle exec rake test`
-- Build a region's features file (DuckDB CLI 1.4 LTS with the `spatial` extension):
-  ```
-  SET extension_directory='data/bin/extensions'; LOAD spatial;
-  SET VARIABLE shp_dir = '<unzipped Geofabrik shapefiles>';
-  SET VARIABLE out_path = 'data/features/<region>.parquet';
-  .read sql/build_from_shapefiles.sql
-  ```
-  Feed this to the CLI on stdin (`data/bin/duckdb < file.sql`). Dot commands don't work with `-c`.
-  On macOS, `extension_directory` must be an absolute path: the signed binary refuses to load extensions from a relative one.
+- Build a region's features file: `CURTILAGE_DUCKDB=$PWD/data/bin/duckdb CURTILAGE_EXTENSIONS=$PWD/data/bin/extensions bundle exec exe/curtilage build <state or geofabrik/path> [--ml-footprints microsoft]`. It downloads the newest dated Geofabrik extract, checks the zip, and writes `data/features/<region>.parquet` with memory capped at 400 MB. On macOS the extension directory must be an absolute path.
 
 ## Conventions
 
@@ -26,8 +18,9 @@ Ruby gem that generates a site's premises polygon (building + pickup/parking are
 ## Data
 
 - `data/` is gitignored: downloads, built Parquet, the DuckDB binary, and private evaluation data. Never commit OSM files or Parquet output (they're ODbL data, and large).
-- Geofabrik: download dated files (`<state>-YYMMDD-free.shp.zip`), not `latest`, which can 404 during their daily publish. Shapefiles have no published MD5, so check zip CRCs with `unzip -t`.
-- Large layers can be split into `_1`, `_2`, …: read `gis_osm_*_free_*.shp`.
+- Geofabrik: download dated files (`<state>-YYMMDD-free.shp.zip`), not `latest`, which can 404 during their daily publish. Shapefiles have no published MD5, so check zip CRCs with `unzip -t` (the build does both). Dated `.osm.pbf` files live one folder deeper (`north-america/us/<state>/`).
+- Large layers can be split into `_1`, `_2`, …, and California only comes as `norcal` and `socal`: the build reads every part.
+- The goal is every US state (and the gem should stay usable outside the US and outside any one company): no state-specific tuning.
 
 ## Rules
 

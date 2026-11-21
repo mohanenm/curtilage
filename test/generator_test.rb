@@ -158,6 +158,43 @@ class GeneratorTest < Minitest::Test
     assert_match(/no building within/, result.explanation.last)
   end
 
+  def ml(id, x0, y0, x1, y1)
+    polygon("ml_building", id, x0, y0, x1, y1)
+  end
+
+  # OSM has no building at the pin; an ML footprint does.
+  def test_building_flavours
+    only_ml = [ml(-1, -10, -7.5, 10, 7.5), road(4, "secondary", [[-200, -40], [200, -40]])]
+
+    refute_predicate Curtilage.generate(PIN, only_ml), :ok?
+    filled = Curtilage.generate(PIN, only_ml, buildings: :osm_filled)
+
+    assert_predicate filled, :ok?
+    assert_includes filled.flags, :ml_footprint
+    assert_predicate Curtilage.generate(PIN, only_ml, buildings: :ml), :ok?
+  end
+
+  # Where OSM and ML overlap, OSM wins and the result isn't flagged.
+  def test_osm_filled_prefers_osm
+    both = scene + [ml(-1, -11, -8, 11, 8)]
+    result = Curtilage.generate(PIN, both, buildings: :osm_filled)
+
+    assert_equal 1, result.building
+    refute_includes result.flags, :ml_footprint
+  end
+
+  def test_unknown_building_flavour
+    assert_raises(ArgumentError) { Curtilage.generate(PIN, scene, buildings: :google) }
+  end
+
+  # A state built from two extracts lists seam features twice.
+  def test_duplicate_features_are_ignored
+    features = Curtilage::Features.new(PIN, scene + scene)
+
+    assert_equal 2, features.buildings.size
+    assert_equal 1, features.roads.size
+  end
+
   def test_untrusted_geometry_is_dropped_not_raised
     junk = [
       { "feature" => "building", "geometry" => { "type" => "Polygon", "coordinates" => "x" } },

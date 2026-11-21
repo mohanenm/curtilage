@@ -64,7 +64,10 @@ module Curtilage
       building_margin_m: 20,         # building: margin around its rectangle
       box_side_m: 60,                # box: side of the square around the pin
       max_vertices: 10,
+      buildings: :osm,               # :osm, :osm_filled (ML footprints where OSM has none) or :ml
     }.freeze
+
+    BUILDING_SOURCES = %i[osm osm_filled ml].freeze
 
     module_function
 
@@ -93,11 +96,30 @@ module Curtilage
       raise ArgumentError, "unknown method #{method.inspect}" unless METHODS.include?(method)
 
       opts = DEFAULTS.merge(options)
+      unless BUILDING_SOURCES.include?(opts[:buildings])
+        raise ArgumentError, "unknown buildings: #{opts[:buildings].inspect} (have: #{BUILDING_SOURCES.join(", ")})"
+      end
+
       features = Features.new(pin, features) unless features.is_a?(Features)
+      features = choose_buildings(features, opts[:buildings])
       log = Log.new([], [])
       log.note("dropped #{features.dropped} unusable OSM features") if features.dropped.positive?
       xy, target = send(method, features, opts, log)
       finish(method, pin, [xy, target], log, opts)
+    end
+
+    # The building flavour: OSM only (default), OSM filled in with ML
+    # footprints that don't overlap any OSM building, or ML footprints only.
+    def choose_buildings(features, source)
+      case source
+      when :osm then features
+      when :ml then features.with_buildings(features.ml_buildings)
+      else
+        extra = features.ml_buildings.reject do |m|
+          features.buildings.any? { |b| b.near?(m) && Geometry.overlap?(b.hull, m.hull) }
+        end
+        features.with_buildings(features.buildings + extra)
+      end
     end
 
     def finish(method, pin, shape, log, opts)
@@ -221,6 +243,10 @@ module Curtilage
     # Flags a large one: the site may be one unit of it.
     def find_building(features, opts, log)
       target = building_under_pin(features, log) || nearest_building(features, opts, log)
+      if target&.kind == "ml_building"
+        log.flag(:ml_footprint, "building #{target.id} is a machine-learned footprint, not mapped in OSM: " \
+                                "check it exists")
+      end
       if target && target.area > opts[:large_building_m2]
         log.flag(:large_building, "building is over #{opts[:large_building_m2]} m2: if it's shared " \
                                   "(strip mall, several tenants), check which part is the site")

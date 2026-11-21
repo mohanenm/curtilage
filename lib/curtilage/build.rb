@@ -1,0 +1,196 @@
+# frozen_string_literal: true
+
+require "date"
+require "fileutils"
+require "json"
+require "open3"
+
+module Curtilage
+  # Builds a region's features Parquet from Geofabrik's free shapefiles:
+  # download the newest dated extract, check the zip, unzip only the layers
+  # used, and run sql/build_from_shapefiles.sql with the DuckDB CLI.
+  # Optionally adds machine-learned building footprints (see Footprints).
+  #
+  # Network access is limited to Geofabrik (and the footprint host when asked
+  # for). Memory is capped (400 MB and 1 thread by default) so a build fits a
+  # 1 GB dyno; DuckDB spills to work_dir when a region is bigger than that.
+  module Build
+    class Error < StandardError; end
+
+    HOST = "download.geofabrik.de"
+    US = "north-america/us"
+    # Regions Geofabrik only publishes as shapefiles in parts.
+    PARTS = {
+      "#{US}/california" => %W[#{US}/california/norcal #{US}/california/socal],
+    }.freeze
+    LAYERS = %w[buildings_a traffic_a roads railways].freeze
+    REGION = %r{\A[a-z]+(-[a-z]+)*(/[a-z]+(-[a-z]+)*)*\z}
+    MAX_DOWNLOAD_BYTES = 5_000_000_000
+    LOOKBACK_DAYS = 8
+    SQL_FILE = File.expand_path("../../sql/build_from_shapefiles.sql", __dir__)
+
+    OPTIONS = {
+      duckdb: "duckdb", extension_directory: nil, date: nil, memory_limit: "400MB", threads: 1,
+      ml_footprints: nil, keep_downloads: false, log: $stderr
+    }.freeze
+
+    module_function
+
+    # region: a US state ("tennessee", "new-york") or any Geofabrik region
+    # path ("europe/germany/bayern", "north-america/canada/ontario").
+    # options: see OPTIONS; ml_footprints: "microsoft" adds ML footprints.
+    # Returns the Parquet path, named after the region's last part.
+    def run(region, out_dir:, work_dir:, **options)
+      opts = OPTIONS.merge(options.compact)
+      path = region_path(region)
+      check_footprints(opts[:ml_footprints])
+      FileUtils.mkdir_p([out_dir, work_dir])
+      dirs = PARTS.fetch(path, [path]).map { |part| fetch(part, opts[:date], work_dir, opts[:log]) }
+      opts = opts.merge(temp_directory: File.join(work_dir, "duckdb_tmp"))
+      ml = ml_files(dirs, work_dir, opts)
+      out = File.join(out_dir, "#{File.basename(path)}.parquet")
+      opts[:log].puts "building #{out}"
+      run_duckdb(sql(dirs, "#{out}.tmp", opts, ml_files: ml), opts[:duckdb])
+      File.rename("#{out}.tmp", out)
+      out
+    ensure
+      cleanup(work_dir, dirs, opts[:keep_downloads]) if dirs
+    end
+
+    def region_path(region)
+      region = region.to_s
+      raise ArgumentError, "unknown region: #{region.inspect}" unless region.match?(REGION)
+
+      region.include?("/") ? region : "#{US}/#{region}"
+    end
+
+    def check_footprints(source)
+      return if source.nil? || Footprints::SOURCES.include?(source.to_s)
+
+      raise ArgumentError, "unknown ml_footprints source #{source.inspect} (have: #{Footprints::SOURCES.join(", ")})"
+    end
+
+    # Downloads and unzips one Geofabrik extract; returns the folder with
+    # its shapefiles.
+    def fetch(part, date, work_dir, log)
+      date ||= latest_date(part)
+      name = "#{part.tr("/", "-")}-#{date}-free.shp.zip"
+      zip = File.join(work_dir, name)
+      unless File.file?(zip)
+        log.puts "downloading https://#{HOST}#{url_path(part, date)}"
+        Download.fetch(HOST, url_path(part, date), zip, max_bytes: MAX_DOWNLOAD_BYTES)
+      end
+      check_zip(zip)
+      dir = File.join(work_dir, File.basename(name, ".shp.zip"))
+      unzip_layers(zip, dir)
+      dir
+    end
+
+    def url_path(part, date) = "/#{part}-#{date}-free.shp.zip"
+
+    # Geofabrik publishes dated files daily; today's may not be up yet.
+    def latest_date(part, today: Date.today)
+      LOOKBACK_DAYS.times do |i|
+        date = (today - i).strftime("%y%m%d")
+        return date if Download.exists?(HOST, url_path(part, date))
+      end
+      raise Error, "Geofabrik has no dated shapefile for #{part} in the last #{LOOKBACK_DAYS} days " \
+                   "(large regions are only offered as sub-regions)"
+    end
+
+    # Geofabrik publishes no checksum for shapefiles; the zip's CRCs catch a
+    # truncated or corrupt download.
+    def check_zip(zip)
+      _, err, status = Open3.capture3("unzip", "-tq", zip)
+      return if status.success?
+
+      File.delete(zip)
+      raise Error, "corrupt download #{File.basename(zip)} (deleted): #{err.strip[0, 200]}"
+    end
+
+    def unzip_layers(zip, dir)
+      FileUtils.mkdir_p(dir)
+      patterns = LAYERS.map { |layer| "gis_osm_#{layer}_free_*" }
+      _, err, status = Open3.capture3("unzip", "-oq", zip, *patterns, "-d", dir)
+      raise Error, "unzip failed: #{err.strip[0, 200]}" unless status.success?
+    end
+
+    # Footprint tiles covering the region's extent, or [] when not asked for.
+    def ml_files(dirs, work_dir, opts)
+      return [] unless opts[:ml_footprints]
+
+      bbox = extent(dirs, opts)
+      Footprints.microsoft(bbox, File.join(work_dir, "ml_footprints"), log: opts[:log]).tap do |files|
+        opts[:ml_bbox] = bbox
+        raise Error, "no ML footprint tiles cover #{bbox.inspect}" if files.empty?
+      end
+    end
+
+    # [min_lng, min_lat, max_lng, max_lat] of the region's roads.
+    def extent(dirs, opts)
+      query = "SELECT min(ST_XMin(geom)) a, min(ST_YMin(geom)) b, max(ST_XMax(geom)) c, max(ST_YMax(geom)) d " \
+              "FROM roads_src;"
+      out = run_duckdb([setup(opts), "LOAD spatial;", layer_view("roads", dirs), query].join("\n"),
+                       opts[:duckdb], "-json")
+      row = JSON.parse(out).first
+      %w[a b c d].map { |k| Float(row[k]) }
+    end
+
+    # The build query reads one view per layer; large layers come in parts
+    # (_1, _2, ...) and multi-part regions in several folders.
+    def sql(dirs, out, opts, ml_files: [])
+      views = LAYERS.map { |layer| layer_view(layer, dirs) }
+      [setup(opts), "LOAD spatial;", *views, ml_view(ml_files, opts[:ml_bbox]),
+       "SET VARIABLE out_path = #{quote(out)};", File.read(SQL_FILE)].join("\n")
+    end
+
+    def layer_view(layer, dirs)
+      files = dirs.flat_map { |d| Dir.glob(File.join(d, "gis_osm_#{layer}_free_*.shp")) }.sort
+      raise Error, "no #{layer} shapefile in #{dirs.join(", ")}" if files.empty?
+
+      reads = files.map { |f| "SELECT * FROM ST_Read(#{quote(f)})" }.join(" UNION ALL BY NAME ")
+      "CREATE VIEW #{layer}_src AS #{reads};"
+    end
+
+    # ML footprints within the region's extent (tiles overhang it), or an
+    # empty view.
+    def ml_view(files, bbox)
+      return "CREATE VIEW ml_buildings_src AS SELECT NULL::GEOMETRY AS geom WHERE false;" if files.empty?
+
+      list = files.map { |f| quote(f) }.join(", ")
+      min_lng, min_lat, max_lng, max_lat = bbox.map { |v| Float(v) }
+      "CREATE VIEW ml_buildings_src AS SELECT geom FROM (SELECT ST_GeomFromGeoJSON(geometry) AS geom " \
+        "FROM read_json([#{list}], format = 'newline_delimited', compression = 'gzip', " \
+        "columns = {geometry: 'JSON'})) WHERE ST_Intersects(geom, ST_MakeEnvelope(" \
+        "#{min_lng}, #{min_lat}, #{max_lng}, #{max_lat}));"
+    end
+
+    def setup(opts)
+      ext = opts[:extension_directory]
+      [("SET extension_directory = #{quote(File.expand_path(ext))};" if ext),
+       "SET memory_limit = #{quote(opts[:memory_limit])};",
+       "SET threads = #{Integer(opts[:threads])};",
+       ("SET temp_directory = #{quote(opts[:temp_directory])};" if opts[:temp_directory])].compact.join("\n")
+    end
+
+    def run_duckdb(sql, duckdb, *)
+      out, err, status = Open3.capture3(duckdb, *, stdin_data: sql)
+      raise Error, "duckdb failed: #{err.strip[0, 500]}" unless status.success? && err.strip.empty?
+
+      out
+    end
+
+    def cleanup(work_dir, dirs, keep_downloads)
+      dirs.each { |d| FileUtils.rm_rf(d) }
+      FileUtils.rm_rf(File.join(work_dir, "duckdb_tmp"))
+      return if keep_downloads
+
+      Dir.glob(File.join(work_dir, "*.shp.zip")).each { |z| File.delete(z) }
+      FileUtils.rm_rf(File.join(work_dir, "ml_footprints"))
+    end
+
+    def quote(text)
+      "'#{text.to_s.gsub("'", "''")}'"
+    end
+  end
+end

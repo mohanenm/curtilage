@@ -4,7 +4,7 @@ module Curtilage
   # The OSM features around a pin, projected to metres around it.
   #
   # Input is a list of hashes (string or symbol keys) with "feature"
-  # ("building", "parking", "road" or "railway"), "geometry" (a GeoJSON
+  # ("building", "ml_building", "parking", "road" or "railway"), "geometry" (a GeoJSON
   # geometry hash), and optionally "id", "highway" (the road or railway
   # class) and "name". OSM data is untrusted, so
   # oversized inputs and broken geometry are dropped and counted, not raised.
@@ -20,26 +20,49 @@ module Curtilage
       def rectangle
         @rectangle ||= Geometry.minimum_rectangle(xy)
       end
+
+      # [min_x, min_y, max_x, max_y], for a cheap overlap pre-check.
+      def bounds
+        @bounds ||= [xy.map(&:first).min, xy.map(&:last).min, xy.map(&:first).max, xy.map(&:last).max]
+      end
+
+      def near?(other)
+        a = bounds
+        b = other.bounds
+        a[0] <= b[2] && b[0] <= a[2] && a[1] <= b[3] && b[1] <= a[3]
+      end
     end
     Line = Struct.new(:id, :highway, :name, :xy, keyword_init: true)
 
-    attr_reader :pin, :buildings, :parking, :roads, :railways, :dropped
+    attr_reader :pin, :buildings, :ml_buildings, :parking, :roads, :railways, :dropped
 
     def initialize(pin, features)
       @pin = pin
       @buildings = []
+      @ml_buildings = []
       @parking = []
       @roads = []
       @railways = []
       @dropped = 0
+      @seen = {}
       Array(features).first(MAX_FEATURES).each { |f| add(f) }
       @dropped += [Array(features).size - MAX_FEATURES, 0].max
+    end
+
+    # A copy whose buildings are the given list (see Generator buildings:).
+    def with_buildings(list)
+      dup.tap { |copy| copy.instance_variable_set(:@buildings, list) }
     end
 
     private
 
     def add(feature)
       kind = field(feature, :feature).to_s
+      # A state built from several extracts repeats features along the seam.
+      id = field(feature, :id)
+      return if id && @seen.key?([kind, id])
+
+      @seen[[kind, id]] = true if id
       geometry = field(feature, :geometry)
       parts = parts_of(geometry)
       return @dropped += 1 if parts.nil? || parts.empty?
@@ -72,6 +95,7 @@ module Curtilage
                             xy: Geometry.counter_clockwise(ring), area: area)
       case kind
       when "building" then @buildings << polygon
+      when "ml_building" then @ml_buildings << polygon
       when "parking" then @parking << polygon
       else @dropped += 1
       end

@@ -1,31 +1,56 @@
 #!/usr/bin/env ruby
 # frozen_string_literal: true
 
-# curtilage generate --parquet FILE --pin LNG,LAT [--method NAME]
-#                    [--duckdb PATH] [--extension-directory DIR]
+# curtilage build REGION [--out DIR] [--work DIR] [--date YYMMDD] [--keep-downloads]
+#                       [--ml-footprints microsoft]
+#   Downloads a region's Geofabrik shapefiles (a US state such as "tennessee",
+#   or a Geofabrik path such as "europe/germany/bayern") and writes
+#   DIR/REGION.parquet, optionally with machine-learned building footprints.
 #
-# Prints the proposed premises as JSON: a GeoJSON Feature with the method,
-# review flags, explanation and validation in its properties.
+# curtilage generate --parquet FILE --pin LNG,LAT [--method NAME] [--buildings osm|osm_filled|ml]
+#   Prints the proposed premises as JSON: a GeoJSON Feature with the method,
+#   review flags, explanation and validation in its properties.
+#
+# Both take --duckdb PATH and --extension-directory DIR (or CURTILAGE_DUCKDB
+# and CURTILAGE_EXTENSIONS).
 require "optparse"
 require "json"
 require "curtilage"
 
 command = ARGV.shift
-abort "usage: curtilage generate --parquet FILE --pin LNG,LAT [options]" unless command == "generate"
+usage = "usage: curtilage build REGION [options] | curtilage generate --parquet FILE --pin LNG,LAT [options]"
+abort usage unless %w[build generate].include?(command)
 
-opts = { duckdb: ENV.fetch("CURTILAGE_DUCKDB", "duckdb"), extension_directory: ENV.fetch("CURTILAGE_EXTENSIONS", nil) }
+opts = { duckdb: ENV.fetch("CURTILAGE_DUCKDB", "duckdb"), extension_directory: ENV.fetch("CURTILAGE_EXTENSIONS", nil),
+         out: "data/features", work: "data/downloads" }
 OptionParser.new do |o|
+  o.on("--out DIR") { |v| opts[:out] = v }
+  o.on("--work DIR") { |v| opts[:work] = v }
+  o.on("--date YYMMDD", /\A\d{6}\z/) { |v| opts[:date] = v }
+  o.on("--keep-downloads") { opts[:keep] = true }
+  o.on("--ml-footprints SOURCE", Curtilage::Footprints::SOURCES) { |v| opts[:ml] = v }
+  o.on("--buildings FLAVOUR", Curtilage::Generator::BUILDING_SOURCES.map(&:to_s)) { |v| opts[:buildings] = v.to_sym }
   o.on("--parquet FILE") { |v| opts[:parquet] = v }
   o.on("--pin LNG,LAT") { |v| opts[:pin] = v.split(",").map { |n| Float(n) } }
   o.on("--method NAME", Curtilage::Generator::METHODS.map(&:to_s)) { |v| opts[:method] = v.to_sym }
   o.on("--duckdb PATH") { |v| opts[:duckdb] = v }
   o.on("--extension-directory DIR") { |v| opts[:extension_directory] = File.expand_path(v) }
 end.parse!
+
+if command == "build"
+  region = ARGV.shift or abort usage
+  path = Curtilage::Build.run(region, out_dir: opts[:out], work_dir: opts[:work], date: opts[:date],
+                                      duckdb: opts[:duckdb], extension_directory: opts[:extension_directory],
+                                      ml_footprints: opts[:ml], keep_downloads: opts[:keep])
+  puts path
+  exit
+end
+
 abort "--parquet and --pin are required" unless opts[:parquet] && opts[:pin]&.size == 2
 
 features = Curtilage::Lookup.features(parquet: opts[:parquet], pin: opts[:pin], duckdb: opts[:duckdb],
                                       extension_directory: opts[:extension_directory])
-result = Curtilage.generate(opts[:pin], features, method: opts[:method])
+result = Curtilage.generate(opts[:pin], features, method: opts[:method], **opts.slice(:buildings))
 puts JSON.pretty_generate(
   type: "Feature",
   geometry: result.ring && { type: "Polygon", coordinates: [result.ring] },

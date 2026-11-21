@@ -1,29 +1,32 @@
--- Build one region's features file (Parquet) from
--- Geofabrik's free shapefiles. The geometry is
--- already assembled (multipolygons included), so this is read, filter, write.
+-- Build one region's features file (Parquet) from Geofabrik's free
+-- shapefiles. The geometry is already assembled (multipolygons included), so
+-- this is read, filter, write. Run it with `curtilage build <state>`
+-- (Curtilage::Build), which sets everything below up.
 -- Output columns: id, feature, highway, name, min_lng, min_lat, max_lng, max_lat, wkb.
--- feature is building, parking, road or railway; highway holds the road or
--- railway class (Geofabrik's fclass).
+-- feature is building, ml_building, parking, road or railway; highway holds
+-- the road or railway class (Geofabrik's fclass). ML footprints have no OSM
+-- id, so they get negative ids, unique within the file.
 --
--- The caller sets, before .read:
---   SET VARIABLE shp_dir = '<folder with the unzipped gis_osm_*_free_1 files>';
+-- The caller defines, before this runs:
+--   views buildings_a_src, traffic_a_src, roads_src and railways_src, each
+--   reading every part of that layer (large layers are split into _1, _2, ...)
+--   view ml_buildings_src (geom): machine-learned footprints, empty unless asked for
 --   SET VARIABLE out_path = '<features>.parquet';
 
-LOAD spatial;
 
 COPY (
   WITH features AS (
     SELECT osm_id::BIGINT AS id, 'building' AS feature, NULL AS highway, name, geom
-    FROM ST_Read(getvariable('shp_dir') || '/gis_osm_buildings_a_free_1.shp')
+    FROM buildings_a_src
     UNION ALL
     SELECT osm_id::BIGINT, 'parking', NULL, name, geom
-    FROM ST_Read(getvariable('shp_dir') || '/gis_osm_traffic_a_free_1.shp')
+    FROM traffic_a_src
     WHERE fclass = 'parking'
     UNION ALL
     -- Drivable roads and service roads at ground level: a tunnel under a lot
     -- or a flyover above it doesn't bound the premises.
     SELECT osm_id::BIGINT, 'road', fclass, name, geom
-    FROM ST_Read(getvariable('shp_dir') || '/gis_osm_roads_free_1.shp')
+    FROM roads_src
     WHERE fclass IN ('motorway', 'trunk', 'primary', 'secondary', 'tertiary', 'unclassified', 'residential',
                      'service', 'motorway_link', 'trunk_link', 'primary_link', 'secondary_link', 'tertiary_link')
       AND tunnel = 'F' AND bridge = 'F'
@@ -31,9 +34,12 @@ COPY (
     -- Railways at ground level bound premises like public roads. Trams run
     -- in the street, which is already a road.
     SELECT osm_id::BIGINT, 'railway', fclass, name, geom
-    FROM ST_Read(getvariable('shp_dir') || '/gis_osm_railways_free_1.shp')
+    FROM railways_src
     WHERE fclass IN ('rail', 'light_rail', 'subway', 'narrow_gauge')
       AND tunnel = 'F' AND bridge = 'F'
+    UNION ALL
+    SELECT -row_number() OVER (), 'ml_building', NULL, NULL, geom
+    FROM ml_buildings_src
   )
   SELECT id, feature, highway, name,
          ST_XMin(geom) AS min_lng, ST_YMin(geom) AS min_lat,
