@@ -27,6 +27,8 @@ module Curtilage
     whole_lot: {},
     # The building plus a small margin, still trimmed at roads.
     tight: { method: :building, building_margin_m: 8 },
+    # Like whole_lot, but a store in a shopping centre gets the whole centre.
+    centre: { scope: :centre },
   }.freeze
 
   # Premises for one pin from its features (Lookup.features). With no method

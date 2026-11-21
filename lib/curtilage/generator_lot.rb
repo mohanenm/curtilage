@@ -137,6 +137,20 @@ module Curtilage
       poly
     end
 
+    # scope: :centre on a shared lot: the whole shopping centre, i.e. the
+    # shared lots plus every building on them, bounded by public roads.
+    def centre(shared, site)
+      features, target, opts, log = site.to_a
+      members = features.buildings.select do |b|
+        b.equal?(target) || (b.area >= opts[:neighbour_min_area_m2] && shared.any? { |lot| touches?(lot, b, opts) })
+      end
+      points = shared.flat_map(&:xy) + members.flat_map(&:hull)
+      poly = trim_at_roads(Geometry.counter_clockwise(Geometry.convex_hull(points)), features, target, opts, log)
+      log.flag(:shopping_centre, "mapped the whole shopping centre: #{members.size} buildings around " \
+                                 "#{shared.size} shared parking lot(s)")
+      poly
+    end
+
     def lot_label(lot)
       lot.kind == "building" ? "#{lot.category || "small"} structure #{lot.id}" : "parking #{lot.id}"
     end

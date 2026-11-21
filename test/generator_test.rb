@@ -182,6 +182,17 @@ class GeneratorTest < Minitest::Test
     assert_in_delta(-30, xy(result).map(&:first).min, 0.5)
   end
 
+  def test_centre_scope_maps_the_whole_shopping_centre
+    centre = scene + [polygon("building", 11, -40, 22, -30, 32), polygon("building", 12, -40, -32, -30, -22),
+                      polygon("building", 13, -60, -5, -50, 5)]
+    result = Curtilage.generate(PIN, centre, preset: :centre)
+
+    assert_includes result.flags, :shopping_centre
+    xs = xy(result).map(&:first)
+    assert_in_delta(-60, xs.min, 0.5)
+    refute_includes Curtilage.generate(PIN, scene, preset: :centre).flags, :shopping_centre
+  end
+
   def test_tiny_building_is_flagged
     kiosk = [polygon("building", 1, -3, -3, 3, 3), road(4, "secondary", [[-200, -40], [200, -40]])]
 

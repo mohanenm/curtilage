@@ -98,9 +98,11 @@ module Curtilage
       box_side_m: 60,                # box: side of the square around the pin
       max_vertices: 10,
       buildings: :osm,               # :osm, :osm_filled (ML footprints where OSM has none) or :ml
+      scope: :site,                  # :site, or :centre (the whole shopping centre when on a shared lot)
     }.freeze
 
     BUILDING_SOURCES = %i[osm osm_filled ml].freeze
+    SCOPES = %i[site centre].freeze
 
     module_function
 
@@ -129,6 +131,10 @@ module Curtilage
       raise ArgumentError, "unknown method #{method.inspect}" unless METHODS.include?(method)
 
       opts = DEFAULTS.merge(options)
+      unless SCOPES.include?(opts[:scope])
+        raise ArgumentError,
+              "unknown scope: #{opts[:scope].inspect} (have: site, centre)"
+      end
       unless BUILDING_SOURCES.include?(opts[:buildings])
         raise ArgumentError, "unknown buildings: #{opts[:buildings].inspect} (have: #{BUILDING_SOURCES.join(", ")})"
       end
@@ -186,12 +192,11 @@ module Curtilage
       target = find_building(features, opts, log)
       return [nil, nil] unless target
 
-      rect = target.rectangle
-      grown = Geometry.oriented_box(rect[:corners], rect[:angle], opts[:grow_m])
-      log.note("grew the building rectangle by #{opts[:grow_m]} m")
-      poly = Geometry.counter_clockwise(Geometry.convex_hull(grown + pin_square(opts)))
-      poly = trim_at_roads(poly, features, target, opts, log)
+      poly = trim_at_roads(grown(target, opts, log), features, target, opts, log)
       lots = own_parking(features, target, opts, log)
+      shared = lots.select { |lot| lot.instance_variable_get(:@shared) }
+      return [centre(shared, Site.new(features, target, opts, log)), target] if opts[:scope] == :centre && shared.any?
+
       claimed = lots.select { |lot| lot.kind == "building" }
       features = features.with_buildings(features.buildings - claimed) unless claimed.empty?
       poly = trim_at_neighbours(poly, features, target, opts, log)
@@ -221,6 +226,13 @@ module Curtilage
       half = opts[:box_side_m] / 2.0
       log.note("square of #{opts[:box_side_m]} m around the pin")
       [[[-half, -half], [half, -half], [half, half], [-half, half]], nil]
+    end
+
+    def grown(target, opts, log)
+      rect = target.rectangle
+      log.note("grew the building rectangle by #{opts[:grow_m]} m")
+      box = Geometry.oriented_box(rect[:corners], rect[:angle], opts[:grow_m])
+      Geometry.counter_clockwise(Geometry.convex_hull(box + pin_square(opts)))
     end
 
     # The smallest building under the pin, else the nearest one close enough.

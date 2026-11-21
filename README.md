@@ -92,7 +92,7 @@ result.to_geojson   # a GeoJSON Feature with all of the above and the attributio
 ```
 
 - One pin: `Curtilage.generate(pin, Curtilage::Lookup.features(parquet: path, pin: pin))`.
-- Styles: `preset: :whole_lot` (the default: the building and its whole lot) or `preset: :tight` (the building plus a small margin). Any option overrides a preset.
+- Styles: `preset: :whole_lot` (the default: the building and its whole lot), `preset: :tight` (the building plus a small margin) or `preset: :centre` (like whole_lot, but a store on a shared shopping-centre lot gets the whole centre, flagged `shopping_centre`). Any option overrides a preset.
 - Check an existing polygon: `Curtilage::Audit.check(pin, ring, features)` returns `:ok`, `:review` (with reasons such as `crosses_road` or `covers_neighbour`) or `:invalid`.
 - Parquet files can be local or in a bucket (`s3://`, `gs://`, `https://`, read in place). Credentials for a private bucket go in `lookup: { setup_sql: "CREATE SECRET ..." }`.
 
