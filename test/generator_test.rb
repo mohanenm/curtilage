@@ -170,14 +170,16 @@ class GeneratorTest < Minitest::Test
     assert(result.explanation.any? { |n| n.include?("also touches building 6") })
   end
 
-  # A lot touching three other buildings is a shopping-centre lot.
-  def test_shared_lot_is_left_out_and_flagged
+  # A lot touching three other buildings is a shopping-centre lot: the site
+  # gets the part nearer to it than to the others (halfway to the building
+  # at x -60..-50 is x = -30).
+  def test_shared_lot_is_split_by_nearest_building
     centre = scene + [polygon("building", 11, -40, 22, -30, 32), polygon("building", 12, -40, -32, -30, -22),
                       polygon("building", 13, -60, -5, -50, 5)]
     result = Curtilage.generate(PIN, centre, method: :grow_trim, grow_m: 10)
 
     assert(result.explanation.any? { |n| n.include?("is shared with 3 other buildings") })
-    assert_operator xy(result).map(&:first).min, :>, -25
+    assert_in_delta(-30, xy(result).map(&:first).min, 0.5)
   end
 
   def test_tiny_building_is_flagged
