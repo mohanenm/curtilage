@@ -179,18 +179,33 @@ module Curtilage
         return result
       end
 
-      result.store_ring = store_ring(target, pin, opts, log) if target
-      result.ring = premises_ring(xy, pin, opts, log)
+      premises = premises_xy(xy, target, opts, log)
+      result.ring = ring_of(premises, pin)
+      result.store_ring = ring_of(store_xy(target, premises, opts, log), pin) if target
       result.validation = Validation.check(pin, result.ring)
       result
     end
 
-    def premises_ring(xy, pin, opts, log)
+    # The premises always hold the whole building (the store zone has to
+    # sit inside them): widened to take it in if needed, and simplified only
+    # in ways that keep it.
+    def premises_xy(xy, target, opts, log)
       xy = Geometry.clean(Geometry.counter_clockwise(xy))
-      if xy.size > opts[:max_vertices]
-        log.note("simplified #{xy.size} vertices to #{opts[:max_vertices]}")
-        xy = Geometry.simplify(xy, opts[:max_vertices])
+      if target && !target.hull.all? { |p| inside?(xy, p) }
+        log.note("widened the premises to take in the whole building")
+        xy = Geometry.counter_clockwise(Geometry.convex_hull(xy + target.hull))
       end
+      return xy if xy.size <= opts[:max_vertices]
+
+      log.note("simplified #{xy.size} vertices to at most #{opts[:max_vertices]}")
+      Geometry.simplify_containing(xy, opts[:max_vertices], target ? target.hull : [])
+    end
+
+    def inside?(xy, point)
+      Geometry.contains?(xy, point) || Geometry.distance_to_edges(xy, point) < 0.01
+    end
+
+    def ring_of(xy, pin)
       ring = Geometry.unproject(xy, pin).map { |lng, lat| [lng.round(7), lat.round(7)] }
       ring << ring.first
     end

@@ -222,6 +222,22 @@ class GeneratorTest < Minitest::Test
     refute Curtilage::Geometry.self_intersects?(store)
   end
 
+  # The store zone always sits inside the premises, whatever the method,
+  # including an L-shaped building and premises simplified to few corners.
+  def test_store_is_always_inside_the_premises
+    l_shape = [[-10, -10], [20, -10], [20, 0], [0, 0], [0, 15], [-10, 15], [-10, -10]].map { |x, y| lnglat(x, y) }
+    building = { "feature" => "building", "id" => 1, "geometry" => { "type" => "Polygon", "coordinates" => [l_shape] } }
+    features = [building, road(4, "secondary", [[-200, -40], [200, -40]]),
+                road(5, "primary", [[-60, -200], [-60, 200]])]
+    [{}, { preset: :tight }, { max_vertices: 4 }].each do |options|
+      result = Curtilage.generate(PIN, features, **options)
+      premises = xy(result)
+      store = Curtilage::Geometry.open_ring(Curtilage::Geometry.project(result.store_ring, PIN))
+
+      assert(store.all? { |p| Curtilage::Geometry.contains?(premises, p) }, options.inspect)
+    end
+  end
+
   def test_tiny_building_is_flagged
     kiosk = [polygon("building", 1, -3, -3, 3, 3), road(4, "secondary", [[-200, -40], [200, -40]])]
 

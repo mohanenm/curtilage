@@ -299,6 +299,42 @@ module Curtilage
       pts
     end
 
+    # Like simplify, but only drops a vertex if the polygon still contains
+    # every point in keep (e.g. a building's corners). Stops early, above
+    # max, if no vertex can go.
+    def simplify_containing(xy, max, keep)
+      pts = xy.dup
+      while pts.size > max
+        n = pts.size
+        candidates = (0...n).sort_by { |k| area([pts[(k - 1) % n], pts[k], pts[(k + 1) % n]]) }
+        drop = candidates.find do |k|
+          trial = pts.dup.tap { |t| t.delete_at(k) }
+          keep.all? { |p| contains?(trial, p) || distance_to_edges(trial, p) < 0.01 }
+        end
+        break unless drop
+
+        pts.delete_at(drop)
+      end
+      pts
+    end
+
+    # The part of subject inside a convex clipper shrunk by margin metres.
+    def clip_inside(subject, clipper, margin)
+      clipper = counter_clockwise(clipper)
+      clipper.each_index.reduce(subject) do |poly, i|
+        break [] if poly.size < 3
+
+        a = clipper[i]
+        b = clipper[(i + 1) % clipper.size]
+        normal = [b[1] - a[1], a[0] - b[0]]
+        length = Math.hypot(*normal)
+        next poly if length < 1e-9
+
+        unit = normal.map { |v| v / length }
+        clip_half_plane(poly, [a[0] - (unit[0] * margin), a[1] - (unit[1] * margin)], unit)
+      end
+    end
+
     # Removes repeated and collinear points (within tolerance metres).
     def clean(xy, tolerance = 0.05)
       pts = drop_repeats(xy, tolerance)
