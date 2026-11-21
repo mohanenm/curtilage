@@ -10,24 +10,30 @@ class OvertureTest < Minitest::Test
   FILES = ["s3://overturemaps-us-west-2/release/x/theme=buildings/type=building/part-1.parquet"].freeze
 
   def test_buildings_split_osm_from_other_sources
-    sql = O.buildings(0, BOX, FILES)
-
-    assert_includes sql, "WHEN sources[1].dataset = 'OpenStreetMap' THEN 'building' ELSE 'ml_building'"
-    assert_includes sql, "bbox.xmin <= -79.996"
-    assert_includes sql, "NOT coalesce(is_underground, false)"
+    assert_includes O.columns("building"),
+                    "WHEN sources[1].dataset = 'OpenStreetMap' THEN 'building' ELSE 'ml_building'"
+    assert_includes O.filter("building"), "NOT coalesce(is_underground, false)"
   end
 
   def test_segments_keep_ground_level_roads_and_rail
-    sql = O.segments(1, BOX, FILES)
+    assert_includes O.filter("segment"), "['is_tunnel', 'is_bridge']"
+    assert_includes O.columns("segment"), "'standard_gauge' THEN 'rail'"
+    assert_includes O.columns("segment"), "class || '_link'"
+    refute_includes O.filter("segment"), "footway"
+  end
 
-    assert_includes sql, "['is_tunnel', 'is_bridge']"
-    assert_includes sql, "'standard_gauge' THEN 'rail'"
-    assert_includes sql, "class || '_link'"
-    refute_includes sql, "footway"
+  # Pins sharing files share one scan; rows go back to each pin by box.
+  def test_pins_in_the_same_files_share_a_scan
+    other = [-80.014, 34.996, -80.006, 35.004]
+    files = { [0, "building"] => FILES, [1, "building"] => FILES }
+    sql = O.data_sql([BOX, other], files, {})
+
+    assert_equal 1, sql.scan("read_parquet").size
+    assert_includes sql, "p.pin_index IN (0, 1)"
+    assert_includes sql, "INSERT INTO boxes VALUES (0, -80.004"
   end
 
   def test_no_files_no_scan
-    assert_nil O.parking(0, BOX, [])
     assert_equal "SELECT 1 WHERE false;", O.data_sql([BOX], {}, {})
   end
 

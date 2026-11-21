@@ -25,6 +25,7 @@ module Curtilage
     RAIL_CLASSES = { "standard_gauge" => "rail", "light_rail" => "light_rail", "subway" => "subway",
                      "narrow_gauge" => "narrow_gauge" }.freeze
     COLLECTIONS = %w[building segment infrastructure].freeze
+    GROUP_CELL_DEG = 0.05
     ATTRIBUTION = ["© OpenStreetMap contributors", "© Overture Maps Foundation"].freeze
 
     module_function
@@ -74,63 +75,83 @@ module Curtilage
       end
     end
 
+    # One scan per collection and set of files, shared by every pin those
+    # files cover: each file's metadata and row groups are read once, then
+    # rows are matched back to the pins whose boxes they fall in.
     def data_sql(boxes, files, options)
-      scans = boxes.each_with_index.flat_map do |b, i|
-        [buildings(i, b, files[[i, "building"]]), segments(i, b, files[[i, "segment"]]),
-         parking(i, b, files[[i, "infrastructure"]])].compact
+      scans = COLLECTIONS.flat_map do |collection|
+        groups = boxes.each_index.group_by { |i| [files[[i, collection]].to_a.sort, cell(boxes[i])] }
+        groups.filter_map do |(list, _), indexes|
+          grouped_scan(collection, list, indexes, boxes) unless list.empty?
+        end
       end
       return "SELECT 1 WHERE false;" if scans.empty?
 
-      [setup(options, remote: true), "#{scans.join(" UNION ALL ")};"].join("\n")
+      [setup(options, remote: true), boxes_table(boxes), "#{scans.join(" UNION ALL ")};"].join("\n")
     end
 
-    def buildings(index, bbox, files)
-      return nil if files.to_a.empty?
-
-      scan(index, files, bbox, <<~SQL)
-        id, CASE WHEN sources[1].dataset = 'OpenStreetMap' THEN 'building' ELSE 'ml_building' END AS feature,
-        class AS highway, names."primary" AS name, ST_AsGeoJSON(geometry)::VARCHAR AS geometry
-      SQL
-        .then { |sql| "#{sql} AND NOT coalesce(is_underground, false)" }
+    def boxes_table(boxes)
+      rows = boxes.each_with_index.map { |(x0, y0, x1, y1), i| "(#{i}, #{x0}, #{y0}, #{x1}, #{y1})" }
+      "CREATE TEMP TABLE boxes (pin_index INTEGER, x0 DOUBLE, y0 DOUBLE, x1 DOUBLE, y1 DOUBLE); " \
+        "INSERT INTO boxes VALUES #{rows.join(", ")};"
     end
 
-    # Roads and railways at ground level (no tunnel or bridge flags).
-    def segments(index, bbox, files)
-      return nil if files.to_a.empty?
-
-      rail = RAIL_CLASSES.map { |k, v| "WHEN #{quote(k)} THEN #{quote(v)}" }.join(" ")
-      scan(index, files, bbox, <<~SQL)
-        id, CASE subtype WHEN 'road' THEN 'road' ELSE 'railway' END AS feature,
-        CASE WHEN subtype = 'rail' THEN (CASE class #{rail} END)
-             WHEN subclass = 'link' THEN class || '_link' ELSE class END AS highway,
-        names."primary" AS name, ST_AsGeoJSON(geometry)::VARCHAR AS geometry
-      SQL
-        .then do |sql|
-          "#{sql} AND ((subtype = 'road' AND class IN (#{ROAD_CLASSES.map { |c| quote(c) }.join(", ")})) " \
-            "OR (subtype = 'rail' AND class IN (#{RAIL_CLASSES.keys.map { |c| quote(c) }.join(", ")}))) " \
-            "AND NOT list_has_any(flatten(list_transform(coalesce(road_flags, []) || coalesce(rail_flags, []), " \
-            "f -> f.\"values\")), ['is_tunnel', 'is_bridge'])"
-        end
+    # Pins are grouped within a 0.05 degree cell (about 5 km), so a group's
+    # envelope stays small.
+    def cell(box)
+      [(box[0] / GROUP_CELL_DEG).floor, (box[1] / GROUP_CELL_DEG).floor]
     end
 
-    def parking(index, bbox, files)
-      return nil if files.to_a.empty?
-
-      scan(index, files, bbox, <<~SQL)
-        id, 'parking' AS feature, NULL AS highway, names."primary" AS name,
-        ST_AsGeoJSON(geometry)::VARCHAR AS geometry
-      SQL
-        .then do |sql|
-          "#{sql} AND subtype = 'transit' AND class = 'parking' " \
-            "AND ST_GeometryType(geometry) IN ('POLYGON', 'MULTIPOLYGON')"
-        end
+    # The envelope is a plain range DuckDB can skip row groups with; the OR
+    # of the pins' own boxes then drops what's between them.
+    def grouped_scan(collection, files, indexes, boxes)
+      group = indexes.map { |i| boxes[i] }
+      envelope = [group.map { |b| b[0] }.min, group.map { |b| b[1] }.min, group.map { |b| b[2] }.max,
+                  group.map { |b| b[3] }.max]
+      any = group.map { |b| "(#{box_filter("bbox", b)})" }.join(" OR ")
+      "SELECT p.pin_index, d.id, d.feature, d.highway, d.name, d.geometry FROM (SELECT #{columns(collection)}, " \
+        "bbox AS box FROM read_parquet([#{files.map { |f| quote(f) }.join(", ")}]) " \
+        "WHERE #{box_filter("bbox", envelope)} AND (#{any}) AND #{filter(collection)}) d " \
+        "JOIN boxes p ON p.pin_index IN (#{indexes.join(", ")}) AND d.box.xmin <= p.x1 AND d.box.xmax >= p.x0 " \
+        "AND d.box.ymin <= p.y1 AND d.box.ymax >= p.y0"
     end
 
-    def scan(index, files, bbox, columns)
-      x0, y0, x1, y1 = bbox
-      "SELECT #{index} AS pin_index, #{columns.tr("\n", " ")} " \
-        "FROM read_parquet([#{files.map { |f| quote(f) }.join(", ")}]) " \
-        "WHERE bbox.xmin <= #{x1} AND bbox.xmax >= #{x0} AND bbox.ymin <= #{y1} AND bbox.ymax >= #{y0}"
+    def box_filter(column, box)
+      x0, y0, x1, y1 = box
+      "#{column}.xmin <= #{x1} AND #{column}.xmax >= #{x0} AND #{column}.ymin <= #{y1} AND #{column}.ymax >= #{y0}"
+    end
+
+    # Buildings Overture took from OSM are buildings; its other sources are
+    # treated as ML footprints. Roads and rail map to the build's classes.
+    def columns(collection)
+      case collection
+      when "building"
+        "id, CASE WHEN sources[1].dataset = 'OpenStreetMap' THEN 'building' ELSE 'ml_building' END AS feature, " \
+        "class AS highway, names.\"primary\" AS name, ST_AsGeoJSON(geometry)::VARCHAR AS geometry"
+      when "segment"
+        rail = RAIL_CLASSES.map { |k, v| "WHEN #{quote(k)} THEN #{quote(v)}" }.join(" ")
+        "id, CASE subtype WHEN 'road' THEN 'road' ELSE 'railway' END AS feature, " \
+          "CASE WHEN subtype = 'rail' THEN (CASE class #{rail} END) WHEN subclass = 'link' THEN class || '_link' " \
+          "ELSE class END AS highway, names.\"primary\" AS name, ST_AsGeoJSON(geometry)::VARCHAR AS geometry"
+      else
+        "id, 'parking' AS feature, NULL AS highway, names.\"primary\" AS name, " \
+        "ST_AsGeoJSON(geometry)::VARCHAR AS geometry"
+      end
+    end
+
+    # Ground-level roads and rail; parking areas (not points); buildings
+    # above ground.
+    def filter(collection)
+      case collection
+      when "building" then "NOT coalesce(is_underground, false)"
+      when "segment"
+        "((subtype = 'road' AND class IN (#{ROAD_CLASSES.map { |c| quote(c) }.join(", ")})) " \
+        "OR (subtype = 'rail' AND class IN (#{RAIL_CLASSES.keys.map { |c| quote(c) }.join(", ")}))) " \
+        "AND NOT list_has_any(flatten(list_transform(coalesce(road_flags, []) || coalesce(rail_flags, []), " \
+        "f -> f.\"values\")), ['is_tunnel', 'is_bridge'])"
+      else
+        "subtype = 'transit' AND class = 'parking' AND ST_GeometryType(geometry) IN ('POLYGON', 'MULTIPOLYGON')"
+      end
     end
 
     def setup(options, remote:)
