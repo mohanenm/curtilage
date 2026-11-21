@@ -136,11 +136,13 @@ class GeneratorTest < Minitest::Test
     assert(result.explanation.any? { |n| n.include?("railway 7 (rail)") })
   end
 
-  def test_kerb_offset_never_cuts_into_the_building
+  # The road (y = -11) is closer to the building (edge y = -7.5) than half
+  # its width: the premises still keep 3 m in front of the building.
+  def test_kerb_offset_keeps_room_in_front_of_the_building
     tight = scene.first(3) + [road(4, "secondary", [[-200, -11], [200, -11]])]
     ys = xy(Curtilage.generate(PIN, tight, method: :grow_trim)).map(&:last)
 
-    assert_in_delta(-7.5, ys.min, 0.5)
+    assert_in_delta(-10.5, ys.min, 0.5)
   end
 
   # A neighbour off the building's corner is cut square to a building side,

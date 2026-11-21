@@ -92,6 +92,7 @@ module Curtilage
       large_building_m2: 5_000,      # flag: likely shared (strip mall, multi-tenant)
       large_building_note_m2: 1_500, # explanation only, no flag: may be shared
       pin_clearance_m: 5,            # keep this much room around the pin
+      building_clearance_m: 3,       # road trims stop at least this far from the building
       grow_m: 30,                    # grow_trim: how far to grow before trimming
       road_offset_m: nil,            # trim this far short of road centrelines; nil: by road class
       neighbour_min_area_m2: 40,     # grow_trim: smaller buildings (sheds) don't bound a lot
@@ -321,7 +322,7 @@ module Curtilage
       road_stretches(features, target, opts).each do |road, run, offset|
         next unless run.any? { |p| Geometry.contains?(poly, p) || Geometry.distance_to_edges(poly, p) < offset }
 
-        trimmed, used = trim_along(poly, fit_direction(run, target), target, offset)
+        trimmed, used = trim_along(poly, fit_direction(run, target), target, offset, opts[:building_clearance_m])
         next log.note("kept the part beyond #{road_label(road)}: it would cut the building") unless trimmed
         next if trimmed.size < 3
 
@@ -400,10 +401,11 @@ module Curtilage
     end
 
     # Clips at the line, moved toward the pin by up to offset metres but
-    # never into the building. Returns [polygon, offset used], [poly, 0]
-    # when the pin is on the line, or nil when the centreline itself would
-    # cut the building.
-    def trim_along(poly, line, target, offset)
+    # never closer than clearance metres to the building (the pavement in
+    # front of a building on the street stays in the premises). Returns
+    # [polygon, offset used], [poly, 0] when the pin is on the line, or nil
+    # when the centreline itself would cut the building.
+    def trim_along(poly, line, target, offset, clearance = 0)
       origin, direction = line
       normal = [direction[1], -direction[0]]
       pin_side = side([0.0, 0.0], origin, normal)
@@ -413,7 +415,7 @@ module Curtilage
       building_side = target.hull.map { |p| side(p, origin, normal) }.max
       return nil if building_side > 0.5
 
-      offset = offset.clamp(0, [-building_side, 0].max)
+      offset = offset.clamp(0, [-building_side - clearance, 0].max)
       origin = [origin[0] - (normal[0] * offset), origin[1] - (normal[1] * offset)]
       [Geometry.clip_half_plane(poly, origin, normal), offset]
     end
