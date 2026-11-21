@@ -2,7 +2,9 @@
 
 ## [Unreleased]
 
-First release, not yet published. What it does:
+## [0.1.0] - 2026-11-21
+
+First release. What it does:
 
 ### Premises
 - Grows the building's rectangle 30 m toward its lot, trims at public roads and railways, and claims the site's parking; falls back to the building rectangle plus a margin when that fails validation. Every result has a step-by-step explanation.

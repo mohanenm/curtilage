@@ -4,7 +4,7 @@
 
 Generates a site's **premises polygon** (the building plus its customer-facing lot) and a **store zone** (the building's own outline) from free map data, so nobody has to draw them by hand.
 
-**Status:** pre-release (0.0.1). Checked on 20 real store sites across five US states against hand-drawn premises and by eye on aerial imagery; the reviewer was happy with all of them after the latest rules. Not yet published to RubyGems.
+**Status:** 0.1.0, the first release. Checked on 20 real store sites across five US states against hand-drawn premises and by eye on aerial imagery. The API may still change before 1.0.
 
 ## Quick start
 
