@@ -13,7 +13,9 @@ module Curtilage
   # building the best fallback. box is only a baseline: it crosses public
   # roads on most sites, so propose never offers it.
   module Generator
-    Result = Struct.new(:method_name, :ring, :explanation, :flags, :validation, :building, :attribution,
+    # ring: the premises. store_ring: the building's own outline (the store
+    # zone), or nil.
+    Result = Struct.new(:method_name, :ring, :store_ring, :explanation, :flags, :validation, :building, :attribution,
                         keyword_init: true) do
       def ok?
         !ring.nil? && validation.ok?
@@ -21,16 +23,23 @@ module Curtilage
 
       # A GeoJSON Feature (as a Hash) with everything about the result in
       # its properties. Show the attribution wherever the polygon is shown.
-      def to_geojson(attribution: self.attribution || ["© OpenStreetMap contributors"])
-        {
+      # include_store: a FeatureCollection of the premises and the store
+      # zone instead, told apart by properties.role.
+      def to_geojson(attribution: self.attribution || ["© OpenStreetMap contributors"], include_store: false)
+        premises = {
           type: "Feature",
           geometry: ring && { type: "Polygon", coordinates: [ring] },
           properties: {
-            ok: ok?, method: method_name, flags: flags, building: building,
+            role: "premises", ok: ok?, method: method_name, flags: flags, building: building,
             errors: validation.errors, warnings: validation.warnings, metrics: validation.metrics,
             explanation: explanation, attribution: attribution
           },
         }
+        return premises unless include_store
+
+        store = { type: "Feature", geometry: store_ring && { type: "Polygon", coordinates: [store_ring] },
+                  properties: { role: "store", building: building, attribution: attribution } }
+        { type: "FeatureCollection", features: [premises, store] }
       end
     end
 
@@ -97,6 +106,7 @@ module Curtilage
       building_margin_m: 20,         # building: margin around its rectangle
       box_side_m: 60,                # box: side of the square around the pin
       max_vertices: 10,
+      max_store_vertices: 20,        # the store outline is simplified to at most this many corners
       buildings: :osm,               # :osm, :osm_filled (ML footprints where OSM has none) or :ml
       scope: :site,                  # :site, or :centre (the whole shopping centre when on a shared lot)
     }.freeze
@@ -169,15 +179,20 @@ module Curtilage
         return result
       end
 
+      result.store_ring = store_ring(target, pin, opts, log) if target
+      result.ring = premises_ring(xy, pin, opts, log)
+      result.validation = Validation.check(pin, result.ring)
+      result
+    end
+
+    def premises_ring(xy, pin, opts, log)
       xy = Geometry.clean(Geometry.counter_clockwise(xy))
       if xy.size > opts[:max_vertices]
         log.note("simplified #{xy.size} vertices to #{opts[:max_vertices]}")
         xy = Geometry.simplify(xy, opts[:max_vertices])
       end
-      result.ring = Geometry.unproject(xy, pin).map { |lng, lat| [lng.round(7), lat.round(7)] }
-      result.ring << result.ring.first
-      result.validation = Validation.check(pin, result.ring)
-      result
+      ring = Geometry.unproject(xy, pin).map { |lng, lat| [lng.round(7), lat.round(7)] }
+      ring << ring.first
     end
 
     def failure_reason(result)

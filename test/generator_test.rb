@@ -193,6 +193,35 @@ class GeneratorTest < Minitest::Test
     refute_includes Curtilage.generate(PIN, scene, preset: :centre).flags, :shopping_centre
   end
 
+  def test_store_ring_is_the_building_outline
+    result = Curtilage.generate(PIN, scene)
+    store = Curtilage::Geometry.open_ring(Curtilage::Geometry.project(result.store_ring, PIN))
+
+    assert_equal result.store_ring.first, result.store_ring.last
+    assert_in_delta 300, Curtilage::Geometry.area(store), 1
+    collection = result.to_geojson(include_store: true)
+
+    assert_equal(%w[premises store], collection[:features].map { |f| f[:properties][:role] })
+    refute_includes result.flags, :store_may_be_unit
+  end
+
+  # A jagged 60-corner footprint comes back with at most 20 corners and
+  # still doesn't cross itself.
+  def test_store_ring_is_simplified
+    jagged = (0...60).map do |i|
+      angle = i * Math::PI / 30
+      r = i.even? ? 20 : 17
+      lnglat(r * Math.cos(angle), r * Math.sin(angle))
+    end
+    building = { "feature" => "building", "id" => 1,
+                 "geometry" => { "type" => "Polygon", "coordinates" => [jagged + [jagged.first]] } }
+    result = Curtilage.generate(PIN, [building, road(4, "secondary", [[-200, -40], [200, -40]])])
+    store = Curtilage::Geometry.open_ring(Curtilage::Geometry.project(result.store_ring, PIN))
+
+    assert_operator store.size, :<=, 20
+    refute Curtilage::Geometry.self_intersects?(store)
+  end
+
   def test_tiny_building_is_flagged
     kiosk = [polygon("building", 1, -3, -3, 3, 3), road(4, "secondary", [[-200, -40], [200, -40]])]
 
@@ -268,6 +297,7 @@ class GeneratorTest < Minitest::Test
     result = Curtilage.generate(PIN, big_and_attached)
 
     assert_includes result.flags, :large_building
+    assert_includes result.flags, :store_may_be_unit
     assert(result.explanation.any? { |n| n.include?("can't be split off") })
   end
 

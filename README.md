@@ -85,10 +85,12 @@ results = Curtilage.generate_many([[-80.0, 35.0], [-80.1, 35.2]], catalogue: cat
 
 result = results.first
 result.ok?          # a ring that passed validation; never save one that isn't
-result.ring         # [[lng, lat], ...], closed
+result.ring         # [[lng, lat], ...], closed: the premises
+result.store_ring   # the building's own outline, for an in-store zone
 result.flags        # reasons a person should look: near_houses, large_building, fallback, ...
 result.explanation  # how it was made, step by step
 result.to_geojson   # a GeoJSON Feature with all of the above and the attribution
+result.to_geojson(include_store: true)  # a FeatureCollection: premises and store zone
 ```
 
 - One pin: `Curtilage.generate(pin, Curtilage::Lookup.features(parquet: path, pin: pin))`.
