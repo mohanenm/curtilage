@@ -26,7 +26,7 @@ module Curtilage
         if others >= opts[:shared_lot_buildings]
           lot.instance_variable_set(:@shared, true)
           log.note("parking #{lot.id} (#{lot.area.round} m2) is shared with #{others} other buildings: " \
-                   "claimed only within #{opts[:grow_m]} m of the building")
+                   "claimed the part nearer this building than the others")
           next true
         end
         log.note("#{lot_label(lot)} (#{lot.area.round} m2) touches the building, so it's part of the lot")
@@ -52,15 +52,12 @@ module Curtilage
     # from the building), splitting a lot halfway where it also touches a
     # neighbour, then keeps clear of neighbouring buildings.
     #
-    # A shared (shopping-centre) lot is claimed only near the building, and
-    # the driveways linking the claimed lot to a public road are taken in.
+    # A shared (shopping-centre) lot is split halfway with each building on
+    # it, so the site gets the part nearer to it than to any other; the
+    # driveways linking the claimed lot to a public road are taken in.
     def add_parking(poly, lots, site)
-      near = fence(site, site.opts[:grow_m])
       far = fence(site, site.opts[:parking_max_extent_m])
-      parts = lots.map do |lot|
-        reach = lot.instance_variable_get(:@shared) ? near : far
-        share_lot(Geometry.clip_convex(lot.xy, reach), lot, site)
-      end
+      parts = lots.map { |lot| share_lot(Geometry.clip_convex(lot.xy, far), lot, site) }
       grown = Geometry.counter_clockwise(Geometry.convex_hull(poly + parts.select { |p| p.size >= 3 }.flatten(1)))
       grown = add_entrances(grown, far, site)
       keep_off_neighbours(grown, site.features, site.target, site.opts, site.log)
@@ -109,14 +106,15 @@ module Curtilage
     # so the claim stops short of the yard.
     def share_lot(part, lot, site)
       features, target, opts, log = site.to_a
+      shared = lot.instance_variable_get(:@shared)
       others = neighbours(features, target, opts).select do |other|
         touches?(lot, other, opts) && !Geometry.overlap?(other.hull, target.hull)
       end
       others.each do |other|
-        next unless home?(other, features, opts) && part.size >= 3
+        next unless (shared && !LOT_TYPES.include?(other.category)) || home?(other, features, opts)
+        next if part.size < 3
 
         part = split_from_neighbour(part, target.hull, other.hull, target.rectangle[:angle])
-        log.note("parking #{lot.id} also touches home #{other.id}: split halfway")
       end
       log.note("parking #{lot.id} also touches building #{others.map(&:id).join(", ")}") if others.any?
       part
