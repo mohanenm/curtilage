@@ -2,6 +2,10 @@
 
 ## [Unreleased]
 
+### Fixed
+
+- Text is read as UTF-8 whatever the system locale. Under `LANG=C` (common in containers and cron jobs), a map feature with a non-ASCII name (such as "Café") made lookups raise an encoding error, and so did a data catalogue whose attribution contained `©`.
+
 ## [0.3.0] - 2026-11-22
 
 ### Breaking

@@ -52,6 +52,22 @@ class LookupTest < Minitest::Test
     end
   end
 
+  def test_non_ascii_names_parse_whatever_the_locale
+    Dir.mktmpdir do |dir|
+      fake = File.join(dir, "duckdb")
+      File.write(fake, <<~SH)
+        #!/bin/sh
+        cat > /dev/null
+        printf '%s\n' '[{"pin_index": 0, "name": "Café", "geometry": "{\\"type\\":\\"Point\\",\\"coordinates\\":[0,0]}"}]'
+      SH
+      File.chmod(0o755, fake)
+      File.write(File.join(dir, "a.parquet"), "")
+      features = L.features(parquet: File.join(dir, "a.parquet"), pin: [-80.0, 35.0], duckdb: fake)
+
+      assert_equal "Café", features.first["name"]
+    end
+  end
+
   def test_missing_duckdb_is_a_curtilage_error
     Dir.mktmpdir do |dir|
       File.write(File.join(dir, "a.parquet"), "")

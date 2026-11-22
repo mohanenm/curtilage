@@ -29,7 +29,7 @@ module Curtilage
     # https://...), when the metadata is local but the data isn't.
     def self.from_dir(dir, base_url: nil)
       regions = Dir.glob(File.join(dir, "*.json")).filter_map do |file|
-        meta = JSON.parse(File.read(file))
+        meta = JSON.parse(File.read(file, encoding: "utf-8"))
         next unless meta["format"] == 1 && meta["parquet"] && meta["bbox"]&.size == 4
 
         parquet = base_url ? "#{base_url.chomp("/")}/#{meta["parquet"]}" : File.join(dir, meta["parquet"])

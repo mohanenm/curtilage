@@ -91,7 +91,7 @@ module Curtilage
     def fresh?(metadata_file)
       return false unless File.file?(metadata_file)
 
-      built = Time.parse(JSON.parse(File.read(metadata_file))["built_at"].to_s)
+      built = Time.parse(JSON.parse(File.read(metadata_file, encoding: "utf-8"))["built_at"].to_s)
       Time.now - built < @opts[:max_age_days] * 86_400
     rescue ArgumentError, JSON::ParserError
       false
@@ -110,7 +110,7 @@ module Curtilage
       unless File.file?(file) && Time.now - File.mtime(file) < @opts[:max_age_days] * 86_400
         File.write(file, Download.read(Regions::HOST, Regions::INDEX, max_bytes: Regions::MAX_INDEX_BYTES))
       end
-      Regions.parse(File.read(file))
+      Regions.parse(File.read(file, encoding: "utf-8"))
     end
   end
 end
