@@ -54,15 +54,16 @@ module Curtilage
 
   SOURCES = %i[auto geofabrik overture].freeze
   # :auto builds a Geofabrik region once this many pins need it (or it's
-  # already cached); fewer pins are cheaper to read from Overture.
-  AUTO_BUILD_MIN_PINS = 20
+  # already cached); fewer pins are cheaper to read from Overture. Measured:
+  # Overture about 5.6 s a pin, a mid-size US state about 60-90 s to build.
+  AUTO_BUILD_MIN_PINS = 10
 
   # Results for many pins, in pin order, looking features up once per group
   # of pins that share data.
   #
   # Where the data comes from (source:, default Curtilage.config.source):
   # - :auto (the default): regions with many pins (auto_build_min_pins:,
-  #   default 20) or already in cache_dir are built from Geofabrik; scattered
+  #   default 10) or already in cache_dir are built from Geofabrik; scattered
   #   pins are read from Overture Maps, seconds each and nothing downloaded.
   # - :geofabrik: always build the pins' regions (private: the host only
   #   learns the region), in cache_dir if given (reused for a month), else in
@@ -88,15 +89,11 @@ module Curtilage
     auto = AutoData.new(cache_dir: cache_dir || config.cache_dir, **lookup.slice(:duckdb, :extension_directory),
                         **data.slice(:max_age_days, :ml_footprints, :parallel_builds))
     built, read = if source == :auto
-                    auto_plan(pins, auto,
-                              data.fetch(:auto_build_min_pins, AUTO_BUILD_MIN_PINS))
+                    auto_plan(pins, auto, data.fetch(:auto_build_min_pins, AUTO_BUILD_MIN_PINS))
                   else
-                    [
-                      pins.each_index.to_a, []
-                    ]
+                    [pins.each_index.to_a, []]
                   end
-    merge(pins.size, [built, from_builds(pins.values_at(*built), auto, lookup, options)],
-          [read, read.empty? ? [] : from_overture(pins.values_at(*read), lookup, data, options)])
+    build_and_read(pins, built, read, auto, lookup: lookup, data: data, options: options)
   ensure
     auto&.cleanup
   end
@@ -109,6 +106,13 @@ module Curtilage
     counts = around.flatten.map(&:path).tally
     build = counts.keys.select { |path| counts[path] >= min_pins || auto.fresh_region?(path) }
     pins.each_index.partition { |i| around[i].any? && around[i].all? { |r| build.include?(r.path) } }
+  end
+
+  # Builds and Overture reads wait on different hosts: run them side by side.
+  def self.build_and_read(pins, built, read, auto, lookup:, data:, options:)
+    builds = Thread.new { from_builds(pins.values_at(*built), auto, lookup, options) }
+    reads = read.empty? ? [] : from_overture(pins.values_at(*read), lookup, data, options)
+    merge(pins.size, [built, builds.value], [read, reads])
   end
 
   def self.from_builds(pins, auto, lookup, options)

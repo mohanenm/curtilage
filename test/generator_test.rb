@@ -138,6 +138,16 @@ class GeneratorTest < Minitest::Test
 
   # The road (y = -11) is closer to the building (edge y = -7.5) than half
   # its width: the premises still keep 3 m in front of the building.
+  # The pin stands on the pavement 6 m from the road centreline (y = -8),
+  # closer than half the road's width: the trim stops short of the pin too.
+  def test_road_trim_keeps_the_pin_inside
+    pavement = [polygon("building", 1, -10, 0, 10, 15), road(4, "secondary", [[-200, -8], [200, -8]])]
+    result = Curtilage.generate(PIN, pavement, method: :grow_trim)
+
+    assert_predicate result, :ok?
+    assert Curtilage::Geometry.contains?(xy(result), [0.0, 0.0])
+  end
+
   def test_kerb_offset_keeps_room_in_front_of_the_building
     tight = scene.first(3) + [road(4, "secondary", [[-200, -11], [200, -11]])]
     ys = xy(Curtilage.generate(PIN, tight, method: :grow_trim)).map(&:last)
@@ -310,7 +320,7 @@ class GeneratorTest < Minitest::Test
   # Nothing bounds a 2 km grow to the north, so grow_trim fails validation
   # (too large) and the building fallback is used.
   def test_propose_falls_back_to_building_and_flags_it
-    result = Curtilage.generate(PIN, scene, grow_m: 2_000)
+    result = Curtilage.generate(PIN, scene, grow_m: 2_000, parking_reach_m: -1)
 
     assert_equal :building, result.method_name
     assert_includes result.flags, :fallback

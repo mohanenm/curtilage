@@ -58,9 +58,18 @@ module Curtilage
     def add_parking(poly, lots, site)
       far = fence(site, site.opts[:parking_max_extent_m])
       parts = lots.map { |lot| share_lot(Geometry.clip_convex(lot.xy, far), lot, site) }
-      grown = Geometry.counter_clockwise(Geometry.convex_hull(poly + parts.select { |p| p.size >= 3 }.flatten(1)))
+      grown = lot_box(poly + parts.select { |p| p.size >= 3 }.flatten(1), far, site.target)
       grown = add_entrances(grown, far, site)
       keep_off_neighbours(grown, site.features, site.target, site.opts, site.log)
+    end
+
+    # The rectangle, square to the building, around the premises and the
+    # claimed lot, kept inside the fence (roads trimmed). A plain hull would
+    # draw a diagonal across the corner wherever the lot reaches the street
+    # on one side only; hand-drawn premises are rectangles.
+    def lot_box(points, fence, target)
+      box = Geometry.oriented_box(points, target.rectangle[:angle])
+      Geometry.counter_clockwise(Geometry.clip_convex(box, fence))
     end
 
     # The box around the building, reach metres out, trimmed at roads.
