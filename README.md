@@ -195,6 +195,8 @@ The gem only talks to public map-data hosts, and only when it needs data: Geofab
 | `lib/curtilage/footprints.rb` | Optional machine-learned footprints (Microsoft) |
 | `lib/curtilage/download.rb` | HTTPS downloads from allowed hosts, with size caps |
 | `lib/curtilage/config.rb` | Shared settings (`Curtilage.configure`, environment variables) |
+| `lib/curtilage/duckdb.rb` | Runs the DuckDB CLI |
+| `lib/curtilage/error.rb` | `Curtilage::Error`, the base of every error the gem raises |
 | `exe/curtilage` | `curtilage generate`, `preview`, `build` and `doctor` |
 | `Dockerfile` | The gem with DuckDB, ready to run |
 | `docs/reference.md` | Every option, setting, flag and command |
