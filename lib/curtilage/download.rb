@@ -51,11 +51,12 @@ module Curtilage
     def read(host, path, max_bytes:)
       with_retries("reading https://#{host}#{path}") do
         start(host) do |http|
-          res = http.get(path)
-          check(res, host, path)
-          raise Error, "too large: https://#{host}#{path}" if res.body.bytesize > max_bytes
-
-          res.body
+          body = nil
+          http.request_get(path) do |res|
+            check(res, host, path)
+            body = stream(res, String.new, max_bytes)
+          end
+          body
         end
       end
     end
@@ -91,7 +92,7 @@ module Curtilage
           check(res, host, path)
           raise Error, "too large: https://#{host}#{path}" if res.content_length.to_i > max_bytes
 
-          stream(res, dest, max_bytes)
+          File.open(dest, "wb") { |f| stream(res, f, max_bytes) }
         end
       end
     end
@@ -137,16 +138,17 @@ module Curtilage
       raise Transient, "curl failed for https://#{host}#{path}" unless $CHILD_STATUS.success?
     end
 
-    def stream(res, dest, max_bytes)
+    # Appends the response body to out (a file or a binary string), stopping
+    # as soon as it passes max_bytes rather than after it has all arrived.
+    def stream(res, out, max_bytes)
       bytes = 0
-      File.open(dest, "wb") do |f|
-        res.read_body do |chunk|
-          bytes += chunk.bytesize
-          raise Error, "download over #{max_bytes} bytes" if bytes > max_bytes
+      res.read_body do |chunk|
+        bytes += chunk.bytesize
+        raise Error, "download over #{max_bytes} bytes" if bytes > max_bytes
 
-          f.write(chunk)
-        end
+        out << chunk
       end
+      out
     end
 
     def start(host, &)

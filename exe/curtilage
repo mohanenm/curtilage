@@ -3,7 +3,6 @@
 
 require "optparse"
 require "json"
-require "open3"
 require "tmpdir"
 require "curtilage"
 
@@ -157,24 +156,21 @@ def doctor(args)
 end
 
 def check_duckdb(settings)
-  version, status = Open3.capture2(settings[:duckdb], "--version")
-  raise Errno::ENOENT unless status.success?
+  version, err, status = Curtilage::DuckDB.capture(settings[:duckdb], "", "--version")
+  abort "DuckDB (#{settings[:duckdb]}) failed to run: #{err.strip[0, 300]}" unless status.success?
 
   puts "DuckDB: #{version.strip}"
-rescue Errno::ENOENT
-  abort "DuckDB CLI not found (#{settings[:duckdb]}). Install DuckDB 1.4 (https://duckdb.org/docs/installation/), " \
-        "or set CURTILAGE_DUCKDB to its path."
+rescue Curtilage::Error => e
+  abort e.message
 end
 
 def check_extensions(settings)
   dir = settings[:extension_directory]
-  sql = [("SET extension_directory = '#{dir.gsub("'", "''")}';" if dir),
+  sql = [("SET extension_directory = #{Curtilage::DuckDB.quote(dir)};" if dir),
          "INSTALL spatial; LOAD spatial; INSTALL httpfs; LOAD httpfs;"].compact.join("\n")
-  _, err, status = Open3.capture3(settings[:duckdb], stdin_data: sql)
-  unless status.success?
-    abort "DuckDB extensions (spatial, httpfs) could not be installed or loaded: #{err.strip[0,
-                                                                                             300]}"
-  end
+  _, err, status = Curtilage::DuckDB.capture(settings[:duckdb], sql)
+  abort "DuckDB extensions (spatial, httpfs) could not be installed or loaded: #{err.strip[0, 300]}" \
+    unless status.success?
 
   puts "Extensions: spatial and httpfs ready"
 end

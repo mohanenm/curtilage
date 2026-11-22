@@ -31,7 +31,7 @@ module Curtilage
     # spot: count it once.
     def distinct(points, within = ACCESS_MERGE_M)
       points.each_with_object([]) do |p, out|
-        out << p unless out.any? { |q| Math.hypot(p[0] - q[0], p[1] - q[1]) < within }
+        out << p unless out.any? { |q| Geometry.distance(p, q) < within }
       end
     end
 
@@ -56,11 +56,11 @@ module Curtilage
 
     # Length of premises edges running along a public road.
     def frontage(premises, features)
-      roads = features.roads.select { |r| PUBLIC_HIGHWAYS.include?(r.highway) }
+      roads = features.public_roads
       premises.each_index.sum do |i|
         a = premises[i]
         b = premises[(i + 1) % premises.size]
-        along_road?(Geometry.lerp(a, b, 0.5), roads) ? Math.hypot(b[0] - a[0], b[1] - a[1]) : 0
+        along_road?(Geometry.lerp(a, b, 0.5), roads) ? Geometry.distance(a, b) : 0
       end
     end
 
@@ -71,8 +71,6 @@ module Curtilage
       end
     end
 
-    def to_lnglat(xy, pin)
-      Geometry.unproject(xy, pin).map { |lng, lat| [lng.round(7), lat.round(7)] }
-    end
+    def to_lnglat(xy, pin) = Geometry.lnglat(xy, pin)
   end
 end

@@ -56,10 +56,7 @@ module Curtilage
     end
 
     def box(pin, radius)
-      lng = Float(pin[0])
-      lat = Float(pin[1])
-      raise ArgumentError, "pin out of range: #{pin.inspect}" unless lng.abs <= 180 && lat.abs <= 90
-
+      lng, lat = Lookup.checked(pin)
       [lng - radius, lat - radius, lng + radius, lat + radius]
     end
 

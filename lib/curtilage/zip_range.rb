@@ -193,8 +193,12 @@ module Curtilage
         @remaining = @member.compressed_size
       end
 
+      # Raw member bytes: inflated first when the member is compressed.
       def write(bytes)
-        data = @inflate ? @inflate.inflate(bytes) : bytes
+        write_inflated(@inflate ? @inflate.inflate(bytes) : bytes)
+      end
+
+      def write_inflated(data)
         @written += data.bytesize
         raise ZipRange::Corrupt, "#{@member.name} inflates past its size" if @written > @member.uncompressed_size
 
@@ -204,19 +208,13 @@ module Curtilage
 
       def finish_member
         if @inflate
-          write_tail(@inflate.finish)
+          write_inflated(@inflate.finish)
           @inflate.close
         end
         @file.close
         check_member
         @paths << @path
         start_member
-      end
-
-      def write_tail(data)
-        @written += data.bytesize
-        @crc = Zlib.crc32(data, @crc)
-        @file.write(data)
       end
 
       def check_member

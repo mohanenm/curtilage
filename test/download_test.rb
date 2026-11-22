@@ -43,6 +43,15 @@ class DownloadTest < Minitest::Test
     assert_equal 1, calls
   end
 
+  def test_stream_stops_at_the_size_cap
+    res = Object.new
+    def res.read_body(&) = %w[abc def gh].each(&)
+
+    assert_equal "abcdefgh", D.stream(res, String.new, 8)
+    error = assert_raises(D::Error) { D.stream(res, String.new, 5) }
+    assert_includes error.message, "over 5 bytes"
+  end
+
   def test_curl_can_be_turned_off
     ENV["CURTILAGE_CURL"] = "0"
 

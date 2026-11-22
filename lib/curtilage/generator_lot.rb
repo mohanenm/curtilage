@@ -10,8 +10,9 @@ module Curtilage
     # Mapped parking that touches the building or holds the pin is the
     # site's lot.
     # A lot touching shared_lot_buildings or more other buildings is a shared
-    # (shopping-centre) lot: splitting it between them leaves slivers, and it
-    # isn't this site's alone, so it's left out and flagged.
+    # (shopping-centre) lot: it isn't this site's alone, so share_lot later
+    # claims only the part nearer this building than the others (or centre
+    # takes the whole centre, with scope: :centre).
     #
     # Parking garages, carports and canopies next to the building count as
     # lot too (LOT_TYPES). Returns [the site's lots, those of them shared].
@@ -28,9 +29,9 @@ module Curtilage
           shared << lot
           log.note("parking #{lot.id} (#{lot.area.round} m2) is shared with #{others} other buildings: " \
                    "claimed the part nearer this building than the others")
-          next true
+        else
+          log.note("#{lot_label(lot)} (#{lot.area.round} m2) touches the building, so it's part of the lot")
         end
-        log.note("#{lot_label(lot)} (#{lot.area.round} m2) touches the building, so it's part of the lot")
         true
       end
       [lots, shared]
@@ -110,9 +111,7 @@ module Curtilage
 
     def meets_public_road?(points, features)
       street = points.filter_map do |p|
-        nearest_street_point(p, features)&.then do |q|
-          Math.hypot(q[0] - p[0], q[1] - p[1])
-        end
+        nearest_street_point(p, features)&.then { |q| Geometry.distance(p, q) }
       end
       street.any? { |d| d <= ENTRANCE_MAX_M }
     end
@@ -122,15 +121,16 @@ module Curtilage
     # (the driveway reaches the street elsewhere, beyond the premises).
     def street_access(points, features)
       pair = points.filter_map { |p| nearest_street_point(p, features)&.then { |q| [p, q] } }
-                   .min_by { |p, q| Math.hypot(q[0] - p[0], q[1] - p[1]) }
-      return nil unless pair && Math.hypot(pair[1][0] - pair[0][0], pair[1][1] - pair[0][1]) <= ENTRANCE_MAX_M
+                   .min_by { |p, q| Geometry.distance(p, q) }
+      return nil unless pair && Geometry.distance(*pair) <= ENTRANCE_MAX_M
 
       pair.last
     end
 
     # A lot the site shares with one or two other buildings is still the
-    # site's (three or more is a shopping-centre lot, left out earlier): it is
-    # claimed whole, and keep_off_neighbours stays clear of their walls.
+    # site's: it is claimed whole, and keep_off_neighbours stays clear of
+    # their walls. A shopping-centre lot (shared_lot_buildings or more) is
+    # split halfway with each building on it.
     # Homes are the exception: a lot touching one is split halfway with it,
     # so the claim stops short of the yard.
     def share_lot(part, lot, site)

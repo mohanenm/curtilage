@@ -36,6 +36,8 @@ module Curtilage
       end
     end
 
+    # The methods generate accepts, and the order propose falls back through.
+    # Kept apart on purpose: a method can be offered without being a fallback.
     METHODS = %i[grow_trim building].freeze
     CHAIN = %i[grow_trim building].freeze
 
@@ -137,7 +139,7 @@ module Curtilage
       raise ArgumentError, "unknown option(s): #{unknown.join(", ")} (see Generator::DEFAULTS)" if unknown.any?
 
       opts = DEFAULTS.merge(options)
-      raise ArgumentError, "unknown scope: #{opts[:scope].inspect} (have: site, centre)" \
+      raise ArgumentError, "unknown scope: #{opts[:scope].inspect} (have: #{SCOPES.join(", ")})" \
         unless SCOPES.include?(opts[:scope])
       raise ArgumentError, "unknown buildings: #{opts[:buildings].inspect} (have: #{BUILDING_SOURCES.join(", ")})" \
         unless BUILDING_SOURCES.include?(opts[:buildings])
@@ -196,7 +198,7 @@ module Curtilage
     end
 
     def ring_of(xy, pin)
-      ring = Geometry.unproject(xy, pin).map { |lng, lat| [lng.round(7), lat.round(7)] }
+      ring = Geometry.lnglat(xy, pin)
       ring << ring.first
     end
 
@@ -214,7 +216,8 @@ module Curtilage
       target = find_building(features, opts, log)
       return [nil, nil] unless target
 
-      poly = trim_at_roads(grown(target, opts, log), features, target, opts, log)
+      log.note("grew the building rectangle by #{opts[:grow_m]} m")
+      poly = trim_at_roads(grown(target, opts[:grow_m], opts), features, target, opts, log)
       lots, shared = own_parking(features, target, opts, log)
       return [centre(shared, Site.new(features, target, opts, log)), target] if opts[:scope] == :centre && shared.any?
 
@@ -235,17 +238,14 @@ module Curtilage
       target = find_building(features, opts, log)
       return [nil, nil] unless target
 
-      rect = Geometry.minimum_rectangle(target.xy)
       log.note("building rectangle grown by #{opts[:building_margin_m]} m")
-      box = Geometry.oriented_box(rect[:corners], rect[:angle], opts[:building_margin_m])
-      poly = Geometry.counter_clockwise(Geometry.convex_hull(box + pin_square(opts)))
-      [trim_at_roads(poly, features, target, opts, log), target]
+      [trim_at_roads(grown(target, opts[:building_margin_m], opts), features, target, opts, log), target]
     end
 
-    def grown(target, opts, log)
+    # The building's rectangle grown by margin metres, taking in the pin.
+    def grown(target, margin, opts)
       rect = target.rectangle
-      log.note("grew the building rectangle by #{opts[:grow_m]} m")
-      box = Geometry.oriented_box(rect[:corners], rect[:angle], opts[:grow_m])
+      box = Geometry.oriented_box(rect[:corners], rect[:angle], margin)
       Geometry.counter_clockwise(Geometry.convex_hull(box + pin_square(opts)))
     end
 
@@ -276,16 +276,16 @@ module Curtilage
       target
     end
 
-    # A tiny structure (a canopy or kiosk roof) right by the pin loses to a
-    # real building in reach: the canopy then counts as part of the lot.
-    # The usual reason is a building missing from OSM, which machine-learned
-    # footprints often fill.
+    # Why no building was found, as a hint: usually it's missing from OSM,
+    # which machine-learned footprints often fill.
     def missing_hint(opts)
       return "" unless opts[:buildings] == :osm
 
       " (it may be missing from OpenStreetMap: try buildings: :osm_filled)"
     end
 
+    # A tiny structure (a canopy or kiosk roof) right by the pin loses to a
+    # real building in reach: the canopy then counts as part of the lot.
     def nearest_building(features, opts, log)
       in_reach = features.buildings.map { |b| [Geometry.distance_to_edges(b.xy, [0.0, 0.0]), b] }
                          .select { |d, _| d <= opts[:building_max_distance_m] }
@@ -328,7 +328,7 @@ module Curtilage
     # [road, stretch points, offset] for every public road and railway near
     # the building, nearest stretch first.
     def road_stretches(features, target, opts)
-      (features.roads.select { |road| PUBLIC_HIGHWAYS.include?(road.highway) } + features.railways)
+      (features.public_roads + features.railways)
         .flat_map { |road| road_runs(road, target).map { |run| [road, run, road_offset(road, opts)] } }
         .sort_by { |_, run, _| run.map { |p| Geometry.distance_to_edges(target.hull, p) }.min }
     end
@@ -360,7 +360,7 @@ module Curtilage
     end
 
     def samples(a, b)
-      n = [(Math.hypot(b[0] - a[0], b[1] - a[1]) / 2).ceil, 1].max
+      n = [(Geometry.distance(a, b) / 2).ceil, 1].max
       (0..n).map { |i| Geometry.lerp(a, b, i.fdiv(n)) }
     end
 
@@ -393,7 +393,7 @@ module Curtilage
       sum_cos = 0.0
       sum_sin = 0.0
       points.each_cons(2) do |a, b|
-        length = Math.hypot(b[0] - a[0], b[1] - a[1])
+        length = Geometry.distance(a, b)
         angle = 2 * Math.atan2(b[1] - a[1], b[0] - a[0])
         sum_cos += length * Math.cos(angle)
         sum_sin += length * Math.sin(angle)
@@ -459,12 +459,11 @@ module Curtilage
           next
         end
         home = home?(other, features, opts) && (behind_home?(other, target, features) ? :behind : :beside)
-        other.instance_variable_set(:@home, home)
-        strip = neighbour_strip(other, opts)
+        strip = neighbour_strip(other, home, opts)
         trimmed = split_from_neighbour(poly, hull, other_hull, target.rectangle[:angle], stop: strip_stop(strip))
         next if trimmed.size < 3
 
-        explain_cut(log, other, strip)
+        explain_cut(log, other, home, strip)
         poly = trimmed
       end
       poly
@@ -472,8 +471,9 @@ module Curtilage
 
     HALFWAY = ->(near, far) { (near + far) / 2 }
 
-    def explain_cut(log, other, strip)
-      case other.instance_variable_get(:@home)
+    # home: :behind, :beside or false (not a home).
+    def explain_cut(log, other, home, strip)
+      case home
       when :behind
         log.flag(:near_houses, "the lot backs onto a home (building #{other.id}): split halfway, " \
                                "check where its yard starts")
@@ -490,9 +490,9 @@ module Curtilage
     # own lot is the likelier owner, so claim it up to a narrow strip.
     # Small neighbours (houses, below neighbour_strip_min_area_m2) keep the
     # halfway split: their yard isn't the site's.
-    def neighbour_strip(other, opts)
+    def neighbour_strip(other, home, opts)
       gap = opts[:neighbour_gap_m]
-      return nil if other.instance_variable_get(:@home) == :behind
+      return nil if home == :behind
 
       gap if gap && other.area >= opts[:neighbour_strip_min_area_m2]
     end
@@ -524,11 +524,10 @@ module Curtilage
     end
 
     def nearest_street_point(point, features)
-      roads = features.roads.select { |r| PUBLIC_HIGHWAYS.include?(r.highway) }
-      points = roads.flat_map do |road|
+      points = features.public_roads.flat_map do |road|
         road.xy.each_cons(2).map { |a, b| Geometry.closest_point_on_segment(point, a, b) }
       end
-      points.min_by { |p| Math.hypot(p[0] - point[0], p[1] - point[1]) }
+      points.min_by { |p| Geometry.distance(p, point) }
     end
 
     # Never less than halfway: a narrow gap is still split down the middle.

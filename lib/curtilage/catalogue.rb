@@ -14,12 +14,7 @@ module Curtilage
         Geometry.box_points(pin, margin).any? { |point| holds?(point) }
       end
 
-      def holds?(point)
-        lng, lat = point
-        return false unless lng.between?(bbox[0], bbox[2]) && lat.between?(bbox[1], bbox[3])
-
-        rings.nil? || rings.any? { |ring| Geometry.contains?(ring, point) }
-      end
+      def holds?(point) = Geometry.in_rings?(point, bbox, rings)
     end
 
     attr_reader :regions

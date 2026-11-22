@@ -73,7 +73,7 @@ module Curtilage
 
     def ensure_built(region)
       with_lock(name(region)) do
-        next if fresh?(File.join(@cache_dir, "#{name(region)}.json"))
+        next if fresh_region?(region.path)
 
         @opts[:log].puts "building #{region.path} into #{@cache_dir}"
         build(region)

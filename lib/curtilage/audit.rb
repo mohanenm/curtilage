@@ -61,12 +61,12 @@ module Curtilage
 
     # Metres of public road and railway more than 1 m inside the polygon.
     def road_length(xy, features)
-      lines = features.roads.select { |r| Generator::PUBLIC_HIGHWAYS.include?(r.highway) } + features.railways
+      lines = features.public_roads + features.railways
       lines.sum { |line| line.xy.each_cons(2).sum { |a, b| inside_length(xy, a, b) } }
     end
 
     def inside_length(xy, a, b)
-      length = Math.hypot(b[0] - a[0], b[1] - a[1])
+      length = Geometry.distance(a, b)
       n = [length.ceil, 1].max
       inside = n.times.count do |i|
         p = Geometry.lerp(a, b, (i + 0.5) / n)
