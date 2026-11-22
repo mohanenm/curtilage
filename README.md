@@ -4,7 +4,7 @@
 
 Generates a site's **premises polygon** (the building plus its customer-facing lot) and a **store zone** (the building's own outline) from free map data, so nobody has to draw them by hand.
 
-**Status:** 0.2.0. The rules were tuned on 20 real store sites, then tested on sites they had never seen: 51 across the US, Brazil and Hungary, and 164 mostly in the western US. On the 164, 97% got a valid polygon; nearly all the misses were buildings absent from OpenStreetMap. Results were reviewed against hand-drawn premises and by eye on aerial imagery. The API may still change before 1.0.
+**Status:** 0.2.0. Tested on over 200 real store sites around the US, plus some in South America and Europe. The rules were tuned on 20 of them and checked on the rest, which they had never seen; on the largest batch, 97% got a valid polygon, and nearly all the misses were buildings absent from OpenStreetMap. Results were reviewed against hand-drawn premises and by eye on aerial imagery. The API may still change before 1.0.
 
 ## Quick start
 
