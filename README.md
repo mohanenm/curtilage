@@ -212,6 +212,12 @@ bundle exec rake        # tests and RuboCop
 
 The gem itself is plain Ruby with no runtime gem dependencies. Getting data needs the [DuckDB](https://duckdb.org/) CLI (1.4 LTS or 2.0); its `spatial` and `httpfs` extensions install themselves on first use. Point `CURTILAGE_DUCKDB` and `CURTILAGE_EXTENSIONS` at them if they aren't in the default places (`curtilage doctor` checks). `unzip` is only needed if a server can't serve byte ranges.
 
+## Versioning
+
+- The public API is what [docs/reference.md](docs/reference.md) documents: the Ruby methods and their options, result fields, flags, errors, and the command line with its exit status. Anything not listed there is internal and may change at any time.
+- Until 1.0, a minor release (0.x) may change the public API. Every such change is listed under **Breaking** in [CHANGELOG.md](CHANGELOG.md), with how to update. Patch releases don't change it.
+- Rule improvements can change the polygons a release produces; the changelog says when they do.
+
 ## Data and licensing
 
 - Map data © [OpenStreetMap contributors](https://www.openstreetmap.org/copyright), available under the [ODbL](https://opendatacommons.org/licenses/odbl/). Show this attribution wherever generated premises are displayed; results carry it (`to_geojson`).
