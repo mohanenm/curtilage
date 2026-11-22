@@ -351,7 +351,7 @@ module Curtilage
 
     ROAD_REACH_M = 60   # only the road this close to the building bounds the site
     ROAD_BEND_DEG = 30  # a sharper turn starts a new stretch
-    ROAD_SNAP_DEG = 5   # a stretch this close to a building side is squared to it
+    ROAD_SNAP_DEG = 10  # a stretch this close to a building side is squared to it
 
     # Points every 2 m along the road within reach of the building, split
     # into stretches wherever the road turns by more than ROAD_BEND_DEG.
@@ -388,24 +388,43 @@ module Curtilage
 
     # [centroid, unit direction] of the stretch's best-fit line, snapped to a
     # building side when nearly parallel.
+    #
+    # The direction is the length-weighted average of the stretch's own
+    # heading (a short jog or fork barely moves it), and the line sits at the
+    # median of the points across it (one side branch can't drag it).
     def fit_direction(points, target)
-      centre = Geometry.centroid(points)
-      heading = principal_heading(points, centre)
+      heading = mean_heading(points)
       axis = target.rectangle[:angle]
       2.times do |k|
         side = axis + (k * Math::PI / 2)
         heading = side if angle_between(heading % Math::PI, side % Math::PI) <= ROAD_SNAP_DEG * Math::PI / 180
       end
-      [centre, [Math.cos(heading), Math.sin(heading)]]
+      direction = [Math.cos(heading), Math.sin(heading)]
+      [median_line_point(points, direction), direction]
     end
 
-    # Direction of greatest spread (the first principal axis), in radians.
-    def principal_heading(points, centre)
-      cx, cy = centre
-      sxx = points.sum { |x, _| (x - cx)**2 }
-      syy = points.sum { |_, y| (y - cy)**2 }
-      sxy = points.sum { |x, y| (x - cx) * (y - cy) }
-      0.5 * Math.atan2(2 * sxy, sxx - syy)
+    # Average of segment headings as undirected lines (doubled angles), each
+    # weighted by its length.
+    def mean_heading(points)
+      sum_cos = 0.0
+      sum_sin = 0.0
+      points.each_cons(2) do |a, b|
+        length = Math.hypot(b[0] - a[0], b[1] - a[1])
+        angle = 2 * Math.atan2(b[1] - a[1], b[0] - a[0])
+        sum_cos += length * Math.cos(angle)
+        sum_sin += length * Math.sin(angle)
+      end
+      Math.atan2(sum_sin, sum_cos) / 2
+    end
+
+    # A point on the line with the given direction that has half the points
+    # on each side.
+    def median_line_point(points, direction)
+      normal = [-direction[1], direction[0]]
+      centre = Geometry.centroid(points)
+      offsets = points.map { |p| Geometry.dot([p[0] - centre[0], p[1] - centre[1]], normal) }.sort
+      median = offsets[offsets.size / 2]
+      [centre[0] + (normal[0] * median), centre[1] + (normal[1] * median)]
     end
 
     # Clips at the line, moved toward the pin by up to offset metres but

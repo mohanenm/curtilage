@@ -320,7 +320,7 @@ class GeneratorTest < Minitest::Test
   # Nothing bounds a 2 km grow to the north, so grow_trim fails validation
   # (too large) and the building fallback is used.
   def test_propose_falls_back_to_building_and_flags_it
-    result = Curtilage.generate(PIN, scene, grow_m: 2_000)
+    result = Curtilage.generate(PIN, scene, grow_m: 2_000, parking_reach_m: -1)
 
     assert_equal :building, result.method_name
     assert_includes result.flags, :fallback
