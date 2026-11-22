@@ -1,6 +1,6 @@
 # Reference
 
-Everything curtilage offers, in one place. For an overview, see the [README](../README.md).
+Everything curtilage offers, in one place. For an overview, see the [README](../README.md). This is the public API: anything not listed here is internal and may change without notice.
 
 ## Ruby API
 
@@ -23,9 +23,9 @@ Premises for many pins, in pin order. Pins that share map data share the work.
 | `catalogue:` | none | A `Curtilage::Catalogue` of regions built ahead of time (overrides `source:`). |
 | `parquet:` | none | One built file, or a list, local or `s3://`, `gs://`, `https://` (overrides `source:`). |
 | `lookup:` | `{}` | `duckdb:`, `extension_directory:` (default: the configuration), `setup_sql:` (e.g. `CREATE SECRET` for a private bucket), `radius_deg:` (how far around each pin to read, default 0.004). |
-| `data:` | `{}` | For builds: `max_age_days:` (31), `ml_footprints:` (`"microsoft"`), `parallel_builds:` (1; each build peaks near 600 MB, so raise it to 2-3 only on machines with the memory). For `:auto`: `auto_build_min_pins:` (10). For Overture: `release:` (default: the latest). |
+| `data:` | `{}` | For builds: `max_age_days:` (31), `ml_footprints:` (`"microsoft"`), `parallel_builds:` (1; each build peaks near 600 MB, so raise it to 2-3 only on machines with the memory). For `:auto`: `auto_build_min_pins:` (10). For Overture: `release:` (default: the latest). `log:` where build progress goes (anything with `puts`; default standard error). |
 | `preset:` | none | `:whole_lot`, `:tight` or `:centre` (below). |
-| `method:` | none | `:grow_trim`, `:building` or `:box` to force one method, no fallback. |
+| `method:` | none | `:grow_trim` or `:building` to force one method, no fallback. |
 | `keep_features:` | `false` | Keep each result's map data in `Result#features` (needed by `Preview` to draw the surroundings). Off by default to save memory on big batches. |
 | any generation option | | See the table below. |
 
@@ -63,6 +63,10 @@ Premises from features you already have (from `Curtilage::Lookup.features` or `C
 | `frontage_m` | Length of premises edges running along a public road. |
 | `access_points` | `[[lng, lat], ...]`: where driveways taken into the premises meet the street (entrances within 10 m are counted once). |
 
+### Errors
+
+Every error the gem raises on purpose is a `Curtilage::Error` (or a subclass: `Lookup::Error`, `Overture::Error`, `Build::Error`, `Download::Error`, `Footprints::Error`, `ZipRange::Unsupported`, `ZipRange::Corrupt`), so `rescue Curtilage::Error` catches them all. Mistakes in what you pass (a bad pin, option or file) raise `ArgumentError`. A missing DuckDB binary is a `Curtilage::Error` saying what to install.
+
 ### Presets
 
 | Preset | What |
@@ -75,7 +79,7 @@ Any option passed with a preset overrides it.
 
 ### Generation options
 
-All distances in metres, areas in square metres. These are `Curtilage::Generator::DEFAULTS`.
+All distances in metres, areas in square metres. These are `Curtilage::Generator::DEFAULTS`. An unknown or misspelt option raises `ArgumentError`.
 
 | Option | Default | What |
 |---|---|---|
@@ -99,11 +103,12 @@ All distances in metres, areas in square metres. These are `Curtilage::Generator
 | `large_building_m2` | `5000` | Flag `large_building` above this. |
 | `large_building_note_m2` | `1500` | Above this, explained (and the store zone flagged `store_may_be_unit`). |
 | `building_margin_m` | `20` | The fallback's margin around the building rectangle. |
-| `box_side_m` | `60` | Side of the baseline `:box` method's square. |
 | `max_vertices` | `10` | The premises are simplified to at most this many corners (never cutting the building). |
 | `max_store_vertices` | `20` | The store outline is simplified to at most this many corners. |
 
 ### Flags
+
+The same list is `Curtilage::FLAGS` (flag => what it asks a person to check).
 
 | Flag | Meaning |
 |---|---|
@@ -123,7 +128,7 @@ All distances in metres, areas in square metres. These are `Curtilage::Generator
 Reading pins:
 
 - `Formats.read_pins(path)`: pins from a `.csv` or `.geojson`/`.json` file, as `[{ id:, pin: [lng, lat] }, ...]`. `Formats.parse_pins(text, :csv | :geojson)` does the same from a string.
-- CSV: a header row, then one pin per row. Longitude is the column named `lng`, `lon`, `long`, `longitude` or `x`; latitude is `lat`, `latitude` or `y`; the id, if any, is `id`, `site_id` or `name` (names are case-insensitive). Quoted fields, a byte-order mark and blank lines are fine.
+- CSV: a header row, then one pin per row. Longitude is the column named `lng`, `lon`, `long` or `longitude`; latitude is `lat` or `latitude`; the id, if any, is `id`, `site_id` or `name` (names are case-insensitive). Quoted fields, a byte-order mark and blank lines are fine.
 - GeoJSON: a FeatureCollection of Point features (or one Point feature). The id is the feature's `id`, or its `id` or `name` property.
 - Pins without an id are numbered from 1. Files are capped at 50 MB and 100,000 pins.
 

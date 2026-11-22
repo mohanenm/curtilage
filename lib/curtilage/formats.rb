@@ -16,8 +16,8 @@ module Curtilage
   module Formats
     INPUTS = %i[csv geojson].freeze
     OUTPUTS = %i[geojson csv kml].freeze
-    LNG_COLUMNS = %w[lng lon long longitude x].freeze
-    LAT_COLUMNS = %w[lat latitude y].freeze
+    LNG_COLUMNS = %w[lng lon long longitude].freeze
+    LAT_COLUMNS = %w[lat latitude].freeze
     ID_COLUMNS = %w[id site_id name].freeze
     # Inputs are untrusted: cap what a file can ask for.
     MAX_PINS = 100_000

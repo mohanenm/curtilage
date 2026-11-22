@@ -61,4 +61,34 @@ class PreviewTest < Minitest::Test
       assert_includes err, "No such file"
     end
   end
+
+  # A fake DuckDB that finds nothing: runs the whole command line, offline.
+  def test_cli_writes_each_format_and_the_page
+    exe = File.expand_path("../exe/curtilage", __dir__)
+    lib = File.expand_path("../lib", __dir__)
+    Dir.mktmpdir do |dir|
+      fake = File.join(dir, "duckdb")
+      File.write(fake, "#!/bin/sh\ncat > /dev/null\necho '[]'\n")
+      File.chmod(0o755, fake)
+      File.write(File.join(dir, "region.parquet"), "")
+      File.write(File.join(dir, "pins.csv"), "id,lng,lat\nshop-1,-80.0,35.0\n")
+      args = ["--in", File.join(dir, "pins.csv"), "--parquet", File.join(dir, "region.parquet"), "--duckdb", fake]
+      run = ->(*extra) { Open3.capture3("ruby", "-I", lib, exe, *extra, *args) }
+
+      _, err, status = run.call("generate", "--out", File.join(dir, "out.csv"))
+
+      assert_equal 1, status.exitstatus # nothing usable: no map data
+      assert_includes err, "0 of 1 ok"
+      rows = Curtilage::Formats.parse_csv(File.read(File.join(dir, "out.csv")))
+
+      assert_equal %w[shop-1 false], rows[1].values_at(0, 3)
+      out, = run.call("generate", "--format", "kml")
+
+      assert_includes out, "<kml"
+      _, _, status = run.call("preview", "--out", File.join(dir, "page.html"))
+
+      assert_predicate status, :success?
+      assert_includes File.read(File.join(dir, "page.html")), "shop-1"
+    end
+  end
 end

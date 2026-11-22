@@ -41,7 +41,7 @@ module Curtilage
                                            max_bytes: MAX_INDEX_BYTES))
         boxes.each_slice(Lookup::PINS_PER_CALL).flat_map do |batch|
           rows = run(data_sql(batch, files_for(index, batch, options), options), options)
-          group(rows, batch.size)
+          Lookup.group_rows(rows, batch.size)
         end
       end
     end
@@ -177,15 +177,6 @@ module Curtilage
       raise Error, "duckdb output too large" if out.bytesize > MAX_OUTPUT_BYTES
 
       out.strip.empty? ? [] : JSON.parse(out)
-    end
-
-    def group(rows, count)
-      lists = Array.new(count) { [] }
-      rows.each do |row|
-        index = row.delete("pin_index")
-        lists[index] << row.merge("geometry" => JSON.parse(row["geometry"])) if index.is_a?(Integer)
-      end
-      lists
     end
 
     def quote(text) = DuckDB.quote(text)

@@ -19,20 +19,6 @@ module Curtilage
     VIEW_M = 120
     SCALE_BAR_M = 50
 
-    # Shown when hovering over a flag.
-    FLAG_HELP = {
-      near_houses: "The lot borders a home: check where the yard or property line is.",
-      large_building: "Building over 5,000 m2: may be shared by several tenants.",
-      small_building: "Building under 50 m2: may be a kiosk or canopy rather than the store.",
-      building_not_under_pin: "No building under the pin; the nearest one within 30 m was used.",
-      store_may_be_unit: "The store zone is a building over 1,500 m2: the store may be one unit of it.",
-      shopping_centre: "The whole shopping centre was mapped (scope: :centre).",
-      fallback: "The main method failed validation; the building rectangle was used.",
-      ml_footprint: "Built on a machine-learned footprint, not an OSM building.",
-      no_data: "No map data covers the pin.",
-      partial_data: "Part of the area around the pin is in a region that isn't built.",
-    }.freeze
-
     module_function
 
     # ids: one label per result (default 1, 2, ...). buffer_m: also draw the
@@ -103,7 +89,7 @@ module Curtilage
     end
 
     def flag_tags(flags)
-      flags.map { |f| %(<span class="flag" title="#{h(FLAG_HELP[f])}">#{h(f)}</span>) }.join(" ")
+      flags.map { |f| %(<span class="flag" title="#{h(FLAGS[f])}">#{h(f)}</span>) }.join(" ")
     end
 
     def shapes(result, buffer_m)

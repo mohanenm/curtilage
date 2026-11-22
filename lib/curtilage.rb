@@ -34,6 +34,21 @@ require_relative "curtilage/preview"
 # Premises generation from OpenStreetMap data. Coordinates are [lng, lat]
 # throughout, matching GeoJSON.
 module Curtilage
+  # Every review flag a result can carry, and what it asks a person to check.
+  # The preview shows these on hover; README and the reference list them too.
+  FLAGS = {
+    near_houses: "The lot borders a home: check where the yard or property line is.",
+    large_building: "Building over 5,000 m2: may be shared by several tenants.",
+    small_building: "Building under 50 m2: may be a kiosk or canopy rather than the store.",
+    building_not_under_pin: "No building under the pin; the nearest one within 30 m was used.",
+    store_may_be_unit: "The store zone is a building over 1,500 m2: the store may be one unit of it.",
+    shopping_centre: "The whole shopping centre was mapped (scope: :centre).",
+    fallback: "The main method failed validation; the building rectangle was used.",
+    ml_footprint: "Built on a machine-learned footprint, not an OSM building.",
+    no_data: "No map data covers the pin.",
+    partial_data: "Part of the area around the pin is in a region that isn't built.",
+  }.freeze
+
   # Named styles; any option passed alongside a preset overrides it.
   PRESETS = {
     # The building and its whole lot: parking up to the kerb, railways and a
@@ -92,7 +107,8 @@ module Curtilage
   #
   # lookup: options for Lookup and the build (duckdb:, extension_directory:,
   # setup_sql:). data: max_age_days:, ml_footprints:, parallel_builds:,
-  # auto_build_min_pins:, release: (Overture). keep_features: true keeps each
+  # auto_build_min_pins:, log: (where build progress goes, anything with
+  # puts; default $stderr), release: (Overture). keep_features: true keeps each
   # result's map data (Result#features, which Preview draws); by default it's
   # dropped to save memory. Other options go to generate.
   def self.generate_many(pins, keep_features: false, **)
@@ -114,7 +130,7 @@ module Curtilage
     return from_overture(pins, lookup, data, options) if source == :overture
 
     auto = AutoData.new(cache_dir: cache_dir || config.cache_dir, **lookup.slice(:duckdb, :extension_directory),
-                        **data.slice(:max_age_days, :ml_footprints, :parallel_builds))
+                        **data.slice(:max_age_days, :ml_footprints, :parallel_builds, :log))
     built, read = if source == :auto
                     auto_plan(pins, auto, data.fetch(:auto_build_min_pins, AUTO_BUILD_MIN_PINS))
                   else

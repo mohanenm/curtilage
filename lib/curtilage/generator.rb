@@ -14,8 +14,7 @@ module Curtilage
   # generator_store.rb; they reopen this module.
   #
   # Compared against hand-drawn premises, grow_trim was the best method and
-  # building the best fallback. box is only a baseline: it crosses public
-  # roads on most sites, so propose never offers it.
+  # building the best fallback.
   module Generator
     # Kept so code written against 0.2 (Curtilage::Generator::Result) works.
     Result = Curtilage::Result
@@ -37,7 +36,7 @@ module Curtilage
       end
     end
 
-    METHODS = %i[grow_trim building box].freeze
+    METHODS = %i[grow_trim building].freeze
     CHAIN = %i[grow_trim building].freeze
 
     PUBLIC_HIGHWAYS = %w[
@@ -86,7 +85,6 @@ module Curtilage
       small_building_m2: 50,         # flag: a building this small may be a kiosk or shed, not the site
       parking_max_extent_m: 60,      # grow_trim: claim parking at most this far from the building
       building_margin_m: 20,         # building: margin around its rectangle
-      box_side_m: 60,                # box: side of the square around the pin
       max_vertices: 10,              # the premises are simplified to at most this many corners
       store_zone: true,              # also return the building's outline as the store zone
       max_store_vertices: 20,        # the store outline is simplified to at most this many corners
@@ -242,13 +240,6 @@ module Curtilage
       box = Geometry.oriented_box(rect[:corners], rect[:angle], opts[:building_margin_m])
       poly = Geometry.counter_clockwise(Geometry.convex_hull(box + pin_square(opts)))
       [trim_at_roads(poly, features, target, opts, log), target]
-    end
-
-    # A square around the pin: the baseline the other methods must beat.
-    def box(_features, opts, log)
-      half = opts[:box_side_m] / 2.0
-      log.note("square of #{opts[:box_side_m]} m around the pin")
-      [[[-half, -half], [half, -half], [half, half], [-half, half]], nil]
     end
 
     def grown(target, opts, log)

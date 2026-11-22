@@ -64,8 +64,13 @@ module Curtilage
     end
 
     def group(out, count)
+      group_rows(out.strip.empty? ? [] : JSON.parse(out), count)
+    end
+
+    # Rows tagged with pin_index -> one feature list per pin. Overture uses
+    # it too.
+    def group_rows(rows, count)
       lists = Array.new(count) { [] }
-      rows = out.strip.empty? ? [] : JSON.parse(out)
       rows.each do |row|
         index = row.delete("pin_index")
         lists[index] << row.merge("geometry" => JSON.parse(row["geometry"])) if index.is_a?(Integer)

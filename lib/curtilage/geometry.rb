@@ -32,6 +32,14 @@ module Curtilage
       Math.cos(lat * Math::PI / 180) * METRES_PER_DEGREE_LNG_AT_EQUATOR
     end
 
+    # The pin [lng, lat] and the corners of the box margin degrees around it:
+    # the points that decide which regions a pin's surroundings fall in.
+    def box_points(pin, margin)
+      lng, lat = pin
+      [[lng, lat], [lng - margin, lat - margin], [lng + margin, lat - margin], [lng - margin, lat + margin],
+       [lng + margin, lat + margin]]
+    end
+
     def closed?(ring)
       ring.size > 1 && ring.first == ring.last
     end

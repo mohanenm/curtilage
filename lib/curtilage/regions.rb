@@ -76,10 +76,7 @@ module Curtilage
     # Regions holding any part of the box around the pin: one, or two near a
     # border.
     def around(pin, margin)
-      lng, lat = pin
-      corners = [[lng, lat], [lng - margin, lat - margin], [lng + margin, lat - margin],
-                 [lng - margin, lat + margin], [lng + margin, lat + margin]]
-      corners.filter_map { |c| self.for(c) }.uniq(&:path)
+      Geometry.box_points(pin, margin).filter_map { |c| self.for(c) }.uniq(&:path)
     end
   end
 end

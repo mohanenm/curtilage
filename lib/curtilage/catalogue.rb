@@ -11,7 +11,7 @@ module Curtilage
     # builds), in which case its bounding box stands in.
     Region = Struct.new(:name, :parquet, :bbox, :rings, :metadata, keyword_init: true) do
       def covers?(pin, margin)
-        Catalogue.box_points(pin, margin).any? { |point| holds?(point) }
+        Geometry.box_points(pin, margin).any? { |point| holds?(point) }
       end
 
       def holds?(point)
@@ -20,13 +20,6 @@ module Curtilage
 
         rings.nil? || rings.any? { |ring| Geometry.contains?(ring, point) }
       end
-    end
-
-    # The pin and the corners of the box read around it.
-    def self.box_points(pin, margin)
-      lng, lat = pin
-      [[lng, lat], [lng - margin, lat - margin], [lng + margin, lat - margin], [lng - margin, lat + margin],
-       [lng + margin, lat + margin]]
     end
 
     attr_reader :regions
@@ -61,7 +54,7 @@ module Curtilage
     # none do. Regions built before outlines were recorded count by their
     # bounding box, which can't tell :partial from :full.
     def coverage(pin, margin: Lookup::DEFAULT_RADIUS_DEG)
-      points = Catalogue.box_points(pin, margin)
+      points = Geometry.box_points(pin, margin)
       held = points.count { |point| @regions.any? { |r| r.holds?(point) } }
       return :none if held.zero?
 
