@@ -5,6 +5,7 @@
 - Fix: a pin standing near the street (closer to the road centreline than half the road's width) could fall outside the premises, which then failed validation. Road trims now stay clear of the pin as well as the building, and simplifying the premises always keeps the pin.
 - `:auto` runs its Geofabrik builds and Overture reads side by side instead of one after the other.
 - `:auto` builds a region from 10 pins instead of 20 (`auto_build_min_pins`), from measured timings: Overture about 5.6 s a pin, a mid-size US state about 60-90 s to build. Fewer areas go to Overture as a result.
+- Premises edges beside straight roads stay square to the building instead of cutting diagonally across the lot. Each road's direction comes from its length-weighted mean heading (snapped square to the building within 10 degrees, was 5), and the lot grows as a box aligned with the building rather than the convex hull of building and parking. On 164 held-out sites, slanted road edges fell from 15 sites to 7 and valid results rose from 158 to 159.
 - README: test results on held-out sites, and a "Known limitations" section.
 
 ## [0.2.0] - 2026-11-22
