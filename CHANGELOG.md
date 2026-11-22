@@ -2,9 +2,11 @@
 
 ## [Unreleased]
 
+## [0.3.0] - 2026-11-22
+
 ### Breaking
 
-The API may change before 1.0; these changes need callers to adjust.
+The API may change before 1.0; these changes need callers of 0.2.0 to adjust.
 
 - Command line: `generate` output is now always one GeoJSON FeatureCollection, each feature with `properties.id`. Several pins used to print a JSON list, and one pin with `--no-store` a single Feature.
 - Generation options are checked: a misspelt or unknown option raises `ArgumentError` instead of being silently ignored.
