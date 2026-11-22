@@ -68,6 +68,35 @@ class LookupTest < Minitest::Test
     end
   end
 
+  def test_extension_setting_follows_the_duckdb_version
+    Dir.mktmpdir do |dir|
+      { "v2.0.1 (Cyanoptera) 8d78114e90" => "SET extension_directories = ['/ext'];",
+        "v1.4.4 (Andium) 6ddac802ff" => "SET extension_directory = '/ext';" }.each_with_index do |(version, sql), i|
+        fake = File.join(dir, "duckdb#{i}")
+        File.write(fake, "#!/bin/sh\ncat > /dev/null\nprintf '%s\\n' '#{version}'\n")
+        File.chmod(0o755, fake)
+
+        assert_equal sql, Curtilage::DuckDB.extension_sql("/ext", fake)
+      end
+    end
+  end
+
+  def test_duckdb_agent_mode_is_turned_off
+    Dir.mktmpdir do |dir|
+      fake = File.join(dir, "duckdb")
+      File.write(fake, <<~SH)
+        #!/bin/sh
+        cat > /dev/null
+        [ "$DUCKDB_AGENT_MODE" = 0 ] || { printf 'agent mode on\n' >&2; exit 1; }
+        printf '[]\n'
+      SH
+      File.chmod(0o755, fake)
+      File.write(File.join(dir, "a.parquet"), "")
+
+      assert_equal [], L.features(parquet: File.join(dir, "a.parquet"), pin: [-80.0, 35.0], duckdb: fake)
+    end
+  end
+
   def test_missing_duckdb_is_a_curtilage_error
     Dir.mktmpdir do |dir|
       File.write(File.join(dir, "a.parquet"), "")

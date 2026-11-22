@@ -166,7 +166,7 @@ end
 
 def check_extensions(settings)
   dir = settings[:extension_directory]
-  sql = [("SET extension_directory = #{Curtilage::DuckDB.quote(dir)};" if dir),
+  sql = [(Curtilage::DuckDB.extension_sql(dir, settings[:duckdb]) if dir),
          "INSTALL spatial; LOAD spatial; INSTALL httpfs; LOAD httpfs;"].compact.join("\n")
   _, err, status = Curtilage::DuckDB.capture(settings[:duckdb], sql)
   abort "DuckDB extensions (spatial, httpfs) could not be installed or loaded: #{err.strip[0, 300]}" \

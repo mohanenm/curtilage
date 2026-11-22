@@ -205,7 +205,7 @@ module Curtilage
 
     def setup(opts)
       ext = opts[:extension_directory]
-      [("SET extension_directory = #{quote(File.expand_path(ext))};" if ext),
+      [(DuckDB.extension_sql(ext, opts[:duckdb]) if ext),
        "SET memory_limit = #{quote(opts[:memory_limit])};",
        "SET threads = #{Integer(opts[:threads])};",
        ("SET temp_directory = #{quote(opts[:temp_directory])};" if opts[:temp_directory])].compact.join("\n")

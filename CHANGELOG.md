@@ -5,6 +5,7 @@
 ### Fixed
 
 - Text is read as UTF-8 whatever the system locale. Under `LANG=C` (common in containers and cron jobs), a map feature with a non-ASCII name (such as "Café") made lookups raise an encoding error, and so did a data catalogue whose attribution contained `©`.
+- Works with DuckDB 2.0 (what Homebrew installs) as well as 1.4: it renamed the extension folder setting and deprecated `s3_region` (both warned inside the JSON output), dropped the `->` lambda syntax and stopped reading stored geometry bytes without a cast. Run from an AI coding tool, DuckDB 2.0's "agent mode" is turned off for the gem's own calls, since it changes the output.
 - No warning on Ruby 4.0, which removed the CGI library (only `cgi/escape` is loaded now). CI tests Ruby 4.0 too.
 - Small downloads (region and file indexes) stop as soon as they pass their size cap, instead of after the whole response has arrived.
 

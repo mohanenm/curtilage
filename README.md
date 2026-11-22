@@ -8,7 +8,7 @@ Generates a site's **premises polygon** (the building plus its customer-facing l
 
 ## Quick start
 
-1. Install the gem (`gem install curtilage`, or `gem "curtilage"` in your Gemfile) and the [DuckDB CLI](https://duckdb.org/docs/installation/) 1.4. Check with `curtilage doctor`; DuckDB's extensions install themselves.
+1. Install the gem (`gem install curtilage`, or `gem "curtilage"` in your Gemfile; Ruby 3.2 or newer) and the [DuckDB CLI](https://duckdb.org/docs/installation/), 1.4 LTS or 2.0 (`brew install duckdb` gives 2.0). Check with `curtilage doctor`; DuckDB's extensions install themselves.
 2. Ask for premises:
 
 ```ruby
@@ -210,7 +210,7 @@ bin/setup
 bundle exec rake        # tests and RuboCop
 ```
 
-The gem itself is plain Ruby with no runtime gem dependencies. Getting data needs the [DuckDB](https://duckdb.org/) CLI (1.4 LTS); its `spatial` and `httpfs` extensions install themselves on first use. Point `CURTILAGE_DUCKDB` and `CURTILAGE_EXTENSIONS` at them if they aren't in the default places (`curtilage doctor` checks). `unzip` is only needed if a server can't serve byte ranges.
+The gem itself is plain Ruby with no runtime gem dependencies. Getting data needs the [DuckDB](https://duckdb.org/) CLI (1.4 LTS or 2.0); its `spatial` and `httpfs` extensions install themselves on first use. Point `CURTILAGE_DUCKDB` and `CURTILAGE_EXTENSIONS` at them if they aren't in the default places (`curtilage doctor` checks). `unzip` is only needed if a server can't serve byte ranges.
 
 ## Data and licensing
 

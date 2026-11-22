@@ -146,7 +146,7 @@ module Curtilage
         "((subtype = 'road' AND class IN (#{ROAD_CLASSES.map { |c| quote(c) }.join(", ")})) " \
         "OR (subtype = 'rail' AND class IN (#{RAIL_CLASSES.keys.map { |c| quote(c) }.join(", ")}))) " \
         "AND NOT list_has_any(flatten(list_transform(coalesce(road_flags, []) || coalesce(rail_flags, []), " \
-        "f -> f.\"values\")), ['is_tunnel', 'is_bridge'])"
+        "lambda f: f.\"values\")), ['is_tunnel', 'is_bridge'])"
       else
         "subtype = 'transit' AND class = 'parking' AND ST_GeometryType(geometry) IN ('POLYGON', 'MULTIPOLYGON')"
       end
@@ -154,11 +154,15 @@ module Curtilage
 
     def setup(options, remote:)
       ext = options[:extension_directory]
-      [("SET extension_directory = #{quote(File.expand_path(ext))};" if ext), "INSTALL spatial; LOAD spatial;",
+      [(DuckDB.extension_sql(ext, options.fetch(:duckdb, "duckdb")) if ext), "INSTALL spatial; LOAD spatial;",
        # Pins in the same files share one read of each file's metadata.
        (if remote
-          "INSTALL httpfs; LOAD httpfs; SET s3_region = 'us-west-2'; SET parquet_metadata_cache = true; " \
-            "SET enable_http_metadata_cache = true;"
+          # A region-only secret (no keys, so reads stay anonymous): DuckDB 2.0
+          # deprecates SET s3_region and warns about it inside -json output.
+          # CREATE SECRET prints a result row of its own, so it goes nowhere.
+          "INSTALL httpfs; LOAD httpfs;\n.output #{File::NULL}\nCREATE TEMPORARY SECRET overture (TYPE s3, " \
+            "REGION 'us-west-2', SCOPE 's3://overturemaps-us-west-2');\n.output\n" \
+            "SET parquet_metadata_cache = true; SET enable_http_metadata_cache = true;"
         end)].compact.join("\n")
     end
 
