@@ -26,8 +26,10 @@ Gem::Specification.new do |spec|
 
   spec.metadata["rubygems_mfa_required"] = "true"
 
-  spec.files = Dir["lib/**/*.rb", "sql/**/*.sql", "exe/*", "docs/**/*.md"] +
-               %w[README.md CHANGELOG.md LICENSE.txt SECURITY.md]
+  # Docs are listed by name: design notes, recipes and drafts under docs/
+  # stay out of the gem unless added here.
+  spec.files = Dir["lib/**/*.rb", "sql/**/*.sql", "exe/*"] +
+               %w[docs/reference.md README.md CHANGELOG.md LICENSE.txt SECURITY.md]
   spec.bindir = "exe"
   spec.executables = spec.files.grep(%r{\Aexe/}) { |f| File.basename(f) }
   spec.require_paths = ["lib"]

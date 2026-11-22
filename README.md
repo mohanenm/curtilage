@@ -111,7 +111,7 @@ Under each map: the flags (hover for what they mean), the building and premises 
 
 At the top, a count of sites that are ok, flagged or unusable, and controls to show only some (sites that need a look, invalid ones, or those with a given flag) and to sort them (input order, needs a look first, id, or premises size).
 
-![The preview page: two of six randomly chosen sites, each drawn with its premises, store zone, parking, roads and driveway entrances](docs/preview.png)
+![The preview page: two of six randomly chosen sites, each drawn with its premises, store zone, parking, roads and driveway entrances](https://raw.githubusercontent.com/mohanenm/curtilage/main/docs/preview.png)
 
 *Randomly chosen locations, not real sites. Map data © OpenStreetMap contributors.*
 
@@ -212,11 +212,17 @@ bundle exec rake        # tests and RuboCop
 
 The gem itself is plain Ruby with no runtime gem dependencies. Getting data needs the [DuckDB](https://duckdb.org/) CLI (1.4 LTS or 2.0); its `spatial` and `httpfs` extensions install themselves on first use. Point `CURTILAGE_DUCKDB` and `CURTILAGE_EXTENSIONS` at them if they aren't in the default places (`curtilage doctor` checks). `unzip` is only needed if a server can't serve byte ranges.
 
+## Versioning
+
+- The public API is what [docs/reference.md](docs/reference.md) documents: the Ruby methods and their options, result fields, flags, errors, and the command line with its exit status. Anything not listed there is internal and may change at any time.
+- Until 1.0, a minor release (0.x) may change the public API. Every such change is listed under **Breaking** in [CHANGELOG.md](CHANGELOG.md), with how to update. Patch releases don't change it.
+- Rule improvements can change the polygons a release produces; the changelog says when they do.
+
 ## Data and licensing
 
 - Map data © [OpenStreetMap contributors](https://www.openstreetmap.org/copyright), available under the [ODbL](https://opendatacommons.org/licenses/odbl/). Show this attribution wherever generated premises are displayed; results carry it (`to_geojson`).
 - With `source: :overture`: also © Overture Maps Foundation. With ML footprints: also Microsoft Global ML Building Footprints (ODbL).
 - Downloaded files and built Parquet files are OSM-derived data. They're never committed to this repository (see `.gitignore`).
-- This repository must never contain real site locations, client data or credentials. Tests and examples use made-up coordinates.
+- This repository must never contain real site locations, private data or credentials. Tests and examples use made-up coordinates.
 - The code is MIT-licensed (see `LICENSE.txt`). The map data keeps its own licence (ODbL).
 - Security issues: see `SECURITY.md` (report privately through GitHub).
