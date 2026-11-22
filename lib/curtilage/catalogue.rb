@@ -23,16 +23,21 @@ module Curtilage
     # where the Parquet files are served from instead (s3://bucket/path,
     # https://...), when the metadata is local but the data isn't.
     def self.from_dir(dir, base_url: nil)
-      regions = Dir.glob(File.join(dir, "*.json")).filter_map do |file|
-        meta = JSON.parse(File.read(file, encoding: "utf-8"))
-        next unless meta["format"] == 1 && meta["parquet"] && meta["bbox"]&.size == 4
+      new(Dir.glob(File.join(dir, "*.json")).filter_map { |file| region(file, dir, base_url) })
+    end
 
-        parquet = base_url ? "#{base_url.chomp("/")}/#{meta["parquet"]}" : File.join(dir, meta["parquet"])
-        rings = meta["outline"]&.map { |ring| ring.map { |lng, lat| [Float(lng), Float(lat)] } }
-        Region.new(name: meta["region"], parquet: parquet, bbox: meta["bbox"].map { |v| Float(v) }, rings: rings,
-                   metadata: meta)
-      end
-      new(regions)
+    # A Region from one <region>.json, or nil if it isn't one. A file that
+    # claims to be one but can't be read is an error, not a silent gap.
+    def self.region(file, dir, base_url)
+      meta = JSON.parse(File.read(file, encoding: "utf-8"))
+      return nil unless meta.is_a?(Hash) && meta["format"] == 1 && meta["parquet"] && meta["bbox"]&.size == 4
+
+      parquet = base_url ? "#{base_url.chomp("/")}/#{meta["parquet"]}" : File.join(dir, meta["parquet"])
+      rings = meta["outline"]&.map { |ring| ring.map { |lng, lat| [Float(lng), Float(lat)] } }
+      Region.new(name: meta["region"], parquet: parquet, bbox: meta["bbox"].map { |v| Float(v) }, rings: rings,
+                 metadata: meta)
+    rescue JSON::ParserError, ArgumentError, TypeError, NoMethodError => e
+      raise Error, "unreadable catalogue file #{file}: #{e.message[0, 200]}"
     end
 
     def initialize(regions)

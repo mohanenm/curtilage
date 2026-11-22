@@ -4,6 +4,21 @@ $LOAD_PATH.unshift File.expand_path("../lib", __dir__)
 require "curtilage"
 require "minitest/autorun"
 
+# Swaps a module method for impl while the block runs, then puts it back,
+# visibility included, without Ruby's method-redefined warnings.
+def with_stub(mod, name, impl)
+  host = mod.singleton_class
+  original = host.instance_method(name)
+  hidden = host.private_method_defined?(name)
+  host.send(:remove_method, name)
+  host.send(:define_method, name, impl)
+  yield
+ensure
+  host.send(:remove_method, name)
+  host.send(:define_method, name, original)
+  host.send(:private, name) if hidden
+end
+
 # Synthetic scene: a 20 x 15 m building at a made-up pin, a public road 40 m
 # south, a neighbour 50 m east and a parking lot west of the building.
 module SyntheticScene

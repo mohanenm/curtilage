@@ -35,7 +35,14 @@ module Curtilage
 
       FileUtils.mkdir_p(dir)
       # Each run (adjacent members) streams on its own connection, in parallel.
-      runs(chosen).map { |run| Thread.new { fetch_run(host, path, run, dir) } }.flat_map(&:value)
+      # All finish before any error is raised: the caller may delete dir.
+      threads = runs(chosen).map do |run|
+        Thread.new do
+          Thread.current.report_on_exception = false
+          fetch_run(host, path, run, dir)
+        end
+      end
+      Curtilage.join_all(threads).flatten
     end
 
     # The zip's central directory, each entry knowing where its bytes end.
@@ -128,6 +135,8 @@ module Curtilage
       def <<(chunk)
         @buffer << chunk
         step while @member && !@buffer.empty? && progress?
+      rescue Zlib::Error => e
+        raise ZipRange::Corrupt, "#{@member&.name} doesn't inflate: #{e.message}"
       end
 
       def finish

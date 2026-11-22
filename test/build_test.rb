@@ -74,4 +74,12 @@ class BuildTest < Minitest::Test
     assert_includes view, "read_json(['/t/a.csv.gz']"
     assert_includes view, "ST_MakeEnvelope(-81.0, 34.0, -80.0, 35.0)"
   end
+
+  def test_bad_date_is_refused_before_any_download
+    Dir.mktmpdir do |dir|
+      assert_raises(ArgumentError) do
+        Curtilage::Build.run("delaware", out_dir: dir, work_dir: dir, date: "../../x", log: StringIO.new)
+      end
+    end
+  end
 end

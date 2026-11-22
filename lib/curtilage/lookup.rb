@@ -92,6 +92,9 @@ module Curtilage
        setup_sql].compact.join("\n")
     end
 
+    # wkb::GEOMETRY: DuckDB 1.4 reads the column as a geometry already, 2.0
+    # as bytes, and only a cast suits both.
+    #
     # One scan per pin with constant bounds, so DuckDB can skip every row
     # group (and file) away from that pin; a join on a pins table can't.
     def query(files, pins, radius)
@@ -99,7 +102,7 @@ module Curtilage
       scans = pins.each_with_index.map do |pin, i|
         lng, lat = checked(pin)
         "SELECT #{i} AS pin_index, id, feature, highway, name, " \
-          "ST_AsGeoJSON(ST_GeomFromWKB(wkb))::VARCHAR AS geometry FROM read_parquet([#{list}]) " \
+          "ST_AsGeoJSON(wkb::GEOMETRY)::VARCHAR AS geometry FROM read_parquet([#{list}]) " \
           "WHERE max_lng >= #{lng - radius} AND min_lng <= #{lng + radius} " \
           "AND max_lat >= #{lat - radius} AND min_lat <= #{lat + radius}"
       end
@@ -107,11 +110,15 @@ module Curtilage
     end
 
     def checked(pin)
+      raise ArgumentError, "a pin is [lng, lat]: #{pin.inspect}" unless pin.is_a?(Array) && pin.size >= 2
+
       lng = Float(pin[0])
       lat = Float(pin[1])
       raise ArgumentError, "pin out of range: #{pin.inspect}" unless lng.abs <= 180 && lat.abs <= 90
 
       [lng, lat]
+    rescue TypeError
+      raise ArgumentError, "a pin is two numbers: #{pin.inspect}"
     end
 
     def quote(text) = DuckDB.quote(text)

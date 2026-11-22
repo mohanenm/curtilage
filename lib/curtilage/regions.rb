@@ -23,6 +23,8 @@ module Curtilage
     def self.parse(json)
       features = JSON.parse(json).fetch("features")
       new(features.filter_map { |f| region(f) })
+    rescue JSON::ParserError, KeyError, TypeError, NoMethodError => e
+      raise Error, "unreadable Geofabrik region index: #{e.message[0, 200]}"
     end
 
     def self.region(feature)
