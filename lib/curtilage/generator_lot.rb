@@ -86,17 +86,24 @@ module Curtilage
     # doesn't.
     def add_entrances(poly, fence, site)
       points = site.features.roads.reject { |r| PUBLIC_HIGHWAYS.include?(r.highway) }.flat_map do |road|
-        pts = road.xy.each_cons(2).flat_map { |a, b| samples(a, b) }.select { |p| Geometry.contains?(fence, p) }
-        next [] unless pts.any? { |p| Geometry.contains?(poly, p) } && meets_public_road?(pts, site.features)
-
-        pts = pts.select { |p| Geometry.contains?(poly, p) || Geometry.distance_to_edges(poly, p) <= ENTRANCE_REACH_M }
-
-        site.log.note("took in the driveway #{road.id} to the street")
-        pts
+        driveway(road, poly, fence, site)
       end
       return poly if points.empty?
 
       Geometry.counter_clockwise(Geometry.convex_hull(poly + points))
+    end
+
+    # The points of a service road to take in, or none if it isn't a
+    # driveway from the lot to the street.
+    def driveway(road, poly, fence, site)
+      pts = road.xy.each_cons(2).flat_map { |a, b| samples(a, b) }.select { |p| Geometry.contains?(fence, p) }
+      return [] unless pts.any? { |p| Geometry.contains?(poly, p) } && meets_public_road?(pts, site.features)
+
+      site.log.note("took in the driveway #{road.id} to the street")
+      taken = pts.select { |p| Geometry.contains?(poly, p) || Geometry.distance_to_edges(poly, p) <= ENTRANCE_REACH_M }
+      access = street_access(taken, site.features)
+      site.log.access_point(access) if access
+      taken
     end
 
     def meets_public_road?(points, features)
@@ -106,6 +113,17 @@ module Curtilage
         end
       end
       street.any? { |d| d <= ENTRANCE_MAX_M }
+    end
+
+    # Where the part of a driveway taken in meets the street: the point on a
+    # public road nearest it, or nil if that's further than ENTRANCE_MAX_M
+    # (the driveway reaches the street elsewhere, beyond the premises).
+    def street_access(points, features)
+      pair = points.filter_map { |p| nearest_street_point(p, features)&.then { |q| [p, q] } }
+                   .min_by { |p, q| Math.hypot(q[0] - p[0], q[1] - p[1]) }
+      return nil unless pair && Math.hypot(pair[1][0] - pair[0][0], pair[1][1] - pair[0][1]) <= ENTRANCE_MAX_M
+
+      pair.last
     end
 
     # A lot the site shares with one or two other buildings is still the

@@ -22,7 +22,15 @@ result.flags        # anything a person should check, e.g. [:near_houses]
 result.to_geojson   # ready to draw or save, with the attribution to show
 ```
 
-Or from the shell: `curtilage generate --pin -80.0,35.0`.
+Or from the shell:
+
+```sh
+curtilage generate --pin -80.0,35.0                      # GeoJSON to the screen
+curtilage generate --in sites.csv --out premises.csv     # a CSV of pins (lng, lat, optional id) in; CSV, GeoJSON or KML out
+curtilage preview --in sites.csv                          # an HTML page with a map of each site, to check by eye
+```
+
+No Ruby? `docker build -t curtilage .` and `docker run --rm -v "$PWD:/work" curtilage generate --in sites.csv --out premises.csv`.
 
 That's all the setup: map data is fetched as needed. Everything else (batches, Overture instead of Geofabrik, caching, styles, every option and flag) is in the [reference](docs/reference.md).
 
@@ -58,6 +66,8 @@ end
 - Styles: `preset: :whole_lot` (default), `:tight` (building plus a small margin) or `:centre`. `store_zone: false` skips the store zone. Every rule's distance is an option ([reference](docs/reference.md#generation-options)).
 - Built ahead of time, for instant lookups: `curtilage build tennessee`, then `generate_many(pins, catalogue: Curtilage::Catalogue.from_dir("."))`. Files can also live in a bucket (`s3://`, `gs://`, `https://`).
 - Check an existing polygon: `Curtilage::Audit.check(pin, ring, features)` returns `:ok`, `:review` (with reasons) or `:invalid`.
+- More from each result: `result.details` (the building, mapped parking area and an estimate of spaces, street frontage, where driveways meet the street), `result.buffered(15)` (the premises grown 15 m, for a geofence with a margin), `result.to_wkt`. `Curtilage.building_at(pin)` returns just the building.
+- Files: `Curtilage::Formats` reads pins from CSV or GeoJSON and writes results as GeoJSON, CSV or KML; `Curtilage::Preview.html(results)` makes the review page (`generate_many(pins, keep_features: true)` to draw the surroundings).
 
 ### Flags
 
@@ -108,6 +118,10 @@ The gem only talks to public map-data hosts, and only when it needs data: Geofab
 | `lib/curtilage/generator.rb` | Methods, the fallback chain, road and neighbour trims, flags |
 | `lib/curtilage/generator_lot.rb` | Which parking, garages, canopies and driveways are the site's |
 | `lib/curtilage/generator_store.rb` | The store zone |
+| `lib/curtilage/generator_details.rb` | Facts about the site: parking, frontage, entrances |
+| `lib/curtilage/result.rb` | What generation returns: GeoJSON, WKT, buffering |
+| `lib/curtilage/formats.rb` | Pins in from CSV or GeoJSON; results out as GeoJSON, CSV or KML |
+| `lib/curtilage/preview.rb` | The HTML review page |
 | `lib/curtilage/features.rb` | Parses nearby map features (untrusted) and projects them to metres |
 | `lib/curtilage/geometry.rb` | Plain-Ruby planar geometry |
 | `lib/curtilage/validation.rb` | Checks a polygon against its pin |
@@ -122,7 +136,8 @@ The gem only talks to public map-data hosts, and only when it needs data: Geofab
 | `lib/curtilage/footprints.rb` | Optional machine-learned footprints (Microsoft) |
 | `lib/curtilage/download.rb` | HTTPS downloads from allowed hosts, with size caps |
 | `lib/curtilage/config.rb` | Shared settings (`Curtilage.configure`, environment variables) |
-| `exe/curtilage` | `curtilage generate`, `build` and `doctor` |
+| `exe/curtilage` | `curtilage generate`, `preview`, `build` and `doctor` |
+| `Dockerfile` | The gem with DuckDB, ready to run |
 | `docs/reference.md` | Every option, setting, flag and command |
 | `sql/build_from_shapefiles.sql` | DuckDB query: shapefiles to a features Parquet file |
 | `test/` | Tests, using made-up coordinates only |

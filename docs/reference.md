@@ -8,6 +8,10 @@ Everything curtilage offers, in one place. For an overview, see the [README](../
 
 The simplest call: premises for one `[lng, lat]` pin, fetching map data as configured. Takes the same options as `generate_many`.
 
+### `Curtilage.building_at(pin, **options) → Hash or nil`
+
+Just the building at a pin (the one its premises would be made from): `{ id:, name:, type:, area_m2:, footprint: }`, with `footprint` a closed `[[lng, lat], ...]` ring. `nil` if there is none. Same options as `premises`.
+
 ### `Curtilage.generate_many(pins, **options) → [Result]`
 
 Premises for many pins, in pin order. Pins that share map data share the work.
@@ -22,6 +26,7 @@ Premises for many pins, in pin order. Pins that share map data share the work.
 | `data:` | `{}` | For builds: `max_age_days:` (31), `ml_footprints:` (`"microsoft"`), `parallel_builds:` (1; each build peaks near 600 MB, so raise it to 2-3 only on machines with the memory). For `:auto`: `auto_build_min_pins:` (10). For Overture: `release:` (default: the latest). |
 | `preset:` | none | `:whole_lot`, `:tight` or `:centre` (below). |
 | `method:` | none | `:grow_trim`, `:building` or `:box` to force one method, no fallback. |
+| `keep_features:` | `false` | Keep each result's map data in `Result#features` (needed by `Preview` to draw the surroundings). Off by default to save memory on big batches. |
 | any generation option | | See the table below. |
 
 ### `Curtilage.generate(pin, features, **options) → Result`
@@ -40,7 +45,22 @@ Premises from features you already have (from `Curtilage::Lookup.features` or `C
 | `validation` | `errors`, `warnings` and `metrics` (area, rectangularity, pin inside, distances). |
 | `method_name` | `:grow_trim`, or `:building` after a fallback. |
 | `building` | The id of the building used. |
-| `to_geojson(include_store: false)` | A GeoJSON Feature (premises) with everything above in its properties, including the attribution to show; with `include_store: true`, a FeatureCollection of premises and store zone (`properties.role`). |
+| `pin` | The pin it was made for. |
+| `details` | Facts about the site, rough by nature (open map data); `nil` when no premises were made. See below. |
+| `features` | The map data it was made from (`Curtilage::Features`, in metres around the pin), or `nil` unless `keep_features: true`. |
+| `to_geojson(include_store: false, properties: {})` | A GeoJSON Feature (premises) with everything above in its properties, including the attribution to show; with `include_store: true`, a FeatureCollection of premises and store zone (`properties.role`). `properties:` are merged into each feature's properties (your own id, say). |
+| `to_wkt`, `store_wkt` | The premises and store zone as well-known text (`POLYGON ((lng lat, ...))`), for databases and spreadsheets. |
+| `buffered(metres)` | The premises grown (positive) or shrunk (negative) evenly, as a closed ring: a geofence with a margin. Corners are rounded when growing. `nil` if there are no premises or they shrink away. |
+
+`details`:
+
+| Key | What |
+|---|---|
+| `building` | `{ id:, name:, type:, area_m2:, footprint: }`: the building used (`type` is OSM's `building=*` value). |
+| `parking_area_m2` | Mapped parking inside the premises. |
+| `parking_spaces_estimate` | That area over 25 m2 a space (aisles included). Unmapped parking counts as none. |
+| `frontage_m` | Length of premises edges running along a public road. |
+| `access_points` | `[[lng, lat], ...]`: where driveways taken into the premises meet the street (entrances within 10 m are counted once). |
 
 ### Presets
 
@@ -101,6 +121,9 @@ All distances in metres, areas in square metres. These are `Curtilage::Generator
 
 - `Curtilage::Audit.check(pin, ring, features, thresholds: {}, **options)`: checks an existing polygon. Returns a report with `verdict` (`:ok`, `:review`, `:invalid`), `reasons` (`crosses_road`, `covers_neighbour`, `differs_from_generated`, validation warnings), `overlap`, `road_m`, `neighbour_m2` and the `generated` result.
 - `Curtilage::Validation.check(pin, ring, **thresholds)`: the checks every polygon goes through.
+- `Curtilage::Formats.read_pins(path)` / `parse_pins(text, :csv | :geojson)`: pins from a file, as `[{ id:, pin: }, ...]`. CSV needs a header row with `lng`/`lon`/`longitude` and `lat`/`latitude` columns, and may have `id`, `site_id` or `name`; GeoJSON takes Point features (id from the feature or its `id`/`name` property). Rows without an id are numbered from 1.
+- `Curtilage::Formats.write(results, :geojson | :csv | :kml, ids: nil, store: true)`: results as text. GeoJSON is one FeatureCollection (premises and store zone per pin, `properties.id`); CSV has one row per pin (`id`, `lng`, `lat`, `ok`, `method`, `flags`, `errors`, `building`, the details, `premises_area_m2`, `premises_wkt`, `store_wkt`; cells a spreadsheet would run as formulas are quoted); KML has a placemark per polygon, for Google Earth.
+- `Curtilage::Preview.html(results, ids: nil, title:)`: a self-contained HTML page with a map of each site drawn from its map data (pass results from `generate_many(pins, keep_features: true)`), the premises and store zone on top, flags, details and how each was made. It loads nothing from the internet (no tiles, scripts or fonts), but it holds the coordinates, so share it only as you would them.
 - `Curtilage::Build.run(region, out_dir:, work_dir:, **options)`: build a region's files ahead of time (`date:`, `ml_footprints:`, `memory_limit:` `"400MB"`, `threads:` `1`, `keep_downloads:`). Downloads retry network hiccups (3 tries) and use `curl` when available. Each build records its region's outline from Geofabrik's index.
 - `Curtilage::Catalogue.from_dir(dir, base_url: nil)`: the regions built into a folder; `base_url:` when the Parquet files live in a bucket. It uses each region's recorded outline to decide which files cover a pin, and `coverage(pin)` says whether that's `:full`, `:partial` or `:none`.
 - `Curtilage::Lookup.features(parquet:, pin:)` / `features_many(parquet:, pins:)`: the map features around pins, from built files.
@@ -130,13 +153,26 @@ DuckDB's `spatial` and `httpfs` extensions install themselves on first use.
 ## Command line
 
 ```
-curtilage generate --pin LNG,LAT [--pin LNG,LAT ...] [options]
+curtilage generate (--pin LNG,LAT ... | --in FILE) [--out FILE] [options]
+curtilage preview (--pin LNG,LAT ... | --in FILE) [--out FILE] [options]
 curtilage build REGION [options]
 curtilage doctor
 ```
 
-- `generate` prints GeoJSON (premises and store zone; several pins print a list). Options: `--source auto|geofabrik|overture` (default auto), `--cache-dir DIR`, `--catalogue DIR`, `--parquet FILE`, `--preset NAME`, `--buildings FLAVOUR`, `--[no-]store`, `--duckdb PATH`, `--extension-directory DIR`. Exits 1 if any result isn't usable.
+- `generate` writes the premises and store zone for each pin as one GeoJSON FeatureCollection (each feature has `properties.id`), or CSV or KML. Pins come from `--pin` (repeatable; ids 1, 2, ...) and/or `--in FILE` (CSV or GeoJSON, as `Formats.read_pins`). `--out FILE` writes there instead of printing, in the format its extension names (`.geojson`/`.json`, `.csv`, `.kml`); `--format geojson|csv|kml` overrides. Other options: `--source auto|geofabrik|overture` (default auto), `--cache-dir DIR`, `--catalogue DIR`, `--parquet FILE`, `--preset NAME`, `--buildings FLAVOUR`, `--[no-]store`, `--duckdb PATH`, `--extension-directory DIR`. Exits 1 if any result isn't usable.
+- `preview` generates the same way, then writes an HTML page to check by eye (`--out`, default `curtilage-preview.html`; see `Curtilage::Preview`). Same options as `generate`, except `--format`.
 - `build REGION` writes `REGION.parquet` and `REGION.json`. REGION is a US state (`tennessee`, `new-york`) or a Geofabrik path (`europe/germany/bayern`). Options: `--out DIR` (default `.`), `--work DIR`, `--date YYMMDD`, `--keep-downloads`, `--ml-footprints microsoft`, `--duckdb`, `--extension-directory`.
 - `doctor` checks that DuckDB runs and its extensions load, and says what to install if not.
 
 Run `curtilage COMMAND --help` for the same list.
+
+### Docker
+
+The `Dockerfile` packages the gem with the DuckDB CLI and its extensions; the image runs `curtilage`:
+
+```sh
+docker build -t curtilage .
+docker run --rm -v "$PWD:/work" -v curtilage-cache:/cache curtilage generate --in pins.csv --out premises.csv
+```
+
+`/work` is the working folder; on-demand builds are kept in `/cache` (`CURTILAGE_CACHE_DIR`) and reused for a month.

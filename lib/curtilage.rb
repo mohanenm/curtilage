@@ -5,9 +5,11 @@ require_relative "curtilage/config"
 require_relative "curtilage/geometry"
 require_relative "curtilage/validation"
 require_relative "curtilage/features"
+require_relative "curtilage/result"
 require_relative "curtilage/generator"
 require_relative "curtilage/generator_lot"
 require_relative "curtilage/generator_store"
+require_relative "curtilage/generator_details"
 require_relative "curtilage/lookup"
 require_relative "curtilage/download"
 require_relative "curtilage/zip_range"
@@ -18,6 +20,8 @@ require_relative "curtilage/regions"
 require_relative "curtilage/auto_data"
 require_relative "curtilage/overture"
 require_relative "curtilage/audit"
+require_relative "curtilage/formats"
+require_relative "curtilage/preview"
 
 # Premises generation from OpenStreetMap data. Coordinates are [lng, lat]
 # throughout, matching GeoJSON.
@@ -40,6 +44,13 @@ module Curtilage
   #   result.ok? && result.ring
   def self.premises(pin, **)
     generate_many([pin], **).first
+  end
+
+  # The building at a pin (the one its premises would be made from), with
+  # the same options as premises: { id:, name:, type:, area_m2:, footprint: }
+  # (footprint: [[lng, lat], ...] closed), or nil if there is none.
+  def self.building_at(pin, **)
+    premises(pin, **, store_zone: false).details&.fetch(:building)
   end
 
   # Premises for one pin from features you already have (Lookup.features).
@@ -73,9 +84,17 @@ module Curtilage
   #
   # lookup: options for Lookup and the build (duckdb:, extension_directory:,
   # setup_sql:). data: max_age_days:, ml_footprints:, parallel_builds:,
-  # auto_build_min_pins:, release: (Overture). Other options go to generate.
-  def self.generate_many(pins, source: nil, catalogue: nil, parquet: nil, cache_dir: nil, lookup: {}, data: {},
-                         **options)
+  # auto_build_min_pins:, release: (Overture). keep_features: true keeps each
+  # result's map data (Result#features, which Preview draws); by default it's
+  # dropped to save memory. Other options go to generate.
+  def self.generate_many(pins, keep_features: false, **)
+    results = fetch_and_generate(pins, **)
+    results.each { |r| r.features = nil } unless keep_features
+    results
+  end
+
+  def self.fetch_and_generate(pins, source: nil, catalogue: nil, parquet: nil, cache_dir: nil, lookup: {}, data: {},
+                              **options)
     lookup = duckdb_options(lookup)
     return run_many(pins, catalogue, parquet, lookup, options) if catalogue || parquet
 

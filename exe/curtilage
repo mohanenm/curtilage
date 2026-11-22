@@ -9,12 +9,16 @@ require "curtilage"
 
 USAGE = <<~TEXT
   Usage:
-    curtilage generate --pin LNG,LAT [--pin LNG,LAT ...] [options]
+    curtilage generate (--pin LNG,LAT ... | --in FILE) [--out FILE] [options]
+    curtilage preview (--pin LNG,LAT ... | --in FILE) [--out FILE] [options]
     curtilage build REGION [options]
     curtilage doctor
 
-  generate   Print the premises (and store zone) for one or more pins as GeoJSON.
-             Map data is fetched as needed: nothing to set up or host.
+  generate   The premises (and store zone) for one or more pins, as GeoJSON,
+             CSV or KML. Pins from --pin or a CSV/GeoJSON file. Map data is
+             fetched as needed: nothing to set up or host.
+  preview    Generate, then write an HTML page with a map of each site to
+             check by eye (it loads nothing from the internet).
   build      Build a region's map data ahead of time (a US state such as
              "tennessee", or a Geofabrik path such as "europe/germany/bayern").
   doctor     Check that DuckDB and its extensions are ready.
@@ -29,16 +33,52 @@ def duckdb_flags(parser, opts)
   end
 end
 
-def generate_options(args)
+def generate_options(args, command)
   opts = { pins: [] }
   OptionParser.new do |o|
-    o.banner = "Usage: curtilage generate --pin LNG,LAT [--pin LNG,LAT ...] [options]"
-    o.on("--pin LNG,LAT", "A location; repeat for several") { |v| opts[:pins] << v.split(",").map { |n| Float(n) } }
+    o.banner = "Usage: curtilage #{command} (--pin LNG,LAT ... | --in FILE) [--out FILE] [options]"
+    io_flags(o, opts, command)
     data_flags(o, opts)
     style_flags(o, opts)
     duckdb_flags(o, opts)
   end.parse!(args)
   opts
+end
+
+def io_flags(o, opts, command)
+  o.on("--pin LNG,LAT", "A location; repeat for several") { |v| opts[:pins] << v.split(",").map { |n| Float(n) } }
+  o.on("--in FILE", "Pins from a CSV (lng and lat columns, optional id) or GeoJSON (Point features)") do |v|
+    opts[:in] = v
+  end
+  if command == "preview"
+    o.on("--out FILE", "Where to write the page (default: curtilage-preview.html)") { |v| opts[:out] = v }
+  else
+    o.on("--out FILE", "Write here instead of printing; the format follows the extension") { |v| opts[:out] = v }
+    o.on("--format NAME", Curtilage::Formats::OUTPUTS.map(&:to_s), "geojson (default), csv or kml") do |v|
+      opts[:format] = v.to_sym
+    end
+  end
+end
+
+# [pins, ids] from --pin and --in.
+def read_sites(opts, command)
+  sites = opts[:pins].map.with_index(1) { |pin, i| { id: i.to_s, pin: pin } }
+  sites += Curtilage::Formats.read_pins(opts[:in]) if opts[:in]
+  abort "curtilage #{command}: give --pin LNG,LAT or --in FILE" if sites.empty?
+  bad = sites.find { |s| !Curtilage::Formats.pin?(s[:pin]) }
+  abort "curtilage #{command}: #{bad[:id]}: a pin is LNG,LAT (longitude first)" if bad
+  [sites.map { |s| s[:pin] }, sites.map { |s| s[:id] }]
+rescue ArgumentError, SystemCallError => e
+  abort "curtilage #{command}: #{e.message}"
+end
+
+def run(opts, pins, **extra)
+  catalogue = opts[:catalogue] && Curtilage::Catalogue.from_dir(opts[:catalogue])
+  Curtilage.generate_many(pins, catalogue: catalogue, **opts.slice(:parquet, :source, :cache_dir),
+                                lookup: opts.slice(:duckdb, :extension_directory),
+                                **opts.slice(:preset, :buildings, :store_zone), **extra)
+rescue Errno::ENOENT => e
+  abort "curtilage: #{e.message}. Run \"curtilage doctor\" to check DuckDB is installed."
 end
 
 def data_flags(o, opts)
@@ -61,17 +101,27 @@ def style_flags(o, opts)
 end
 
 def generate(args)
-  opts = generate_options(args)
-  abort "curtilage generate: give at least one --pin LNG,LAT" if opts[:pins].empty?
-  abort "curtilage generate: --pin takes LNG,LAT" unless opts[:pins].all? { |p| p.size == 2 }
-
-  catalogue = opts[:catalogue] && Curtilage::Catalogue.from_dir(opts[:catalogue])
-  results = Curtilage.generate_many(opts[:pins], catalogue: catalogue, **opts.slice(:parquet, :source, :cache_dir),
-                                                 lookup: opts.slice(:duckdb, :extension_directory),
-                                                 **opts.slice(:preset, :buildings, :store_zone))
-  json = results.map { |r| r.to_geojson(include_store: opts.fetch(:store_zone, true)) }
-  puts JSON.pretty_generate(json.size == 1 ? json.first : json)
+  opts = generate_options(args, "generate")
+  format = opts[:format] || Curtilage::Formats.format_of(opts[:out]) || :geojson
+  pins, ids = read_sites(opts, "generate")
+  results = run(opts, pins)
+  text = Curtilage::Formats.write(results, format, ids: ids, store: opts.fetch(:store_zone, true))
+  if opts[:out]
+    File.write(opts[:out], text)
+    warn "#{results.count(&:ok?)} of #{results.size} ok; wrote #{opts[:out]}"
+  else
+    puts text
+  end
   exit(results.all?(&:ok?) ? 0 : 1)
+end
+
+def preview(args)
+  opts = generate_options(args, "preview")
+  pins, ids = read_sites(opts, "preview")
+  results = run(opts, pins, keep_features: true)
+  out = opts[:out] || "curtilage-preview.html"
+  File.write(out, Curtilage::Preview.html(results, ids: ids))
+  puts "#{results.count(&:ok?)} of #{results.size} ok; open #{File.expand_path(out)}"
 end
 
 def build(args)
@@ -128,6 +178,7 @@ end
 
 case ARGV.shift
 when "generate" then generate(ARGV)
+when "preview" then preview(ARGV)
 when "build" then build(ARGV)
 when "doctor" then doctor(ARGV)
 when "-h", "--help", "help", nil then puts USAGE

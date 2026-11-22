@@ -17,42 +17,18 @@ module Curtilage
   # building the best fallback. box is only a baseline: it crosses public
   # roads on most sites, so propose never offers it.
   module Generator
-    # ring: the premises. store_ring: the building's own outline (the store
-    # zone), or nil.
-    Result = Struct.new(:method_name, :ring, :store_ring, :explanation, :flags, :validation, :building, :attribution,
-                        keyword_init: true) do
-      def ok?
-        !ring.nil? && validation.ok?
-      end
-
-      # A GeoJSON Feature (as a Hash) with everything about the result in
-      # its properties. Show the attribution wherever the polygon is shown.
-      # include_store: a FeatureCollection of the premises and the store
-      # zone instead, told apart by properties.role.
-      def to_geojson(attribution: self.attribution || ["© OpenStreetMap contributors"], include_store: false)
-        premises = {
-          type: "Feature",
-          geometry: ring && { type: "Polygon", coordinates: [ring] },
-          properties: {
-            role: "premises", ok: ok?, method: method_name, flags: flags, building: building,
-            errors: validation.errors, warnings: validation.warnings, metrics: validation.metrics,
-            explanation: explanation, attribution: attribution
-          },
-        }
-        return premises unless include_store
-
-        store = { type: "Feature", geometry: store_ring && { type: "Polygon", coordinates: [store_ring] },
-                  properties: { role: "store", building: building, attribution: attribution } }
-        { type: "FeatureCollection", features: [premises, store] }
-      end
-    end
+    # Kept so code written against 0.2 (Curtilage::Generator::Result) works.
+    Result = Curtilage::Result
 
     # What the parking steps need about the site being generated.
     Site = Struct.new(:features, :target, :opts, :log)
 
     # Notes explain each step; flags are reasons a person should look first.
-    Log = Struct.new(:notes, :flags) do
+    # access: where driveways taken into the premises meet the street.
+    Log = Struct.new(:notes, :flags, :access) do
       def note(text) = notes << text
+
+      def access_point(xy) = (self.access ||= []) << xy
 
       def flag(name, text)
         flags << name unless flags.include?(name)
@@ -160,7 +136,7 @@ module Curtilage
       log = Log.new([], [])
       log.note("dropped #{features.dropped} unusable OSM features") if features.dropped.positive?
       xy, target = send(method, features, opts, log)
-      finish(method, pin, [xy, target], log, opts)
+      finish(method, pin, [xy, target, features], log, opts)
     end
 
     # The building flavour: OSM only (default), OSM filled in with ML
@@ -178,8 +154,9 @@ module Curtilage
     end
 
     def finish(method, pin, shape, log, opts)
-      xy, target = shape
-      result = Result.new(method_name: method, explanation: log.notes, flags: log.flags, building: target&.id)
+      xy, target, features = shape
+      result = Result.new(method_name: method, pin: pin, explanation: log.notes, flags: log.flags,
+                          building: target&.id, features: features)
       unless xy
         result.validation = Validation.check(pin, nil)
         return result
@@ -189,6 +166,7 @@ module Curtilage
       result.ring = ring_of(premises, pin)
       result.store_ring = ring_of(store_xy(target, premises, opts, log), pin) if target && opts[:store_zone]
       result.validation = Validation.check(pin, result.ring)
+      result.details = details(target, premises, features, pin, log)
       result
     end
 

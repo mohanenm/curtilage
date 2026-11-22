@@ -2,39 +2,8 @@
 
 require_relative "test_helper"
 
-# Synthetic scene: a 20 x 15 m building at a made-up pin, a public road 40 m
-# south, a neighbour 50 m east and a parking lot west of the building.
 class GeneratorTest < Minitest::Test
-  PIN = [-80.0, 35.0].freeze
-
-  def lnglat(x, y)
-    sx = Curtilage::Geometry.metres_per_degree_lng(PIN[1])
-    [PIN[0] + (x / sx), PIN[1] + (y / Curtilage::Geometry::METRES_PER_DEGREE_LAT)]
-  end
-
-  def polygon(kind, id, x0, y0, x1, y1, type: nil)
-    ring = [[x0, y0], [x1, y0], [x1, y1], [x0, y1], [x0, y0]].map { |x, y| lnglat(x, y) }
-    { "feature" => kind, "id" => id, "highway" => type,
-      "geometry" => { "type" => "Polygon", "coordinates" => [ring] } }
-  end
-
-  def road(id, highway, points)
-    { "feature" => "road", "id" => id, "highway" => highway,
-      "geometry" => { "type" => "LineString", "coordinates" => points.map { |x, y| lnglat(x, y) } } }
-  end
-
-  def scene
-    [
-      polygon("building", 1, -10, -7.5, 10, 7.5),
-      polygon("building", 2, 50, -10, 70, 10),
-      polygon("parking", 3, -45, -20, -11, 20),
-      road(4, "secondary", [[-200, -40], [200, -40]]),
-    ]
-  end
-
-  def xy(result)
-    Curtilage::Geometry.open_ring(Curtilage::Geometry.project(result.ring, PIN))
-  end
+  include SyntheticScene
 
   def test_every_method_gives_a_valid_ring_around_the_pin
     Curtilage::Generator::METHODS.each do |method|

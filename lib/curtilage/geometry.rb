@@ -335,6 +335,20 @@ module Curtilage
       end
     end
 
+    # A convex polygon grown by metres on every side, corners rounded: the
+    # hull of a small polygon around each corner. The polygon circumscribes
+    # the circle, so the result is never closer than metres to the input.
+    def round_buffer(xy, metres, segments = 16)
+      return counter_clockwise(xy) unless metres.positive?
+
+      radius = metres / Math.cos(Math::PI / segments)
+      circle = Array.new(segments) do |k|
+        angle = 2 * Math::PI * k / segments
+        [radius * Math.cos(angle), radius * Math.sin(angle)]
+      end
+      counter_clockwise(convex_hull(xy.flat_map { |x, y| circle.map { |cx, cy| [x + cx, y + cy] } }))
+    end
+
     # Removes repeated and collinear points (within tolerance metres).
     def clean(xy, tolerance = 0.05)
       pts = drop_repeats(xy, tolerance)
