@@ -1,13 +1,7 @@
 # frozen_string_literal: true
 
 require_relative "curtilage/version"
-
-module Curtilage
-  # Every error the gem raises on purpose is one of these (input mistakes
-  # are ArgumentError).
-  class Error < StandardError; end
-end
-
+require_relative "curtilage/error"
 require_relative "curtilage/config"
 require_relative "curtilage/duckdb"
 require_relative "curtilage/geometry"

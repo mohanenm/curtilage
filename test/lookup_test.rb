@@ -39,7 +39,7 @@ class LookupTest < Minitest::Test
         #!/bin/sh
         echo x >> "$(dirname "$0")/calls"
         cat > /dev/null
-        echo '[{"pin_index": 0, "id": 1, "geometry": "{\\"type\\":\\"Point\\",\\"coordinates\\":[0,0]}"}]'
+        printf '%s\n' '[{"pin_index": 0, "id": 1, "geometry": "{\\"type\\":\\"Point\\",\\"coordinates\\":[0,0]}"}]'
       SH
       File.chmod(0o755, fake)
       File.write(File.join(dir, "a.parquet"), "")
