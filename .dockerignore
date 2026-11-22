@@ -1,0 +1,10 @@
+# Keep the build context small and free of local data.
+data/
+pkg/
+tmp/
+*.gem
+*.parquet
+*.osm.pbf
+*.shp.zip
+.git/
+.bundle/

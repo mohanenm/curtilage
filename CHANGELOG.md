@@ -2,11 +2,44 @@
 
 ## [Unreleased]
 
-- Fix: a pin standing near the street (closer to the road centreline than half the road's width) could fall outside the premises, which then failed validation. Road trims now stay clear of the pin as well as the building, and simplifying the premises always keeps the pin.
+### Breaking
+
+The API may change before 1.0; these changes need callers to adjust.
+
+- Command line: `generate` output is now always one GeoJSON FeatureCollection, each feature with `properties.id`. Several pins used to print a JSON list, and one pin with `--no-store` a single Feature.
+- Generation options are checked: a misspelt or unknown option raises `ArgumentError` instead of being silently ignored.
+- `method: :box` and the `box_side_m` option are gone. The box was only a baseline for testing and crossed public roads on most sites.
+- Internal helpers on `Curtilage` (such as `auto_plan`, `run_many`, `generate_one`) are private. Only what `docs/reference.md` documents is public API.
+
+### Added
+
+- Command line: `generate --in FILE` reads pins from a CSV (`lng`, `lat`, optional `id`) or GeoJSON, and `--out FILE` / `--format` write GeoJSON, CSV or KML.
+- `curtilage preview` and `Curtilage::Preview.html`: an HTML page with a map of each site, drawn from its map data, to check results by eye: premises, store zone, the site's building and its neighbours, parking, roads, railways and driveway entrances, with a scale bar, the flags (explained on hover), the details and the step-by-step explanation. `--buffer METRES` also draws the premises grown by that much. Sites can be filtered (needs a look, not valid, by flag) and sorted (needs a look first, id, premises size). It loads nothing from the internet.
+- `Result#details`: the building (id, name, type, area, footprint), mapped parking inside the premises and an estimate of spaces, street frontage, and where driveways meet the street.
+- `Result#buffered(metres)` grows or shrinks the premises evenly (a geofence with a margin); `Result#to_wkt` and `#store_wkt`; `to_geojson(properties:)`.
+- `Result#problem`: why a result isn't usable, in words ("no premises: no building within 30 m of the pin"); also in the preview, the KML description and a CSV column. When no building is near the pin, the explanation suggests `buildings: :osm_filled` (the usual cause is a building missing from OpenStreetMap).
+- `Curtilage.building_at(pin)`: just the building at a pin.
+- `Curtilage::Formats`: read pins from CSV or GeoJSON, write results as GeoJSON, CSV or KML, from Ruby.
+- `Curtilage::Error`: the base of every error the gem raises, so one `rescue Curtilage::Error` catches them all. A missing DuckDB or `unzip` binary now says what to install instead of raising `Errno::ENOENT`.
+- `Curtilage::FLAGS`: every review flag and what it asks a person to check.
+- `generate_many(keep_features: true)` keeps each result's map data (`Result#features`); `data: { log: }` sends build progress somewhere other than standard error.
+- A `Dockerfile` with the gem, DuckDB and its extensions.
+- `Curtilage::Result` replaces `Curtilage::Generator::Result` (still available under the old name).
+
+### Fixed
+
+- With `parallel_builds` above 1, a batch could hang waiting for a region that another worker had already taken.
+- Reusing one `Features` for several generations with different options could carry a "shared lot" decision from an earlier run into a later one.
+- When Overture reads failed during an `:auto` run, the temporary build folder could be deleted while a build was still writing to it.
+- Lookups of more than about 1,000 pins at once failed (DuckDB's query depth limit); built-file and Overture reads now go in batches of 500, and the 10,000-pin limit per call is gone.
+- A pin standing near the street (closer to the road centreline than half the road's width) could fall outside the premises, which then failed validation. Road trims now stay clear of the pin as well as the building, and simplifying the premises always keeps the pin.
+
+### Changed
+
+- Premises edges beside straight roads stay square to the building instead of cutting diagonally across the lot. Each road's direction comes from its length-weighted mean heading (snapped square to the building within 10 degrees, was 5), and the lot grows as a box aligned with the building rather than the convex hull of building and parking. On 164 held-out sites, slanted road edges fell from 15 sites to 7 and valid results rose from 158 to 159.
 - `:auto` runs its Geofabrik builds and Overture reads side by side instead of one after the other.
 - `:auto` builds a region from 10 pins instead of 20 (`auto_build_min_pins`), from measured timings: Overture about 5.6 s a pin, a mid-size US state about 60-90 s to build. Fewer areas go to Overture as a result.
-- Premises edges beside straight roads stay square to the building instead of cutting diagonally across the lot. Each road's direction comes from its length-weighted mean heading (snapped square to the building within 10 degrees, was 5), and the lot grows as a box aligned with the building rather than the convex hull of building and parking. On 164 held-out sites, slanted road edges fell from 15 sites to 7 and valid results rose from 158 to 159.
-- README: test results on held-out sites, and a "Known limitations" section.
+- README: test results on held-out sites, a "Known limitations" section, and clearer usage docs.
 
 ## [0.2.0] - 2026-11-22
 

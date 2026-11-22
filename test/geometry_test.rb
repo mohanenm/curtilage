@@ -13,6 +13,16 @@ class GeometryTest < Minitest::Test
     pts.zip(back).each { |a, b| a.zip(b).each { |u, v| assert_in_delta u, v, 1e-12 } }
   end
 
+  def test_round_buffer_keeps_its_distance
+    grown = G.round_buffer(SQUARE, 5)
+
+    assert(SQUARE.all? { |p| G.distance_to_edges(grown, p) >= 5 - 1e-9 })
+    # A 10 m square grown by 5 m is about 378.5 m2; the 16-sided corners sit
+    # just outside the circle, adding a few m2.
+    assert_in_delta 383.5, G.area(grown), 1
+    assert_equal SQUARE, G.round_buffer(SQUARE, 0)
+  end
+
   def test_minimum_rectangle_of_a_rotated_rectangle
     rect = G.rotate([[0, 0], [30, 0], [30, 10], [0, 10]], 0.5)
     result = G.minimum_rectangle(rect)

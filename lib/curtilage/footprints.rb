@@ -8,7 +8,7 @@ module Curtilage
   # adds them only with ml_footprints:, and generation uses them only with
   # buildings: :osm_filled or :ml.
   module Footprints
-    class Error < StandardError; end
+    class Error < Curtilage::Error; end
 
     SOURCES = %w[microsoft].freeze
 

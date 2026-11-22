@@ -41,12 +41,6 @@ class OvertureTest < Minitest::Test
     assert_raises(ArgumentError) { O.box([200, 0], 0.004) }
   end
 
-  def test_groups_rows_by_pin
-    rows = [{ "pin_index" => 0, "id" => "a", "geometry" => '{"type":"Point","coordinates":[0,0]}' }]
-
-    assert_equal "a", O.group(rows, 2).first.first["id"]
-  end
-
   def test_unknown_source
     assert_raises(ArgumentError) { Curtilage.generate_many([[-80.0, 35.0]], source: :bing) }
   end

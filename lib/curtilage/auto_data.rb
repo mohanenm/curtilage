@@ -41,8 +41,14 @@ module Curtilage
       needed = pins.flat_map { |pin| regions.around(pin, margin) }.uniq(&:path)
       queue = Queue.new
       needed.each { |region| queue << region }
+      # Closed, so pop returns nil once it's empty instead of waiting.
+      queue.close
       workers = Array.new(@opts[:parallel_builds].to_i.clamp(1, [needed.size, 1].max)) do
-        Thread.new { ensure_built(queue.pop) until queue.empty? }
+        Thread.new do
+          while (region = queue.pop)
+            ensure_built(region)
+          end
+        end
       end
       workers.each(&:join)
       Catalogue.from_dir(@cache_dir)

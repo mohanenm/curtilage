@@ -59,10 +59,11 @@ class ConfigTest < Minitest::Test
     lib = File.expand_path("../lib", __dir__)
     out, = Open3.capture2("ruby", "-I", lib, exe, "--help")
 
-    assert_includes out, "curtilage generate --pin LNG,LAT"
+    assert_includes out, "curtilage generate (--pin LNG,LAT ... | --in FILE)"
+    assert_includes out, "curtilage preview"
     _, err, status = Open3.capture3("ruby", "-I", lib, exe, "generate")
 
     refute_predicate status, :success?
-    assert_includes err, "give at least one --pin"
+    assert_includes err, "give --pin LNG,LAT or --in FILE"
   end
 end

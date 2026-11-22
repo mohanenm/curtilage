@@ -1,7 +1,6 @@
 # frozen_string_literal: true
 
 require "json"
-require "open3"
 require "tmpdir"
 
 module Curtilage
@@ -15,7 +14,7 @@ module Curtilage
   # used only with buildings: :osm_filled or :ml. Each query tells the
   # storage host roughly which area is being read.
   module Overture
-    class Error < StandardError; end
+    class Error < Curtilage::Error; end
 
     STAC_HOST = "stac.overturemaps.org"
     CATALOG = "/catalog.json"
@@ -40,9 +39,10 @@ module Curtilage
         index = File.join(dir, "index.parquet")
         File.binwrite(index, Download.read(STAC_HOST, "/#{release(options)}/collections.parquet",
                                            max_bytes: MAX_INDEX_BYTES))
-        files = files_for(index, boxes, options)
-        rows = run(data_sql(boxes, files, options), options)
-        group(rows, pins.size)
+        boxes.each_slice(Lookup::PINS_PER_CALL).flat_map do |batch|
+          rows = run(data_sql(batch, files_for(index, batch, options), options), options)
+          Lookup.group_rows(rows, batch.size)
+        end
       end
     end
 
@@ -168,7 +168,7 @@ module Curtilage
     # Remote reads occasionally stall and DuckDB exits without a message;
     # one retry gets past that.
     def run(sql, options, attempts: 2)
-      out, err, status = Open3.capture3(options.fetch(:duckdb, "duckdb"), "-json", stdin_data: sql)
+      out, err, status = DuckDB.capture(options.fetch(:duckdb, "duckdb"), sql, "-json")
       unless status.success?
         return run(sql, options, attempts: attempts - 1) if err.strip.empty? && attempts > 1
 
@@ -179,17 +179,6 @@ module Curtilage
       out.strip.empty? ? [] : JSON.parse(out)
     end
 
-    def group(rows, count)
-      lists = Array.new(count) { [] }
-      rows.each do |row|
-        index = row.delete("pin_index")
-        lists[index] << row.merge("geometry" => JSON.parse(row["geometry"])) if index.is_a?(Integer)
-      end
-      lists
-    end
-
-    def quote(text)
-      "'#{text.to_s.gsub("'", "''")}'"
-    end
+    def quote(text) = DuckDB.quote(text)
   end
 end

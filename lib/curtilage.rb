@@ -1,13 +1,17 @@
 # frozen_string_literal: true
 
 require_relative "curtilage/version"
+require_relative "curtilage/error"
 require_relative "curtilage/config"
+require_relative "curtilage/duckdb"
 require_relative "curtilage/geometry"
 require_relative "curtilage/validation"
 require_relative "curtilage/features"
+require_relative "curtilage/result"
 require_relative "curtilage/generator"
 require_relative "curtilage/generator_lot"
 require_relative "curtilage/generator_store"
+require_relative "curtilage/generator_details"
 require_relative "curtilage/lookup"
 require_relative "curtilage/download"
 require_relative "curtilage/zip_range"
@@ -18,10 +22,27 @@ require_relative "curtilage/regions"
 require_relative "curtilage/auto_data"
 require_relative "curtilage/overture"
 require_relative "curtilage/audit"
+require_relative "curtilage/formats"
+require_relative "curtilage/preview"
 
 # Premises generation from OpenStreetMap data. Coordinates are [lng, lat]
 # throughout, matching GeoJSON.
 module Curtilage
+  # Every review flag a result can carry, and what it asks a person to check.
+  # The preview shows these on hover; README and the reference list them too.
+  FLAGS = {
+    near_houses: "The lot borders a home: check where the yard or property line is.",
+    large_building: "Building over 5,000 m2: may be shared by several tenants.",
+    small_building: "Building under 50 m2: may be a kiosk or canopy rather than the store.",
+    building_not_under_pin: "No building under the pin; the nearest one within 30 m was used.",
+    store_may_be_unit: "The store zone is a building over 1,500 m2: the store may be one unit of it.",
+    shopping_centre: "The whole shopping centre was mapped (scope: :centre).",
+    fallback: "The main method failed validation; the building rectangle was used.",
+    ml_footprint: "Built on a machine-learned footprint, not an OSM building.",
+    no_data: "No map data covers the pin.",
+    partial_data: "Part of the area around the pin is in a region that isn't built.",
+  }.freeze
+
   # Named styles; any option passed alongside a preset overrides it.
   PRESETS = {
     # The building and its whole lot: parking up to the kerb, railways and a
@@ -40,6 +61,13 @@ module Curtilage
   #   result.ok? && result.ring
   def self.premises(pin, **)
     generate_many([pin], **).first
+  end
+
+  # The building at a pin (the one its premises would be made from), with
+  # the same options as premises: { id:, name:, type:, area_m2:, footprint: }
+  # (footprint: [[lng, lat], ...] closed), or nil if there is none.
+  def self.building_at(pin, **)
+    premises(pin, **, store_zone: false).details&.fetch(:building)
   end
 
   # Premises for one pin from features you already have (Lookup.features).
@@ -73,9 +101,18 @@ module Curtilage
   #
   # lookup: options for Lookup and the build (duckdb:, extension_directory:,
   # setup_sql:). data: max_age_days:, ml_footprints:, parallel_builds:,
-  # auto_build_min_pins:, release: (Overture). Other options go to generate.
-  def self.generate_many(pins, source: nil, catalogue: nil, parquet: nil, cache_dir: nil, lookup: {}, data: {},
-                         **options)
+  # auto_build_min_pins:, log: (where build progress goes, anything with
+  # puts; default $stderr), release: (Overture). keep_features: true keeps each
+  # result's map data (Result#features, which Preview draws); by default it's
+  # dropped to save memory. Other options go to generate.
+  def self.generate_many(pins, keep_features: false, **)
+    results = fetch_and_generate(pins, **)
+    results.each { |r| r.features = nil } unless keep_features
+    results
+  end
+
+  def self.fetch_and_generate(pins, source: nil, catalogue: nil, parquet: nil, cache_dir: nil, lookup: {}, data: {},
+                              **options)
     lookup = duckdb_options(lookup)
     return run_many(pins, catalogue, parquet, lookup, options) if catalogue || parquet
 
@@ -87,7 +124,7 @@ module Curtilage
     return from_overture(pins, lookup, data, options) if source == :overture
 
     auto = AutoData.new(cache_dir: cache_dir || config.cache_dir, **lookup.slice(:duckdb, :extension_directory),
-                        **data.slice(:max_age_days, :ml_footprints, :parallel_builds))
+                        **data.slice(:max_age_days, :ml_footprints, :parallel_builds, :log))
     built, read = if source == :auto
                     auto_plan(pins, auto, data.fetch(:auto_build_min_pins, AUTO_BUILD_MIN_PINS))
                   else
@@ -109,10 +146,26 @@ module Curtilage
   end
 
   # Builds and Overture reads wait on different hosts: run them side by side.
+  # If the reads fail, the builds are allowed to finish before the error is
+  # raised: the caller then deletes their temporary folder, which must not
+  # happen under a running build.
   def self.build_and_read(pins, built, read, auto, lookup:, data:, options:)
     builds = Thread.new { from_builds(pins.values_at(*built), auto, lookup, options) }
-    reads = read.empty? ? [] : from_overture(pins.values_at(*read), lookup, data, options)
+    builds.report_on_exception = false # value re-raises it
+    begin
+      reads = read.empty? ? [] : from_overture(pins.values_at(*read), lookup, data, options)
+    rescue StandardError
+      wait_quietly(builds)
+      raise
+    end
     merge(pins.size, [built, builds.value], [read, reads])
+  end
+
+  # The read error is the one to report, not a build error behind it.
+  def self.wait_quietly(thread)
+    thread.join
+  rescue StandardError
+    nil
   end
 
   def self.from_builds(pins, auto, lookup, options)
@@ -182,4 +235,7 @@ module Curtilage
     result.flags << :no_data
     result.explanation.unshift("no map data covers this pin")
   end
+
+  private_class_method :fetch_and_generate, :auto_plan, :build_and_read, :wait_quietly, :from_builds, :merge,
+                       :from_overture, :run_many, :preset_options, :generate_one, :partial_data, :no_data
 end

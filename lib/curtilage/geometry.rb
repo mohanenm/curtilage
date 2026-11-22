@@ -32,6 +32,14 @@ module Curtilage
       Math.cos(lat * Math::PI / 180) * METRES_PER_DEGREE_LNG_AT_EQUATOR
     end
 
+    # The pin [lng, lat] and the corners of the box margin degrees around it:
+    # the points that decide which regions a pin's surroundings fall in.
+    def box_points(pin, margin)
+      lng, lat = pin
+      [[lng, lat], [lng - margin, lat - margin], [lng + margin, lat - margin], [lng - margin, lat + margin],
+       [lng + margin, lat + margin]]
+    end
+
     def closed?(ring)
       ring.size > 1 && ring.first == ring.last
     end
@@ -333,6 +341,20 @@ module Curtilage
         unit = normal.map { |v| v / length }
         clip_half_plane(poly, [a[0] - (unit[0] * margin), a[1] - (unit[1] * margin)], unit)
       end
+    end
+
+    # A convex polygon grown by metres on every side, corners rounded: the
+    # hull of a small polygon around each corner. The polygon circumscribes
+    # the circle, so the result is never closer than metres to the input.
+    def round_buffer(xy, metres, segments = 16)
+      return counter_clockwise(xy) unless metres.positive?
+
+      radius = metres / Math.cos(Math::PI / segments)
+      circle = Array.new(segments) do |k|
+        angle = 2 * Math::PI * k / segments
+        [radius * Math.cos(angle), radius * Math.sin(angle)]
+      end
+      counter_clockwise(convex_hull(xy.flat_map { |x, y| circle.map { |cx, cy| [x + cx, y + cy] } }))
     end
 
     # Removes repeated and collinear points (within tolerance metres).

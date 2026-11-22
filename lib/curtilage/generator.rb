@@ -14,45 +14,21 @@ module Curtilage
   # generator_store.rb; they reopen this module.
   #
   # Compared against hand-drawn premises, grow_trim was the best method and
-  # building the best fallback. box is only a baseline: it crosses public
-  # roads on most sites, so propose never offers it.
+  # building the best fallback.
   module Generator
-    # ring: the premises. store_ring: the building's own outline (the store
-    # zone), or nil.
-    Result = Struct.new(:method_name, :ring, :store_ring, :explanation, :flags, :validation, :building, :attribution,
-                        keyword_init: true) do
-      def ok?
-        !ring.nil? && validation.ok?
-      end
-
-      # A GeoJSON Feature (as a Hash) with everything about the result in
-      # its properties. Show the attribution wherever the polygon is shown.
-      # include_store: a FeatureCollection of the premises and the store
-      # zone instead, told apart by properties.role.
-      def to_geojson(attribution: self.attribution || ["© OpenStreetMap contributors"], include_store: false)
-        premises = {
-          type: "Feature",
-          geometry: ring && { type: "Polygon", coordinates: [ring] },
-          properties: {
-            role: "premises", ok: ok?, method: method_name, flags: flags, building: building,
-            errors: validation.errors, warnings: validation.warnings, metrics: validation.metrics,
-            explanation: explanation, attribution: attribution
-          },
-        }
-        return premises unless include_store
-
-        store = { type: "Feature", geometry: store_ring && { type: "Polygon", coordinates: [store_ring] },
-                  properties: { role: "store", building: building, attribution: attribution } }
-        { type: "FeatureCollection", features: [premises, store] }
-      end
-    end
+    # Kept so code written against 0.2 (Curtilage::Generator::Result) works.
+    Result = Curtilage::Result
 
     # What the parking steps need about the site being generated.
-    Site = Struct.new(:features, :target, :opts, :log)
+    # shared: the lots own_parking found shared with several buildings.
+    Site = Struct.new(:features, :target, :opts, :log, :shared)
 
     # Notes explain each step; flags are reasons a person should look first.
-    Log = Struct.new(:notes, :flags) do
+    # access: where driveways taken into the premises meet the street.
+    Log = Struct.new(:notes, :flags, :access) do
       def note(text) = notes << text
+
+      def access_point(xy) = (self.access ||= []) << xy
 
       def flag(name, text)
         flags << name unless flags.include?(name)
@@ -60,7 +36,7 @@ module Curtilage
       end
     end
 
-    METHODS = %i[grow_trim building box].freeze
+    METHODS = %i[grow_trim building].freeze
     CHAIN = %i[grow_trim building].freeze
 
     PUBLIC_HIGHWAYS = %w[
@@ -109,7 +85,6 @@ module Curtilage
       small_building_m2: 50,         # flag: a building this small may be a kiosk or shed, not the site
       parking_max_extent_m: 60,      # grow_trim: claim parking at most this far from the building
       building_margin_m: 20,         # building: margin around its rectangle
-      box_side_m: 60,                # box: side of the square around the pin
       max_vertices: 10,              # the premises are simplified to at most this many corners
       store_zone: true,              # also return the building's outline as the store zone
       max_store_vertices: 20,        # the store outline is simplified to at most this many corners
@@ -146,21 +121,28 @@ module Curtilage
     def generate(method, pin, features, **options)
       raise ArgumentError, "unknown method #{method.inspect}" unless METHODS.include?(method)
 
-      opts = DEFAULTS.merge(options)
-      unless SCOPES.include?(opts[:scope])
-        raise ArgumentError,
-              "unknown scope: #{opts[:scope].inspect} (have: site, centre)"
-      end
-      unless BUILDING_SOURCES.include?(opts[:buildings])
-        raise ArgumentError, "unknown buildings: #{opts[:buildings].inspect} (have: #{BUILDING_SOURCES.join(", ")})"
-      end
-
+      opts = checked_options(options)
       features = Features.new(pin, features) unless features.is_a?(Features)
       features = choose_buildings(features, opts[:buildings])
       log = Log.new([], [])
       log.note("dropped #{features.dropped} unusable OSM features") if features.dropped.positive?
       xy, target = send(method, features, opts, log)
-      finish(method, pin, [xy, target], log, opts)
+      finish(method, pin, [xy, target, features], log, opts)
+    end
+
+    # DEFAULTS with the options applied. A misspelt option would otherwise be
+    # silently ignored.
+    def checked_options(options)
+      unknown = options.keys - DEFAULTS.keys
+      raise ArgumentError, "unknown option(s): #{unknown.join(", ")} (see Generator::DEFAULTS)" if unknown.any?
+
+      opts = DEFAULTS.merge(options)
+      raise ArgumentError, "unknown scope: #{opts[:scope].inspect} (have: site, centre)" \
+        unless SCOPES.include?(opts[:scope])
+      raise ArgumentError, "unknown buildings: #{opts[:buildings].inspect} (have: #{BUILDING_SOURCES.join(", ")})" \
+        unless BUILDING_SOURCES.include?(opts[:buildings])
+
+      opts
     end
 
     # The building flavour: OSM only (default), OSM filled in with ML
@@ -178,8 +160,9 @@ module Curtilage
     end
 
     def finish(method, pin, shape, log, opts)
-      xy, target = shape
-      result = Result.new(method_name: method, explanation: log.notes, flags: log.flags, building: target&.id)
+      xy, target, features = shape
+      result = Result.new(method_name: method, pin: pin, explanation: log.notes, flags: log.flags,
+                          building: target&.id, features: features)
       unless xy
         result.validation = Validation.check(pin, nil)
         return result
@@ -189,6 +172,7 @@ module Curtilage
       result.ring = ring_of(premises, pin)
       result.store_ring = ring_of(store_xy(target, premises, opts, log), pin) if target && opts[:store_zone]
       result.validation = Validation.check(pin, result.ring)
+      result.details = details(target, premises, features, pin, log)
       result
     end
 
@@ -231,14 +215,13 @@ module Curtilage
       return [nil, nil] unless target
 
       poly = trim_at_roads(grown(target, opts, log), features, target, opts, log)
-      lots = own_parking(features, target, opts, log)
-      shared = lots.select { |lot| lot.instance_variable_get(:@shared) }
+      lots, shared = own_parking(features, target, opts, log)
       return [centre(shared, Site.new(features, target, opts, log)), target] if opts[:scope] == :centre && shared.any?
 
       claimed = lots.select { |lot| lot.kind == "building" }
       features = features.with_buildings(features.buildings - claimed) unless claimed.empty?
       poly = trim_at_neighbours(poly, features, target, opts, log)
-      poly = add_parking(poly, lots, Site.new(features, target, opts, log)) unless lots.empty?
+      poly = add_parking(poly, lots, Site.new(features, target, opts, log, shared)) unless lots.empty?
       [poly, target]
     end
 
@@ -257,13 +240,6 @@ module Curtilage
       box = Geometry.oriented_box(rect[:corners], rect[:angle], opts[:building_margin_m])
       poly = Geometry.counter_clockwise(Geometry.convex_hull(box + pin_square(opts)))
       [trim_at_roads(poly, features, target, opts, log), target]
-    end
-
-    # A square around the pin: the baseline the other methods must beat.
-    def box(_features, opts, log)
-      half = opts[:box_side_m] / 2.0
-      log.note("square of #{opts[:box_side_m]} m around the pin")
-      [[[-half, -half], [half, -half], [half, half], [-half, half]], nil]
     end
 
     def grown(target, opts, log)
@@ -302,6 +278,14 @@ module Curtilage
 
     # A tiny structure (a canopy or kiosk roof) right by the pin loses to a
     # real building in reach: the canopy then counts as part of the lot.
+    # The usual reason is a building missing from OSM, which machine-learned
+    # footprints often fill.
+    def missing_hint(opts)
+      return "" unless opts[:buildings] == :osm
+
+      " (it may be missing from OpenStreetMap: try buildings: :osm_filled)"
+    end
+
     def nearest_building(features, opts, log)
       in_reach = features.buildings.map { |b| [Geometry.distance_to_edges(b.xy, [0.0, 0.0]), b] }
                          .select { |d, _| d <= opts[:building_max_distance_m] }
@@ -312,7 +296,7 @@ module Curtilage
                                           "#{distance.round} m away (#{target.area.round} m2)")
         target
       else
-        log.note("no building within #{opts[:building_max_distance_m]} m of the pin")
+        log.note("no building within #{opts[:building_max_distance_m]} m of the pin#{missing_hint(opts)}")
         nil
       end
     end
