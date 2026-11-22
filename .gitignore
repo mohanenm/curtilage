@@ -9,5 +9,7 @@
 
 /tmp/
 /pkg/
+# Built gems (gem build); published to RubyGems, never committed.
+*.gem
 /.bundle/
 Gemfile.lock
