@@ -18,6 +18,7 @@ module Curtilage
 
     OPTIONS = {
       cache_dir: nil, max_age_days: 31, ml_footprints: nil, duckdb: nil, extension_directory: nil,
+      parallel_builds: 1,
       log: $stderr, builder: nil, regions: nil
     }.freeze
 
@@ -32,9 +33,18 @@ module Curtilage
 
     # A Catalogue covering the pins, building what's missing first. Pins in
     # no region (open sea, or no Geofabrik shapefile) are simply not covered.
+    #
+    # Regions are built parallel_builds at a time (default 1: each build
+    # peaks near 600 MB, so 1 suits a 1 GB machine; 2-3 roughly halve the
+    # time on a bigger one).
     def catalogue_for(pins, margin: Lookup::DEFAULT_RADIUS_DEG)
       needed = pins.flat_map { |pin| regions.around(pin, margin) }.uniq(&:path)
-      needed.each { |region| ensure_built(region) }
+      queue = Queue.new
+      needed.each { |region| queue << region }
+      workers = Array.new(@opts[:parallel_builds].to_i.clamp(1, [needed.size, 1].max)) do
+        Thread.new { ensure_built(queue.pop) until queue.empty? }
+      end
+      workers.each(&:join)
       Catalogue.from_dir(@cache_dir)
     end
 
@@ -62,7 +72,8 @@ module Curtilage
     def build(region)
       return @opts[:builder].call(region, @cache_dir, name(region)) if @opts[:builder]
 
-      Build.run(region.path, out_dir: @cache_dir, work_dir: File.join(@cache_dir, "work"), name: name(region),
+      Build.run(region.path, out_dir: @cache_dir, work_dir: File.join(@cache_dir, "work", name(region)),
+                             name: name(region), outline: region.rings,
                              **@opts.slice(:ml_footprints, :duckdb, :extension_directory, :log))
     end
 

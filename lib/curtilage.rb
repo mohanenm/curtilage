@@ -103,10 +103,7 @@ module Curtilage
               else
                 Lookup.features_many(parquet: files, pins: pins.values_at(*indexes), **lookup)
               end
-      indexes.zip(lists).each do |i, features|
-        results[i] = generate(pins[i], features, **options)
-        no_data(results[i]) if files.empty?
-      end
+      indexes.zip(lists).each { |i, features| results[i] = generate_one(pins[i], features, files, catalogue, options) }
     end
     results
   end
@@ -117,6 +114,22 @@ module Curtilage
     PRESETS.fetch(preset) do
       raise ArgumentError, "unknown preset #{preset.inspect} (have: #{PRESETS.keys.join(", ")})"
     end.dup
+  end
+
+  def self.generate_one(pin, features, files, catalogue, options)
+    result = generate(pin, features, **options)
+    if files.empty?
+      no_data(result)
+    elsif catalogue && catalogue.coverage(pin) == :partial
+      partial_data(result)
+    end
+    result
+  end
+
+  def self.partial_data(result)
+    result.flags << :partial_data
+    result.explanation.unshift("part of the area around the pin is in a region that isn't built: " \
+                               "buildings or roads there are missing")
   end
 
   def self.no_data(result)

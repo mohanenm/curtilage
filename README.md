@@ -70,6 +70,7 @@ end
 | `store_may_be_unit` | Store zone is a building over 1,500 m2: the store may be one unit of it |
 | `shopping_centre` | `scope: :centre` mapped the whole centre |
 | `fallback` | The main method failed validation; the building rectangle was used |
+| `partial_data` | Part of the area around the pin is in a region that isn't built |
 | `ml_footprint` | Built on a machine-learned footprint, not an OSM building |
 | `no_data` | No map data covers the pin |
 
@@ -77,7 +78,7 @@ end
 
 - Generate: about 100 ms per site (median; a few hundred ms in dense blocks).
 - Prebuilt files: about 85 ms per lookup through the DuckDB CLI; one call serves many pins.
-- Built on demand: 1-5 minutes per US state the first time (Texas, the largest tested, about 4.5 minutes and under 650 MB of memory), then as above.
+- Built on demand: 1-5 minutes per US state the first time (Texas, the largest tested, about 4.5 minutes and under 650 MB of memory), then as above. Downloads use `curl` when it's installed, and `data: { parallel_builds: 2 }` builds two regions at once on machines with the memory.
 - Overture: about 11 s per area; pins within a few km of each other share it.
 
 ## Building footprints: OSM, or OSM plus machine-learned

@@ -32,7 +32,7 @@ module Curtilage
 
     OPTIONS = {
       date: nil, memory_limit: "400MB", threads: 1,
-      ml_footprints: nil, keep_downloads: false, name: nil, log: $stderr
+      ml_footprints: nil, keep_downloads: false, name: nil, outline: nil, log: $stderr
     }.freeze
 
     module_function
@@ -40,6 +40,8 @@ module Curtilage
     # region: a US state ("tennessee", "new-york") or any Geofabrik region
     # path ("europe/germany/bayern", "north-america/canada/ontario").
     # options: see OPTIONS; ml_footprints: "microsoft" adds ML footprints;
+    # outline: the region's outline rings (default: from Geofabrik's index),
+    # stored so a Catalogue knows exactly where the data stops;
     # duckdb: and extension_directory: default to Curtilage.config.
     # Returns the Parquet path, named after the region's last part unless
     # name: says otherwise.
@@ -56,8 +58,7 @@ module Curtilage
       opts[:log].puts "building #{out}"
       run_duckdb(sql(dirs, "#{out}.tmp", opts, ml_files: ml), opts[:duckdb])
       File.rename("#{out}.tmp", out)
-      write_metadata(out, path, fetched.map(&:last), opts)
-      out
+      finish(out, path, fetched.map(&:last), opts)
     ensure
       cleanup(work_dir, dirs, opts[:keep_downloads]) if dirs
     end
@@ -211,6 +212,22 @@ module Curtilage
 
     # Writes <region>.json next to the Parquet file: what it holds, where it
     # came from and how to attribute it. Catalogue reads these.
+    def finish(out, path, dates, opts)
+      write_metadata(out, path, dates, opts.merge(outline: opts[:outline] || outline(path, opts[:log])))
+      out
+    end
+
+    # The region's outline from Geofabrik's index (all parts for a
+    # multi-part region), or nil if the index can't be read.
+    def outline(path, log)
+      parts = PARTS.fetch(path, [path])
+      rings = Regions.download.regions.select { |r| parts.include?(r.path) }.flat_map(&:rings)
+      rings.empty? ? nil : rings
+    rescue Download::Error, JSON::ParserError => e
+      log.puts "no outline for #{path} (#{e.message}); the catalogue will use its bounding box"
+      nil
+    end
+
     def write_metadata(parquet, path, dates, opts)
       stats = run_duckdb([setup(opts), "SELECT feature, count(*) AS n, min(min_lng) a, min(min_lat) b, " \
                                        "max(max_lng) c, max(max_lat) d FROM read_parquet(#{quote(parquet)}) " \
@@ -228,8 +245,13 @@ module Curtilage
         bbox: [rows.map { |r| r["a"] }.min, rows.map { |r| r["b"] }.min, rows.map { |r| r["c"] }.max,
                rows.map { |r| r["d"] }.max],
         counts: rows.to_h { |r| [r["feature"], r["n"]] },
-        licence: "ODbL-1.0", attribution: attribution(opts[:ml_footprints])
+        licence: "ODbL-1.0", attribution: attribution(opts[:ml_footprints]),
+        outline: rounded(opts[:outline])
       }
+    end
+
+    def rounded(rings)
+      rings&.map { |ring| ring.map { |lng, lat| [lng.round(5), lat.round(5)] } }
     end
 
     def attribution(ml_footprints)

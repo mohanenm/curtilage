@@ -2,6 +2,11 @@
 
 ## [Unreleased]
 
+- Downloads retry network hiccups (timeouts, dropped connections, server errors; 3 tries with backoff) instead of failing the build.
+- Downloads use the `curl` command when it's installed, which streams several times faster than Ruby's HTTP client (`CURTILAGE_CURL=0` turns it off).
+- On-demand builds can run several regions at once: `data: { parallel_builds: 2 }` (default 1, for 1 GB machines). Each build gets its own work folder.
+- Builds record their region's outline (from Geofabrik's index), and a `Catalogue` uses it instead of the bounding box to decide which files cover a pin. A pin whose surroundings run into a region that isn't built is flagged `partial_data` instead of silently missing buildings.
+
 ## [0.1.0] - 2026-11-21
 
 First release. What it does:
