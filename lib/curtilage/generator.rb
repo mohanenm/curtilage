@@ -194,7 +194,7 @@ module Curtilage
 
     # The premises always hold the whole building (the store zone has to
     # sit inside them): widened to take it in if needed, and simplified only
-    # in ways that keep it.
+    # in ways that keep it and the pin.
     def premises_xy(xy, target, opts, log)
       xy = Geometry.clean(Geometry.counter_clockwise(xy))
       if target && !target.hull.all? { |p| inside?(xy, p) }
@@ -204,7 +204,7 @@ module Curtilage
       return xy if xy.size <= opts[:max_vertices]
 
       log.note("simplified #{xy.size} vertices to at most #{opts[:max_vertices]}")
-      Geometry.simplify_containing(xy, opts[:max_vertices], target ? target.hull : [])
+      Geometry.simplify_containing(xy, opts[:max_vertices], (target ? target.hull : []) + [[0.0, 0.0]])
     end
 
     def inside?(xy, point)
@@ -329,7 +329,8 @@ module Curtilage
       road_stretches(features, target, opts).each do |road, run, offset|
         next unless run.any? { |p| Geometry.contains?(poly, p) || Geometry.distance_to_edges(poly, p) < offset }
 
-        trimmed, used = trim_along(poly, fit_direction(run, target), target, offset, opts[:building_clearance_m])
+        trimmed, used = trim_along(poly, fit_direction(run, target), target, offset,
+                                   [opts[:building_clearance_m], opts[:pin_clearance_m]])
         next log.note("kept the part beyond #{road_label(road)}: it would cut the building") unless trimmed
         next if trimmed.size < 3
 
@@ -409,10 +410,12 @@ module Curtilage
 
     # Clips at the line, moved toward the pin by up to offset metres but
     # never closer than clearance metres to the building (the pavement in
-    # front of a building on the street stays in the premises). Returns
+    # front of a building on the street stays in the premises) or to the pin
+    # (a pin dropped on the pavement stays inside). clearance: [building m,
+    # pin m]. Returns
     # [polygon, offset used], [poly, 0] when the pin is on the line, or nil
     # when the centreline itself would cut the building.
-    def trim_along(poly, line, target, offset, clearance = 0)
+    def trim_along(poly, line, target, offset, clearance = [0, 0])
       origin, direction = line
       normal = [direction[1], -direction[0]]
       pin_side = side([0.0, 0.0], origin, normal)
@@ -422,9 +425,16 @@ module Curtilage
       building_side = target.hull.map { |p| side(p, origin, normal) }.max
       return nil if building_side > 0.5
 
-      offset = offset.clamp(0, [-building_side - clearance, 0].max)
+      offset = offset.clamp(0, room(building_side, pin_side, clearance))
       origin = [origin[0] - (normal[0] * offset), origin[1] - (normal[1] * offset)]
       [Geometry.clip_half_plane(poly, origin, normal), offset]
+    end
+
+    # How far toward the pin a road trim may move: short of the building and
+    # of the pin by their clearances, never past the centreline.
+    def room(building_side, pin_side, clearance)
+      room = [-building_side - clearance[0], pin_side.abs - clearance[1]].min
+      room.negative? ? 0 : room
     end
 
     # Half the road's width when the caller gives no fixed offset.

@@ -4,7 +4,7 @@
 
 Generates a site's **premises polygon** (the building plus its customer-facing lot) and a **store zone** (the building's own outline) from free map data, so nobody has to draw them by hand.
 
-**Status:** 0.2.0. Checked on 20 real store sites across five US states against hand-drawn premises and by eye on aerial imagery. The API may still change before 1.0.
+**Status:** 0.2.0. The rules were tuned on 20 real store sites, then tested on sites they had never seen: 51 across the US, Brazil and Hungary, and 164 mostly in the western US. On the 164, 96% got a valid polygon; nearly all the misses were buildings absent from OpenStreetMap. Results were reviewed against hand-drawn premises and by eye on aerial imagery. The API may still change before 1.0.
 
 ## Quick start
 
@@ -79,7 +79,18 @@ end
 - Generate: about 100 ms per site (median; a few hundred ms in dense blocks).
 - Prebuilt files: about 85 ms per lookup through the DuckDB CLI; one call serves many pins.
 - Overture (the default for scattered pins): about 5-10 s per area; pins within a few km of each other share it. A test batch of 51 sites in 17 regions across three continents took 4 minutes from a cold start.
-- Geofabrik builds (the default once 20+ pins share a region): 1-5 minutes per US state the first time (Texas, the largest tested, about 4.5 minutes and under 650 MB of memory), then as above. Downloads use `curl` when it's installed, and `data: { parallel_builds: 2 }` builds two regions at once on machines with the memory.
+- Geofabrik builds (the default once 10+ pins share a region): 1-5 minutes per US state the first time (Texas, the largest tested, about 4.5 minutes and under 650 MB of memory), then as above. Downloads use `curl` when it's installed, and `data: { parallel_builds: 2 }` builds two regions at once on machines with the memory.
+
+## Known limitations
+
+Rules on open map data go a long way, but some sites need a person. These are the patterns seen in testing, and what helps:
+
+- **The building isn't in OpenStreetMap** (about 3-8% of sites tested). Nothing is generated. Opting in to machine-learned footprints (`buildings: :osm_filled`) usually fills the gap.
+- **A store that's one unit of a long or large building** (storefronts in urban blocks, strip malls). The premises cover the whole building and its lot, often several times too big. Flagged `store_may_be_unit` or `large_building`; `preset: :tight` or `preset: :centre` may suit these better.
+- **Sites spread over several buildings** (compounds, campuses). The premises cover the building at the pin only, so they come out too small.
+- **Dense rowhouse blocks.** Cuts toward many close neighbours can leave a thin sliver.
+- **`near_houses` is noisy in dense urban areas,** where almost every site borders homes. It's more meaningful in suburbs.
+- **The polygon is always convex,** so entrance notches and L-shaped lots are approximated.
 
 ## Building footprints: OSM, or OSM plus machine-learned
 

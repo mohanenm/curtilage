@@ -2,6 +2,11 @@
 
 ## [Unreleased]
 
+- Fix: a pin standing near the street (closer to the road centreline than half the road's width) could fall outside the premises, which then failed validation. Road trims now stay clear of the pin as well as the building, and simplifying the premises always keeps the pin.
+- `:auto` runs its Geofabrik builds and Overture reads side by side instead of one after the other.
+- `:auto` builds a region from 10 pins instead of 20 (`auto_build_min_pins`), from measured timings: Overture about 5.6 s a pin, a mid-size US state about 60-90 s to build. Fewer areas go to Overture as a result.
+- README: test results on held-out sites, and a "Known limitations" section.
+
 ## [0.2.0] - 2026-11-22
 
 - New default data source `:auto`: scattered pins are read from Overture Maps (seconds, nothing downloaded) and a Geofabrik region is built only once enough pins share it (`auto_build_min_pins`, 20) or it's already cached. A batch spread over many states no longer downloads a whole state per site. `:geofabrik` stays available for when only the region may be revealed. Results say which source they used.
