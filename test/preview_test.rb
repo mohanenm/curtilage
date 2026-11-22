@@ -16,7 +16,7 @@ class PreviewTest < Minitest::Test
     refute_includes html, "<b>one</b>"
     assert_includes html, %(class="premises")
     assert_includes html, %(class="building")
-    assert_includes html, "not valid"
+    assert_includes html, "no premises: no building within 30 m of the pin"
     assert_includes html, "about 54 spaces"
     refute_match(/(src|href)=|url\(|@import/, html)
   end
@@ -32,6 +32,10 @@ class PreviewTest < Minitest::Test
     assert_includes html, %(class="building site")
     assert_includes html, %(title="The lot borders a home)
     assert_includes html, "1 site(s): 0 ok, 1 ok but flagged for a look, 0 without usable premises"
+    assert_includes html, %(data-state="flagged")
+    assert_includes html, %(data-flags="near_houses")
+    assert_includes html, %(<option value="flag:near_houses">Flag near_houses (1)</option>)
+    assert_includes html, %(<option value="look">Needs a look first</option>)
   end
 
   def test_without_features_only_the_premises_are_drawn

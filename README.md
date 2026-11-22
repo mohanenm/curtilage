@@ -107,7 +107,13 @@ From Ruby, `Curtilage::Formats` does the same ([reference](docs/reference.md#fil
 - where driveways meet the street (blue dots), and with `--buffer 15` the premises grown 15 m (dashed);
 - a 50 m scale bar; each map is 240 m across, north up.
 
-Under each map: the flags (hover for what they mean), the building and premises areas, parking and an estimate of spaces, street frontage, the number of entrances, and "How it was made", the step-by-step explanation. Invalid results say why. A line at the top counts the sites that are ok, flagged or unusable.
+Under each map: the flags (hover for what they mean), the building and premises areas, parking and an estimate of spaces, street frontage, the number of entrances, and "How it was made", the step-by-step explanation. Invalid results say why.
+
+At the top, a count of sites that are ok, flagged or unusable, and controls to show only some (sites that need a look, invalid ones, or those with a given flag) and to sort them (input order, needs a look first, id, or premises size).
+
+![The preview page: two of six randomly chosen sites, each drawn with its premises, store zone, parking, roads and driveway entrances](docs/preview.png)
+
+*Randomly chosen locations, not real sites. Map data © OpenStreetMap contributors.*
 
 The page loads nothing from the internet (no map tiles, scripts or fonts), so opening it reveals no locations. It does contain the coordinates, so share it only as you would them. From Ruby: `Curtilage::Preview.html(Curtilage.generate_many(pins, keep_features: true))`.
 

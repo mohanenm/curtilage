@@ -20,6 +20,9 @@ module Curtilage
     DEFAULT_RADIUS_DEG = 0.004
     MAX_OUTPUT_BYTES = 200_000_000
     MAX_PINS = 10_000
+    # Each pin is one scan in a UNION ALL, and DuckDB refuses queries nested
+    # more than 1,000 deep: larger batches take several calls.
+    PINS_PER_CALL = 500
     REMOTE = %r{\A(s3|gs|gcs|https)://}
 
     module_function
@@ -40,6 +43,10 @@ module Curtilage
       check_files(files)
       raise ArgumentError, "between 1 and #{MAX_PINS} pins" unless pins.size.between?(1, MAX_PINS)
 
+      pins.each_slice(PINS_PER_CALL).flat_map { |batch| read_batch(files, batch, options) }
+    end
+
+    def read_batch(files, pins, options)
       sql = sql(files, pins, options[:extension_directory], options.fetch(:radius_deg, DEFAULT_RADIUS_DEG),
                 options[:setup_sql])
       out, err, status = Open3.capture3(options.fetch(:duckdb, "duckdb"), "-json", stdin_data: sql)

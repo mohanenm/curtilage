@@ -15,6 +15,16 @@ module Curtilage
       !ring.nil? && validation.ok?
     end
 
+    # Why the premises aren't usable, in words, or nil if they are. With no
+    # polygon, the last step says what was missing (usually no building
+    # near the pin).
+    def problem
+      return nil if ok?
+      return "no premises: #{explanation.last}" if ring.nil? && explanation.any?
+
+      "not valid: #{validation.errors.join(", ")}"
+    end
+
     # A GeoJSON Feature (as a Hash) with everything about the result in its
     # properties. Show the attribution wherever the polygon is shown.
     # include_store: a FeatureCollection of the premises and the store zone

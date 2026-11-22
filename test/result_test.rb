@@ -38,6 +38,8 @@ class ResultTest < Minitest::Test
     result = Curtilage.generate(PIN, [road(4, "secondary", [[-200, -40], [200, -40]])])
 
     assert_nil result.details
+    assert_equal "no premises: no building within 30 m of the pin", result.problem
+    assert_nil Curtilage.generate(PIN, scene).problem
   end
 
   def test_old_constant_still_works

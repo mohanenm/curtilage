@@ -23,7 +23,7 @@ module Curtilage
     MAX_PINS = 100_000
     MAX_BYTES = 50 * 1024 * 1024
 
-    CSV_COLUMNS = %w[id lng lat ok method flags errors building building_area_m2 parking_area_m2
+    CSV_COLUMNS = %w[id lng lat ok problem method flags errors building building_area_m2 parking_area_m2
                      parking_spaces_estimate frontage_m premises_area_m2 premises_wkt store_wkt].freeze
 
     module_function
@@ -112,8 +112,9 @@ module Curtilage
 
     def csv_row(result, id)
       d = result.details || {}
-      [id, *result.pin, result.ok?, result.method_name, result.flags.join(";"), result.validation.errors.join(";"),
-       result.building, d.dig(:building, :area_m2), d[:parking_area_m2], d[:parking_spaces_estimate],
+      [id, *result.pin, result.ok?, result.problem, result.method_name, result.flags.join(";"),
+       result.validation.errors.join(";"), result.building, d.dig(:building, :area_m2), d[:parking_area_m2],
+       d[:parking_spaces_estimate],
        d[:frontage_m], result.validation.metrics[:area_m2]&.round, result.to_wkt, result.store_wkt]
     end
 
@@ -144,7 +145,7 @@ module Curtilage
     end
 
     def kml_description(result)
-      parts = [result.ok? ? "ok" : "not valid: #{result.validation.errors.join(", ")}"]
+      parts = [result.problem || "ok"]
       parts << "flags: #{result.flags.join(", ")}" if result.flags.any?
       parts << (result.attribution || Result::OSM_ATTRIBUTION).join("; ")
       parts.join("\n")

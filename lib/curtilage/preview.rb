@@ -41,26 +41,65 @@ module Curtilage
     # keep_features: true) show only the premises, store zone and entrances.
     def html(results, ids: nil, title: "curtilage preview", buffer_m: nil)
       ids ||= (1..results.size).map(&:to_s)
-      cards = results.zip(ids).map { |result, id| card(result, id, buffer_m) }
+      cards = results.zip(ids).each_with_index.map { |(result, id), i| card(result, id, i, buffer_m) }
       credits = results.flat_map { |r| r.attribution || Result::OSM_ATTRIBUTION }.uniq
-      page(title, cards, summary(results), credits, buffer_m)
+      page(title, cards, toolbar(results), credits, buffer_m)
     end
 
-    def summary(results)
-      flagged = results.count { |r| r.ok? && r.flags.any? }
-      bad = results.count { |r| !r.ok? }
-      "#{results.size} site(s): #{results.size - bad - flagged} ok, #{flagged} ok but flagged for a look, " \
-        "#{bad} without usable premises"
+    # ok, flagged (ok, with flags) or invalid.
+    def state(result)
+      return "invalid" unless result.ok?
+
+      result.flags.any? ? "flagged" : "ok"
     end
 
-    def card(result, id, buffer_m)
-      status = result.ok? ? "" : %(<span class="bad">not valid: #{h(result.validation.errors.join(", "))}</span>)
+    # Filter and sort controls (the page's only script, inline). Without
+    # scripts every card shows, in input order.
+    def toolbar(results)
+      states = results.map { |r| state(r) }.tally
+      <<~HTML
+        <p>#{h(summary(states, results.size))}</p>
+        <p class="tools"><label>Show <select id="show">#{select_options(filters(results, states))}</select></label>
+        <label>Sort by <select id="sort">#{select_options(SORTS)}</select></label> <span id="shown"></span></p>
+      HTML
+    end
+
+    def filters(results, states)
+      count = ->(*keys) { keys.sum { |k| states.fetch(k, 0) } }
+      flags = results.flat_map(&:flags).tally.sort_by { |f, n| [-n, f.to_s] }
+      [["all", "All sites (#{results.size})"],
+       ["look", "Needs a look: flagged or not valid (#{count.call("flagged", "invalid")})"],
+       ["invalid", "Not valid (#{count.call("invalid")})"],
+       ["ok", "Ok, no flags (#{count.call("ok")})"]] + flags.map { |f, n| ["flag:#{f}", "Flag #{f} (#{n})"] }
+    end
+
+    SORTS = [%w[input Input order], ["look", "Needs a look first"], %w[id Id], ["large", "Largest premises first"],
+             ["small", "Smallest premises first"]].map { |key, *words| [key, words.join(" ")] }.freeze
+
+    def select_options(options)
+      options.map { |value, text| %(<option value="#{h(value)}">#{h(text)}</option>) }.join
+    end
+
+    def summary(states, total)
+      "#{total} site(s): #{states.fetch("ok", 0)} ok, #{states.fetch("flagged", 0)} ok but flagged for a look, " \
+        "#{states.fetch("invalid", 0)} without usable premises"
+    end
+
+    def card(result, id, index, buffer_m)
+      status = result.ok? ? "" : %(<span class="bad">#{h(result.problem)}</span>)
       notes = result.explanation.map { |n| "<li>#{h(n)}</li>" }.join
       <<~HTML
-        <section><h2>#{h(id)} #{status}</h2>
+        <section #{card_data(result, id, index)}><h2>#{h(id)} #{status}</h2>
         <svg viewBox="#{-VIEW_M} #{-VIEW_M} #{VIEW_M * 2} #{VIEW_M * 2}" role="img" aria-label="site #{h(id)}">#{shapes(result, buffer_m).join}</svg>
         <p>#{flag_tags(result.flags)}</p>#{facts(result)}<details><summary>How it was made</summary><ol>#{notes}</ol></details></section>
       HTML
+    end
+
+    # What the filter and sort read.
+    def card_data(result, id, index)
+      area = result.ring ? result.validation.metrics[:area_m2].to_f.round : -1
+      %(data-index="#{index}" data-id="#{h(id)}" data-state="#{state(result)}" ) +
+        %(data-flags="#{h(result.flags.join(" "))}" data-nflags="#{result.flags.size}" data-area="#{area}")
     end
 
     def flag_tags(flags)
@@ -69,10 +108,8 @@ module Curtilage
 
     def shapes(result, buffer_m)
       parts = result.features ? map_shapes(result.features, result.building) : []
-      if buffer_m && result.ring && result.buffered(buffer_m)
-        parts << path(result.buffered(buffer_m), result.pin,
-                      "buffer")
-      end
+      grown = buffer_m && result.ring && result.buffered(buffer_m)
+      parts << path(grown, result.pin, "buffer") if grown
       parts << path(result.ring, result.pin, "premises") if result.ring
       parts << path(result.store_ring, result.pin, "store") if result.store_ring
       parts.concat(access_marks(result))
@@ -144,16 +181,16 @@ module Curtilage
 
     def h(text) = CGI.escapeHTML(text.to_s)
 
-    def page(title, cards, summary, credits, buffer_m)
+    def page(title, cards, toolbar, credits, buffer_m)
       <<~HTML
         <!doctype html><html lang="en"><head><meta charset="utf-8">
         <meta name="viewport" content="width=device-width, initial-scale=1">
         <title>#{h(title)}</title><style>#{STYLE}</style></head><body>
-        <h1>#{h(title)}</h1><p>#{h(summary)}</p>
+        <h1>#{h(title)}</h1>#{toolbar}
         <p class="legend">#{legend(buffer_m)}</p>
         <p class="muted">Each map is #{VIEW_M * 2} m across, north up, drawn from the map data only (no imagery).
         Hover over a flag for what it means, or a road for its name. Map data: #{h(credits.join("; "))}.</p>
-        <main>#{cards.join}</main></body></html>
+        <main>#{cards.join}</main><script>#{SCRIPT}</script></body></html>
       HTML
     end
 
@@ -164,6 +201,50 @@ module Curtilage
       keys << ["buffer", "premises + #{format("%g", buffer_m)} m"] if buffer_m
       keys.map { |css, text| %(<span><i class="k-#{css}"></i>#{h(text)}</span>) }.join(" ")
     end
+
+    SCRIPT = <<~JS
+      (() => {
+        const main = document.querySelector("main"), show = document.getElementById("show"),
+              sort = document.getElementById("sort"), shown = document.getElementById("shown");
+        const cards = [...main.children];
+        const rank = { invalid: 0, flagged: 1, ok: 2 };
+        const num = (c, k) => Number(c.dataset[k]);
+        const order = {
+          input: (a, b) => num(a, "index") - num(b, "index"),
+          look: (a, b) => rank[a.dataset.state] - rank[b.dataset.state] || num(b, "nflags") - num(a, "nflags") ||
+                          num(a, "index") - num(b, "index"),
+          id: (a, b) => a.dataset.id.localeCompare(b.dataset.id, undefined, { numeric: true }),
+          large: (a, b) => num(b, "area") - num(a, "area"),
+          small: (a, b) => (num(a, "area") < 0) - (num(b, "area") < 0) || num(a, "area") - num(b, "area"),
+        };
+        const keep = (c) => {
+          const v = show.value, s = c.dataset.state;
+          if (v === "all") return true;
+          if (v === "look") return s !== "ok";
+          if (v.startsWith("flag:")) return c.dataset.flags.split(" ").includes(v.slice(5));
+          return s === v;
+        };
+        const update = () => {
+          let n = 0;
+          [...cards].sort(order[sort.value]).forEach((c) => {
+            c.hidden = !keep(c);
+            n += !c.hidden;
+            main.appendChild(c);
+          });
+          shown.textContent = `showing ${n} of ${cards.length}`;
+          try { localStorage.setItem("curtilage-preview", JSON.stringify([show.value, sort.value])); } catch (e) {}
+        };
+        try {
+          const saved = JSON.parse(localStorage.getItem("curtilage-preview") || "null");
+          if (saved) {
+            if ([...show.options].some((o) => o.value === saved[0])) show.value = saved[0];
+            if ([...sort.options].some((o) => o.value === saved[1])) sort.value = saved[1];
+          }
+        } catch (e) {}
+        show.onchange = sort.onchange = update;
+        update();
+      })();
+    JS
 
     STYLE = <<~CSS
       :root { --bg: #fff; --fg: #222; --muted: #666; --card: #fafaf7; --line: #ddd; --building: #d6d1c8;
@@ -192,6 +273,8 @@ module Curtilage
       .flag { display: inline-block; background: #fff3d6; color: #8a5a00; border-radius: 4px; padding: 0 4px;
               font-size: 12px; cursor: help; }
       .facts, .muted, details { color: var(--muted); font-size: 13px; }
+      .tools label { margin-right: 14px; white-space: nowrap; } .tools select { font: inherit; }
+      #shown { color: var(--muted); } section[hidden] { display: none; }
       .legend span { margin-right: 14px; white-space: nowrap; display: inline-block; }
       .legend i { display: inline-block; width: 16px; height: 10px; margin-right: 4px; vertical-align: middle; }
       .k-premises { border: 2px solid var(--premises); } .k-store { border: 2px solid var(--store); }

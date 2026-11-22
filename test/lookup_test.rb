@@ -1,6 +1,7 @@
 # frozen_string_literal: true
 
 require_relative "test_helper"
+require "tmpdir"
 
 class LookupTest < Minitest::Test
   L = Curtilage::Lookup
@@ -27,6 +28,28 @@ class LookupTest < Minitest::Test
     assert_raises(ArgumentError) { L.sql(["x"], [[-80.0, 135.0]], nil, 0.004) }
     assert_raises(ArgumentError) { L.sql(["x"], [["1; DROP", 35.0]], nil, 0.004) }
     assert_raises(ArgumentError) { L.sql(["x"], [[-80.0, 35.0]], nil, 1) }
+  end
+
+  # DuckDB refuses a UNION ALL of more than about 1,000 scans: big batches
+  # are split across calls, and results stay in pin order.
+  def test_large_batches_take_several_calls
+    Dir.mktmpdir do |dir|
+      fake = File.join(dir, "duckdb")
+      File.write(fake, <<~SH)
+        #!/bin/sh
+        echo x >> "$(dirname "$0")/calls"
+        cat > /dev/null
+        echo '[{"pin_index": 0, "id": 1, "geometry": "{\\"type\\":\\"Point\\",\\"coordinates\\":[0,0]}"}]'
+      SH
+      File.chmod(0o755, fake)
+      File.write(File.join(dir, "a.parquet"), "")
+      lists = L.features_many(parquet: File.join(dir, "a.parquet"), pins: Array.new(1_200) { [-80.0, 35.0] },
+                              duckdb: fake)
+
+      assert_equal 3, File.readlines(File.join(dir, "calls")).size
+      assert_equal 1_200, lists.size
+      assert_equal([0, 500, 1000], lists.each_index.reject { |i| lists[i].empty? })
+    end
   end
 
   def test_missing_parquet_file

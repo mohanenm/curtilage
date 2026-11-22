@@ -3,10 +3,12 @@
 ## [Unreleased]
 
 - Command line: `generate --in FILE` reads pins from a CSV (`lng`, `lat`, optional `id`) or GeoJSON, and `--out FILE` / `--format` write GeoJSON, CSV or KML. Output is now always one GeoJSON FeatureCollection with each feature's `properties.id` (several pins used to print a list).
-- `curtilage preview` and `Curtilage::Preview.html`: an HTML page with a map of each site, drawn from its map data, to check results by eye: premises, store zone, the site's building and its neighbours, parking, roads, railways and driveway entrances, with a scale bar, the flags (explained on hover), the details and the step-by-step explanation. `--buffer METRES` also draws the premises grown by that much. It loads nothing from the internet.
+- `curtilage preview` and `Curtilage::Preview.html`: an HTML page with a map of each site, drawn from its map data, to check results by eye: premises, store zone, the site's building and its neighbours, parking, roads, railways and driveway entrances, with a scale bar, the flags (explained on hover), the details and the step-by-step explanation. `--buffer METRES` also draws the premises grown by that much. Sites can be filtered (needs a look, not valid, by flag) and sorted (needs a look first, id, premises size). It loads nothing from the internet.
+- Fix: lookups of more than about 1,000 pins at once failed (DuckDB's query depth limit). Built-file and Overture reads now go in batches of 500.
 - `Result#details`: the building (id, name, type, area, footprint), mapped parking inside the premises and an estimate of spaces, street frontage, and where driveways meet the street.
 - `Result#buffered(metres)` grows or shrinks the premises evenly (a geofence with a margin); `Result#to_wkt` and `#store_wkt`; `to_geojson(properties:)`.
 - `Curtilage.building_at(pin)`: just the building at a pin.
+- `Result#problem`: why a result isn't usable, in words ("no premises: no building within 30 m of the pin"); also in the preview, the KML description and a CSV column.
 - `Curtilage::Formats`: read pins from CSV or GeoJSON, write results as GeoJSON, CSV or KML, from Ruby.
 - `generate_many(keep_features: true)` keeps each result's map data (`Result#features`).
 - A `Dockerfile` with the gem, DuckDB and its extensions.

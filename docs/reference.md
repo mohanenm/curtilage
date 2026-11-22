@@ -38,6 +38,7 @@ Premises from features you already have (from `Curtilage::Lookup.features` or `C
 | Field | What |
 |---|---|
 | `ok?` | The premises passed validation. Never save one that isn't. |
+| `problem` | Why they aren't usable, in words (e.g. `"no premises: no building within 30 m of the pin"`), or `nil` when `ok?`. |
 | `ring` | The premises: `[[lng, lat], ...]`, closed, convex, at most `max_vertices` corners. `nil` if nothing could be made. |
 | `store_ring` | The store zone: the building's own outline, always inside `ring`. `nil` with `store_zone: false`. |
 | `flags` | Reasons a person should look first (below). |
@@ -131,7 +132,7 @@ Writing results: `Formats.write(results, format, ids: nil, store: true)` returns
 | Format | What |
 |---|---|
 | `:geojson` | One FeatureCollection: for each pin, its premises and (unless `store: false`) its store zone, with `properties.id`, `properties.role` and everything `to_geojson` carries. |
-| `:csv` | One row per pin. Columns: `id`, `lng`, `lat`, `ok`, `method`, `flags` and `errors` (`;`-separated), `building`, `building_area_m2`, `parking_area_m2`, `parking_spaces_estimate`, `frontage_m`, `premises_area_m2`, `premises_wkt`, `store_wkt`. Cells a spreadsheet would run as a formula get a leading `'`. |
+| `:csv` | One row per pin. Columns: `id`, `lng`, `lat`, `ok`, `problem`, `method`, `flags` and `errors` (`;`-separated), `building`, `building_area_m2`, `parking_area_m2`, `parking_spaces_estimate`, `frontage_m`, `premises_area_m2`, `premises_wkt`, `store_wkt`. Cells a spreadsheet would run as a formula get a leading `'`. |
 | `:kml` | A placemark per polygon (premises and store zone), with the flags and attribution in its description, for Google Earth. |
 
 `Formats.format_of(path)` names the format a file extension stands for.
@@ -142,7 +143,7 @@ Writing results: `Formats.write(results, format, ids: nil, store: true)` returns
 
 - A map 240 m across, north up, with a 50 m scale bar: the premises, store zone and pin; the site's building (darker) and other buildings, mapped parking, public roads (hover for the name), service roads and driveways, railways; driveway entrances (blue dots); with `buffer_m:`, the premises grown by that much (dashed).
 - Under it: the flags (hover for their meaning), the building and premises areas, parking area and estimated spaces, street frontage, the number of entrances, and the step-by-step explanation. Invalid results say why.
-- At the top, a count of sites that are ok, flagged or without usable premises.
+- At the top, a count of sites that are ok, flagged or without usable premises, and two controls: **Show** (all sites; those that need a look, meaning flagged or not valid; not valid; ok with no flags; or those with a given flag, with counts) and **Sort by** (input order, needs a look first, id, largest or smallest premises). The choice is remembered in the browser. The controls are a short inline script; without it every card shows, in input order.
 
 The surroundings come from `Result#features`, so pass results from `generate_many(pins, keep_features: true)`; without them only the premises, store zone and entrances are drawn. The page loads nothing from the internet (no tiles, scripts or fonts), so opening it reveals no locations; it does contain the coordinates, so share it only as you would them.
 

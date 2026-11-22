@@ -40,9 +40,10 @@ module Curtilage
         index = File.join(dir, "index.parquet")
         File.binwrite(index, Download.read(STAC_HOST, "/#{release(options)}/collections.parquet",
                                            max_bytes: MAX_INDEX_BYTES))
-        files = files_for(index, boxes, options)
-        rows = run(data_sql(boxes, files, options), options)
-        group(rows, pins.size)
+        boxes.each_slice(Lookup::PINS_PER_CALL).flat_map do |batch|
+          rows = run(data_sql(batch, files_for(index, batch, options), options), options)
+          group(rows, batch.size)
+        end
       end
     end
 
