@@ -16,7 +16,7 @@ class PreviewTest < Minitest::Test
     refute_includes html, "<b>one</b>"
     assert_includes html, %(class="premises")
     assert_includes html, %(class="building")
-    assert_includes html, "no premises: no building within 30 m of the pin"
+    assert_includes html, "no premises: no building within 30 m of the pin (it may be missing from OpenStreetMap"
     assert_includes html, "about 54 spaces"
     refute_match(/(src|href)=|url\(|@import/, html)
   end

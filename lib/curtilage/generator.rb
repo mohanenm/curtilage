@@ -280,6 +280,14 @@ module Curtilage
 
     # A tiny structure (a canopy or kiosk roof) right by the pin loses to a
     # real building in reach: the canopy then counts as part of the lot.
+    # The usual reason is a building missing from OSM, which machine-learned
+    # footprints often fill.
+    def missing_hint(opts)
+      return "" unless opts[:buildings] == :osm
+
+      " (it may be missing from OpenStreetMap: try buildings: :osm_filled)"
+    end
+
     def nearest_building(features, opts, log)
       in_reach = features.buildings.map { |b| [Geometry.distance_to_edges(b.xy, [0.0, 0.0]), b] }
                          .select { |d, _| d <= opts[:building_max_distance_m] }
@@ -290,7 +298,7 @@ module Curtilage
                                           "#{distance.round} m away (#{target.area.round} m2)")
         target
       else
-        log.note("no building within #{opts[:building_max_distance_m]} m of the pin")
+        log.note("no building within #{opts[:building_max_distance_m]} m of the pin#{missing_hint(opts)}")
         nil
       end
     end

@@ -38,7 +38,7 @@ Premises from features you already have (from `Curtilage::Lookup.features` or `C
 | Field | What |
 |---|---|
 | `ok?` | The premises passed validation. Never save one that isn't. |
-| `problem` | Why they aren't usable, in words (e.g. `"no premises: no building within 30 m of the pin"`), or `nil` when `ok?`. |
+| `problem` | Why they aren't usable, in words (e.g. `"no premises: no building within 30 m of the pin (it may be missing from OpenStreetMap: try buildings: :osm_filled)"`), or `nil` when `ok?`. |
 | `ring` | The premises: `[[lng, lat], ...]`, closed, convex, at most `max_vertices` corners. `nil` if nothing could be made. |
 | `store_ring` | The store zone: the building's own outline, always inside `ring`. `nil` with `store_zone: false`. |
 | `flags` | Reasons a person should look first (below). |

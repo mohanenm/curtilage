@@ -9,6 +9,7 @@
 - `Result#buffered(metres)` grows or shrinks the premises evenly (a geofence with a margin); `Result#to_wkt` and `#store_wkt`; `to_geojson(properties:)`.
 - `Curtilage.building_at(pin)`: just the building at a pin.
 - `Result#problem`: why a result isn't usable, in words ("no premises: no building within 30 m of the pin"); also in the preview, the KML description and a CSV column.
+- When no building is near the pin, the explanation now suggests `buildings: :osm_filled` (the usual cause is a building missing from OpenStreetMap).
 - `Curtilage::Formats`: read pins from CSV or GeoJSON, write results as GeoJSON, CSV or KML, from Ruby.
 - `generate_many(keep_features: true)` keeps each result's map data (`Result#features`).
 - A `Dockerfile` with the gem, DuckDB and its extensions.
