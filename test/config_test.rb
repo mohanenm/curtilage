@@ -3,7 +3,6 @@
 require_relative "test_helper"
 require "open3"
 require "tmpdir"
-require "minitest/mock"
 
 class ConfigTest < Minitest::Test
   def teardown
@@ -34,15 +33,25 @@ class ConfigTest < Minitest::Test
     end
   end
 
+  # A fake DuckDB that exits silently on its first call and answers on the
+  # second: the stalled-read case.
   def test_overture_retries_a_silent_failure_once
-    calls = 0
-    fake = lambda do |*|
-      calls += 1
-      calls == 1 ? ["", "", Struct.new(:success?).new(false)] : ["[]", "", Struct.new(:success?).new(true)]
-    end
-    Open3.stub(:capture3, fake) { assert_equal [], Curtilage::Overture.run("SELECT 1;", {}) }
+    Dir.mktmpdir do |dir|
+      fake = File.join(dir, "duckdb")
+      File.write(fake, <<~SH)
+        #!/bin/sh
+        calls="$(dirname "$0")/calls"
+        n=$(( $(cat "$calls" 2>/dev/null || echo 0) + 1 ))
+        echo "$n" > "$calls"
+        cat > /dev/null
+        [ "$n" -eq 1 ] && exit 1
+        echo "[]"
+      SH
+      File.chmod(0o755, fake)
 
-    assert_equal 2, calls
+      assert_equal [], Curtilage::Overture.run("SELECT 1;", { duckdb: fake })
+      assert_equal "2", File.read(File.join(dir, "calls")).strip
+    end
   end
 
   def test_cli_help_and_usage
