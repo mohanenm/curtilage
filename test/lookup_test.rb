@@ -25,6 +25,7 @@ class LookupTest < Minitest::Test
   end
 
   def test_rejects_bad_pins_and_radius
+    [[nil, 35.0], nil, [1], "-80,35"].each { |pin| assert_raises(ArgumentError) { L.checked(pin) } }
     assert_raises(ArgumentError) { L.sql(["x"], [[-80.0, 135.0]], nil, 0.004) }
     assert_raises(ArgumentError) { L.sql(["x"], [["1; DROP", 35.0]], nil, 0.004) }
     assert_raises(ArgumentError) { L.sql(["x"], [[-80.0, 35.0]], nil, 1) }

@@ -81,12 +81,8 @@ class ResultTest < Minitest::Test
 
   def test_building_at_uses_the_premises_details
     fake = Curtilage.generate(PIN, scene)
-    Curtilage.singleton_class.alias_method(:real_generate_many, :generate_many)
-    Curtilage.define_singleton_method(:generate_many) { |_pins, **| [fake] }
-
-    assert_equal 1, Curtilage.building_at(PIN)[:id]
-  ensure
-    Curtilage.singleton_class.alias_method(:generate_many, :real_generate_many)
-    Curtilage.singleton_class.remove_method(:real_generate_many)
+    with_stub(Curtilage, :generate_many, ->(_pins, **) { [fake] }) do
+      assert_equal 1, Curtilage.building_at(PIN)[:id]
+    end
   end
 end

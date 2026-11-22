@@ -207,6 +207,20 @@ module Curtilage
     results
   end
 
+  # The threads' values once every one has finished, then the first error
+  # if any thread failed: callers may delete what the others are using.
+  def self.join_all(threads)
+    outcomes = threads.map do |thread|
+      thread.value
+    rescue StandardError => e
+      e
+    end
+    error = outcomes.find { |o| o.is_a?(StandardError) }
+    raise error if error
+
+    outcomes
+  end
+
   def self.preset_options(preset)
     return {} if preset.nil?
 

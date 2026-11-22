@@ -70,6 +70,17 @@ class ZipRangeTest < Minitest::Test
     end
   end
 
+  def test_data_that_wont_inflate_is_corrupt
+    entry = Z::Entry.new(name: "x.shp", compression: 8, crc: 0, compressed_size: 8, uncompressed_size: 8, offset: 0,
+                         data_end: 38)
+    Dir.mktmpdir do |dir|
+      reader = Z::RunReader.new([entry], dir)
+      header = [0x04034b50, 20, 0, 8, 0, 0, 0, 8, 8, 5, 0].pack("VvvvvvVVVvv")
+
+      assert_raises(Z::Corrupt) { reader << "#{header}x.shp#{"\xFF".b * 8}" }
+    end
+  end
+
   def test_crc_mismatch_is_caught
     assert_raises(Z::Corrupt) { extract(zip_bytes(corrupt: true), 64) { nil } }
   end

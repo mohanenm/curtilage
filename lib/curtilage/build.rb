@@ -50,7 +50,7 @@ module Curtilage
     def run(region, out_dir:, work_dir:, **options)
       opts = OPTIONS.merge(Curtilage.duckdb_options(options))
       path = region_path(region)
-      check_footprints(opts[:ml_footprints])
+      check_options(opts)
       FileUtils.mkdir_p([out_dir, work_dir])
       fetched = PARTS.fetch(path, [path]).map { |part| fetch(part, opts[:date], work_dir, opts[:log]) }
       dirs = fetched.map(&:first)
@@ -80,7 +80,12 @@ module Curtilage
       region.include?("/") ? region : "#{US}/#{region}"
     end
 
-    def check_footprints(source)
+    # date: goes into a file name and a URL, so only YYMMDD will do.
+    def check_options(opts)
+      date = opts[:date]
+      raise ArgumentError, "date is YYMMDD: #{date.inspect}" unless date.nil? || date.to_s.match?(/\A\d{6}\z/)
+
+      source = opts[:ml_footprints]
       return if source.nil? || Footprints::SOURCES.include?(source.to_s)
 
       raise ArgumentError, "unknown ml_footprints source #{source.inspect} (have: #{Footprints::SOURCES.join(", ")})"
@@ -239,7 +244,8 @@ module Curtilage
                                        "GROUP BY feature;"].join("\n"), opts[:duckdb], "-json")
       rows = JSON.parse(stats)
       opts = opts.merge(outline: opts[:outline] || outline(path, opts[:log]))
-      File.write(parquet.sub(/\.parquet\z/, ".json"), JSON.pretty_generate(metadata(parquet, path, dates, rows, opts)))
+      AutoData.write_atomically(parquet.sub(/\.parquet\z/, ".json"),
+                                JSON.pretty_generate(metadata(parquet, path, dates, rows, opts)))
     end
 
     def metadata(parquet, path, dates, rows, opts)

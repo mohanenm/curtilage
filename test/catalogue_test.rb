@@ -61,4 +61,19 @@ class CatalogueTest < Minitest::Test
       assert_includes results.first.flags, :no_data
     end
   end
+
+  def test_unreadable_region_file_is_a_curtilage_error
+    Dir.mktmpdir do |dir|
+      File.write(File.join(dir, "cut.json"), '{"format": 1, "parquet": "cut.parquet", "bbox": [')
+      error = assert_raises(Curtilage::Error) { Curtilage::Catalogue.from_dir(dir) }
+
+      assert_includes error.message, "cut.json"
+    end
+  end
+
+  def test_unreadable_geofabrik_index_is_a_curtilage_error
+    ['{"features": [', '{"no": "features"}', "[]"].each do |json|
+      assert_raises(Curtilage::Error) { Curtilage::Regions.parse(json) }
+    end
+  end
 end

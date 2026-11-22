@@ -8,6 +8,10 @@
 - Works with DuckDB 2.0 (what Homebrew installs) as well as 1.4: it renamed the extension folder setting and deprecated `s3_region` (both warned inside the JSON output), dropped the `->` lambda syntax and stopped reading stored geometry bytes without a cast. Run from an AI coding tool, DuckDB 2.0's "agent mode" is turned off for the gem's own calls, since it changes the output.
 - No warning on Ruby 4.0, which removed the CGI library (only `cgi/escape` is loaded now). CI tests Ruby 4.0 too.
 - Small downloads (region and file indexes) stop as soon as they pass their size cap, instead of after the whole response has arrived.
+- Errors are `Curtilage::Error` (or `ArgumentError` for bad input) as documented: an unreadable catalogue file, a bad Geofabrik index or zip data that won't inflate used to surface as `JSON::ParserError`, `KeyError` or `Zlib::DataError`, and a pin containing `nil` as `TypeError`.
+- The cached Geofabrik index and each region's `.json` are written atomically, and a cached index that can't be read is fetched again. A copy cut short (a killed process, a full disk) used to break every run until it aged out after a month.
+- When one of several parallel builds fails, the others finish (and start no new region) before the error is raised; the temporary folder used to be deleted under builds still running. Download threads do the same, and failed threads no longer print to stderr.
+- `Build.run` refuses a `date:` that isn't `YYMMDD` (it goes into a file name and URL).
 
 ## [0.3.0] - 2026-11-22
 

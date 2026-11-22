@@ -45,17 +45,29 @@ module Curtilage
       queue.close
       workers = Array.new(@opts[:parallel_builds].to_i.clamp(1, [needed.size, 1].max)) do
         Thread.new do
+          Thread.current.report_on_exception = false
           while (region = queue.pop)
             ensure_built(region)
           end
+        rescue StandardError
+          queue.clear # the others finish their build but start no new one
+          raise
         end
       end
-      workers.each(&:join)
+      Curtilage.join_all(workers) # cleanup may delete the folder they build in
       Catalogue.from_dir(@cache_dir)
     end
 
     def cleanup
       FileUtils.rm_rf(@cache_dir) if @temporary
+    end
+
+    # Readers never see a half-written file, even with several processes
+    # sharing the cache.
+    def self.write_atomically(file, data)
+      part = "#{file}.#{Process.pid}.#{Thread.current.object_id}.part"
+      File.binwrite(part, data)
+      File.rename(part, file)
     end
 
     def regions
@@ -105,12 +117,23 @@ module Curtilage
       end
     end
 
+    # Geofabrik's index, cached for max_age_days. A cached copy that can't
+    # be read (cut short, say) is fetched again rather than trusted.
     def load_regions
       file = File.join(@cache_dir, INDEX_FILE)
-      unless File.file?(file) && Time.now - File.mtime(file) < @opts[:max_age_days] * 86_400
-        File.write(file, Download.read(Regions::HOST, Regions::INDEX, max_bytes: Regions::MAX_INDEX_BYTES))
-      end
+      cached = File.file?(file) && Time.now - File.mtime(file) < @opts[:max_age_days] * 86_400 && read_index(file)
+      return cached if cached
+
+      json = Download.read(Regions::HOST, Regions::INDEX, max_bytes: Regions::MAX_INDEX_BYTES)
+      regions = Regions.parse(json)
+      AutoData.write_atomically(file, json)
+      regions
+    end
+
+    def read_index(file)
       Regions.parse(File.read(file, encoding: "utf-8"))
+    rescue Error
+      nil
     end
   end
 end

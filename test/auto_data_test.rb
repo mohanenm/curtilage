@@ -102,24 +102,52 @@ class AutoDataTest < Minitest::Test
   # raised (their temporary folder is deleted right after).
   def test_failed_reads_wait_for_running_builds
     events = []
-    host = Curtilage.singleton_class
-    host.alias_method :real_from_builds, :from_builds
-    host.alias_method :real_from_overture, :from_overture
-    Curtilage.define_singleton_method(:from_builds) do |*|
+    slow_build = lambda do |*|
       sleep 0.2
       events << :built
       []
     end
-    Curtilage.define_singleton_method(:from_overture) { |*| raise Curtilage::Overture::Error, "offline" }
-
-    assert_raises(Curtilage::Overture::Error) do
-      Curtilage.send(:build_and_read, [[0, 0], [1, 1]], [0], [1], nil, lookup: {}, data: {}, options: {})
+    with_stub(Curtilage, :from_builds, slow_build) do
+      with_stub(Curtilage, :from_overture, ->(*) { raise Curtilage::Overture::Error, "offline" }) do
+        assert_raises(Curtilage::Overture::Error) do
+          Curtilage.send(:build_and_read, [[0, 0], [1, 1]], [0], [1], nil, lookup: {}, data: {}, options: {})
+        end
+      end
     end
     assert_equal [:built], events
-  ensure
-    host.alias_method :from_builds, :real_from_builds
-    host.alias_method :from_overture, :real_from_overture
-    host.send(:remove_method, :real_from_builds, :real_from_overture)
-    host.send(:private, :from_builds, :from_overture)
+  end
+
+  # One failed build lets the others finish (the temporary folder is
+  # deleted right after), starts no new one, and raises its own error.
+  def test_failed_build_waits_for_the_others
+    finished = Queue.new
+    builder = lambda do |region, *|
+      raise Curtilage::Build::Error, "no extract" if region.path == "test/big/east"
+
+      sleep 0.2
+      finished << region.path
+    end
+    Dir.mktmpdir do |dir|
+      auto = Curtilage::AutoData.new(cache_dir: dir, regions: Curtilage::Regions.parse(index), builder: builder,
+                                     log: StringIO.new, parallel_builds: 2)
+      error = assert_raises(Curtilage::Build::Error) { auto.catalogue_for([[-75.0, 35.0], [-85.0, 35.0]]) }
+
+      assert_equal "no extract", error.message
+      assert_equal ["test/big"], Array.new(finished.size) { finished.pop }
+    end
+  end
+
+  def test_unreadable_cached_index_is_fetched_again
+    Dir.mktmpdir do |dir|
+      File.write(File.join(dir, "geofabrik-index.json"), '{"features": [')
+      json = index
+      fetched = ->(*, **) { json }
+      with_stub(Curtilage::Download, :read, fetched) do
+        regions = Curtilage::AutoData.new(cache_dir: dir, log: StringIO.new).regions
+
+        refute_nil regions.for([-75.0, 35.0])
+      end
+      assert_equal index, File.read(File.join(dir, "geofabrik-index.json"))
+    end
   end
 end
