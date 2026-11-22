@@ -12,8 +12,9 @@ Gem::Specification.new do |spec|
     Proposes a premises polygon for a location (the building and its customer-facing lot,
     bounded by roads, railways and neighbours) plus the building's own outline, with review
     flags, validation and an explanation of each step. Map data is free and needs no hosting:
-    OpenStreetMap regions are built on demand from Geofabrik, or read in place from Overture
-    Maps. Rule-based; machine-learned footprints are opt-in.
+    OpenStreetMap data is read in place from Overture Maps for scattered locations, or built
+    from Geofabrik regions where many locations share one. Rule-based; machine-learned
+    footprints are opt-in.
   TEXT
   spec.required_ruby_version = ">= 3.2"
   spec.license = "MIT"

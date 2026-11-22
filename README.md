@@ -29,7 +29,7 @@ That's all the setup: map data is fetched as needed. Everything else (batches, O
 ## How it works
 
 1. **Data.** Buildings, parking lots, roads and railways from OpenStreetMap, picked automatically (`source: :auto`, the default):
-   - **Scattered pins: Overture Maps, read in place.** The same OpenStreetMap data from Overture's public release, read straight from their storage: about 10 s per area, nothing downloaded.
+   - **Scattered pins: Overture Maps, read in place.** The same OpenStreetMap data from Overture's public release, read straight from their storage: about 5-10 s per area, nothing downloaded.
    - **Many pins in one region, or a region already cached: a Geofabrik build.** The gem downloads only the layers it needs from that region's shapefiles and builds a compact Parquet file, 1-5 minutes per US state, then answers instantly.
    - Or force one: `source: :geofabrik` (the host only ever learns the region, never the area) or `source: :overture`. Or use your own prebuilt files (`curtilage build`), local or in a bucket.
 2. **Generate.** Start from the building at the pin and grow its rectangle 30 m toward its lot, then:
@@ -78,7 +78,7 @@ end
 
 - Generate: about 100 ms per site (median; a few hundred ms in dense blocks).
 - Prebuilt files: about 85 ms per lookup through the DuckDB CLI; one call serves many pins.
-- Overture (the default for scattered pins): about 10 s per area; pins within a few km of each other share it.
+- Overture (the default for scattered pins): about 5-10 s per area; pins within a few km of each other share it. A test batch of 51 sites in 17 regions across three continents took 4 minutes from a cold start.
 - Geofabrik builds (the default once 20+ pins share a region): 1-5 minutes per US state the first time (Texas, the largest tested, about 4.5 minutes and under 650 MB of memory), then as above. Downloads use `curl` when it's installed, and `data: { parallel_builds: 2 }` builds two regions at once on machines with the memory.
 
 ## Building footprints: OSM, or OSM plus machine-learned

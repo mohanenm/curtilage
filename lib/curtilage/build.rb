@@ -8,8 +8,9 @@ require "time"
 
 module Curtilage
   # Builds a region's features Parquet from Geofabrik's free shapefiles:
-  # download the newest dated extract, check the zip, unzip only the layers
-  # used, and run sql/build_from_shapefiles.sql with the DuckDB CLI.
+  # find the newest dated extract, download only the layers used (range
+  # requests, CRC-checked; the whole zip plus unzip only if the server can't
+  # do ranges), and run sql/build_from_shapefiles.sql with the DuckDB CLI.
   # Optionally adds machine-learned building footprints (see Footprints).
   #
   # Network access is limited to Geofabrik (and the footprint host when asked
@@ -83,8 +84,8 @@ module Curtilage
       raise ArgumentError, "unknown ml_footprints source #{source.inspect} (have: #{Footprints::SOURCES.join(", ")})"
     end
 
-    # Downloads and unzips one Geofabrik extract; returns [folder with its
-    # shapefiles, extract date].
+    # Fetches one Geofabrik extract's layers (see above); returns [folder
+    # with its shapefiles, extract date].
     #
     # Unless the whole zip is already on disk, only the layers used are
     # downloaded, with range requests (ZipRange); a server or zip that can't
