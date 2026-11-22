@@ -47,7 +47,7 @@ class CatalogueTest < Minitest::Test
       assert_equal :none, cat.coverage([-80.5, 36.5])
       assert_empty cat.files_for([-80.5, 36.5])
       assert_equal :partial, cat.coverage([-82.5, 35.5], margin: 0.2)
-      flagged = Curtilage.generate_one([-82.5, 35.5], [], ["east.parquet"], cat, {})
+      flagged = Curtilage.send(:generate_one, [-82.5, 35.5], [], ["east.parquet"], cat, {})
 
       assert_includes flagged.flags, :partial_data
     end

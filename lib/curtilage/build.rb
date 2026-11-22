@@ -17,7 +17,7 @@ module Curtilage
   # for). Memory is capped (400 MB and 1 thread by default) so a build fits a
   # 1 GB dyno; DuckDB spills to work_dir when a region is bigger than that.
   module Build
-    class Error < StandardError; end
+    class Error < Curtilage::Error; end
 
     HOST = "download.geofabrik.de"
     US = "north-america/us"
@@ -132,17 +132,23 @@ module Curtilage
     # Geofabrik publishes no checksum for shapefiles; the zip's CRCs catch a
     # truncated or corrupt download.
     def check_zip(zip)
-      _, err, status = Open3.capture3("unzip", "-tq", zip)
+      _, err, status = unzip("-tq", zip)
       return if status.success?
 
       File.delete(zip)
       raise Error, "corrupt download #{File.basename(zip)} (deleted): #{err.strip[0, 200]}"
     end
 
+    def unzip(*)
+      Open3.capture3("unzip", *)
+    rescue Errno::ENOENT
+      raise Error, "unzip not found: it's needed when a server can't serve byte ranges"
+    end
+
     def unzip_layers(zip, dir)
       FileUtils.mkdir_p(dir)
       patterns = LAYERS.map { |layer| "gis_osm_#{layer}_free_*" }
-      _, err, status = Open3.capture3("unzip", "-oq", zip, *patterns, "-d", dir)
+      _, err, status = unzip("-oq", zip, *patterns, "-d", dir)
       raise Error, "unzip failed: #{err.strip[0, 200]}" unless status.success?
     end
 
@@ -205,7 +211,7 @@ module Curtilage
     end
 
     def run_duckdb(sql, duckdb, *)
-      out, err, status = Open3.capture3(duckdb, *, stdin_data: sql)
+      out, err, status = DuckDB.capture(duckdb, sql, *)
       raise Error, "duckdb failed: #{err.strip[0, 500]}" unless status.success? && err.strip.empty?
 
       out
@@ -268,8 +274,6 @@ module Curtilage
       FileUtils.rm_rf(File.join(work_dir, "ml_footprints"))
     end
 
-    def quote(text)
-      "'#{text.to_s.gsub("'", "''")}'"
-    end
+    def quote(text) = DuckDB.quote(text)
   end
 end

@@ -11,8 +11,8 @@ module Curtilage
   # (no range support, zip64, encryption, other compression), so the caller
   # can fall back to a full download.
   module ZipRange
-    class Unsupported < StandardError; end
-    class Corrupt < StandardError; end
+    class Unsupported < Curtilage::Error; end
+    class Corrupt < Curtilage::Error; end
 
     Entry = Struct.new(:name, :compression, :crc, :compressed_size, :uncompressed_size, :offset, :data_end,
                        keyword_init: true)

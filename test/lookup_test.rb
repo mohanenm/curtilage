@@ -52,6 +52,22 @@ class LookupTest < Minitest::Test
     end
   end
 
+  def test_missing_duckdb_is_a_curtilage_error
+    Dir.mktmpdir do |dir|
+      File.write(File.join(dir, "a.parquet"), "")
+      error = assert_raises(Curtilage::Error) do
+        L.features(parquet: File.join(dir, "a.parquet"), pin: [-80.0, 35.0], duckdb: File.join(dir, "no-duckdb"))
+      end
+      assert_match(/DuckDB CLI not found/, error.message)
+    end
+  end
+
+  def test_every_error_class_is_a_curtilage_error
+    [L::Error, Curtilage::Overture::Error, Curtilage::Build::Error, Curtilage::Download::Error,
+     Curtilage::Download::Transient, Curtilage::Footprints::Error, Curtilage::ZipRange::Unsupported,
+     Curtilage::ZipRange::Corrupt].each { |klass| assert_operator klass, :<, Curtilage::Error }
+  end
+
   def test_missing_parquet_file
     assert_raises(ArgumentError) { L.features(parquet: "/nonexistent.parquet", pin: [-80.0, 35.0]) }
     assert_raises(ArgumentError) { L.features(parquet: [], pin: [-80.0, 35.0]) }

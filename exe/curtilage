@@ -80,8 +80,8 @@ def run(opts, pins, **extra)
   Curtilage.generate_many(pins, catalogue: catalogue, **opts.slice(:parquet, :source, :cache_dir),
                                 lookup: opts.slice(:duckdb, :extension_directory),
                                 **opts.slice(:preset, :buildings, :store_zone), **extra)
-rescue Errno::ENOENT => e
-  abort "curtilage: #{e.message}. Run \"curtilage doctor\" to check DuckDB is installed."
+rescue Curtilage::Error, ArgumentError => e
+  abort "curtilage: #{e.message}"
 end
 
 def data_flags(o, opts)

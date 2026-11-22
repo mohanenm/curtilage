@@ -79,11 +79,11 @@ class AutoDataTest < Minitest::Test
   def test_auto_plan_builds_dense_regions_and_reads_sparse_ones
     auto = Curtilage::AutoData.new(regions: Curtilage::Regions.parse(index), builder: ->(*) {}, log: StringIO.new)
     pins = [[-75.0, 35.0], [-75.1, 35.1], [-75.2, 35.2], [-85.0, 35.0], [10.0, 50.0]]
-    built, read = Curtilage.auto_plan(pins, auto, 3)
+    built, read = Curtilage.send(:auto_plan, pins, auto, 3)
 
     assert_equal [0, 1, 2], built
     assert_equal [3, 4], read
-    assert_equal [[], [0, 1, 2, 3, 4]], Curtilage.auto_plan(pins, auto, 10)
+    assert_equal [[], [0, 1, 2, 3, 4]], Curtilage.send(:auto_plan, pins, auto, 10)
   ensure
     auto&.cleanup
   end
@@ -96,5 +96,30 @@ class AutoDataTest < Minitest::Test
     auto.cleanup
 
     refute Dir.exist?(dir)
+  end
+
+  # If the Overture reads fail, running builds finish before the error is
+  # raised (their temporary folder is deleted right after).
+  def test_failed_reads_wait_for_running_builds
+    events = []
+    host = Curtilage.singleton_class
+    host.alias_method :real_from_builds, :from_builds
+    host.alias_method :real_from_overture, :from_overture
+    Curtilage.define_singleton_method(:from_builds) do |*|
+      sleep 0.2
+      events << :built
+      []
+    end
+    Curtilage.define_singleton_method(:from_overture) { |*| raise Curtilage::Overture::Error, "offline" }
+
+    assert_raises(Curtilage::Overture::Error) do
+      Curtilage.send(:build_and_read, [[0, 0], [1, 1]], [0], [1], nil, lookup: {}, data: {}, options: {})
+    end
+    assert_equal [:built], events
+  ensure
+    host.alias_method :from_builds, :real_from_builds
+    host.alias_method :from_overture, :real_from_overture
+    host.send(:remove_method, :real_from_builds, :real_from_overture)
+    host.send(:private, :from_builds, :from_overture)
   end
 end

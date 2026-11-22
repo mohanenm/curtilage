@@ -21,7 +21,8 @@ module Curtilage
     Result = Curtilage::Result
 
     # What the parking steps need about the site being generated.
-    Site = Struct.new(:features, :target, :opts, :log)
+    # shared: the lots own_parking found shared with several buildings.
+    Site = Struct.new(:features, :target, :opts, :log, :shared)
 
     # Notes explain each step; flags are reasons a person should look first.
     # access: where driveways taken into the premises meet the street.
@@ -122,21 +123,28 @@ module Curtilage
     def generate(method, pin, features, **options)
       raise ArgumentError, "unknown method #{method.inspect}" unless METHODS.include?(method)
 
-      opts = DEFAULTS.merge(options)
-      unless SCOPES.include?(opts[:scope])
-        raise ArgumentError,
-              "unknown scope: #{opts[:scope].inspect} (have: site, centre)"
-      end
-      unless BUILDING_SOURCES.include?(opts[:buildings])
-        raise ArgumentError, "unknown buildings: #{opts[:buildings].inspect} (have: #{BUILDING_SOURCES.join(", ")})"
-      end
-
+      opts = checked_options(options)
       features = Features.new(pin, features) unless features.is_a?(Features)
       features = choose_buildings(features, opts[:buildings])
       log = Log.new([], [])
       log.note("dropped #{features.dropped} unusable OSM features") if features.dropped.positive?
       xy, target = send(method, features, opts, log)
       finish(method, pin, [xy, target, features], log, opts)
+    end
+
+    # DEFAULTS with the options applied. A misspelt option would otherwise be
+    # silently ignored.
+    def checked_options(options)
+      unknown = options.keys - DEFAULTS.keys
+      raise ArgumentError, "unknown option(s): #{unknown.join(", ")} (see Generator::DEFAULTS)" if unknown.any?
+
+      opts = DEFAULTS.merge(options)
+      raise ArgumentError, "unknown scope: #{opts[:scope].inspect} (have: site, centre)" \
+        unless SCOPES.include?(opts[:scope])
+      raise ArgumentError, "unknown buildings: #{opts[:buildings].inspect} (have: #{BUILDING_SOURCES.join(", ")})" \
+        unless BUILDING_SOURCES.include?(opts[:buildings])
+
+      opts
     end
 
     # The building flavour: OSM only (default), OSM filled in with ML
@@ -209,14 +217,13 @@ module Curtilage
       return [nil, nil] unless target
 
       poly = trim_at_roads(grown(target, opts, log), features, target, opts, log)
-      lots = own_parking(features, target, opts, log)
-      shared = lots.select { |lot| lot.instance_variable_get(:@shared) }
+      lots, shared = own_parking(features, target, opts, log)
       return [centre(shared, Site.new(features, target, opts, log)), target] if opts[:scope] == :centre && shared.any?
 
       claimed = lots.select { |lot| lot.kind == "building" }
       features = features.with_buildings(features.buildings - claimed) unless claimed.empty?
       poly = trim_at_neighbours(poly, features, target, opts, log)
-      poly = add_parking(poly, lots, Site.new(features, target, opts, log)) unless lots.empty?
+      poly = add_parking(poly, lots, Site.new(features, target, opts, log, shared)) unless lots.empty?
       [poly, target]
     end
 

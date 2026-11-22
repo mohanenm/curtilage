@@ -1,7 +1,6 @@
 # frozen_string_literal: true
 
 require "json"
-require "open3"
 require "tmpdir"
 
 module Curtilage
@@ -15,7 +14,7 @@ module Curtilage
   # used only with buildings: :osm_filled or :ml. Each query tells the
   # storage host roughly which area is being read.
   module Overture
-    class Error < StandardError; end
+    class Error < Curtilage::Error; end
 
     STAC_HOST = "stac.overturemaps.org"
     CATALOG = "/catalog.json"
@@ -169,7 +168,7 @@ module Curtilage
     # Remote reads occasionally stall and DuckDB exits without a message;
     # one retry gets past that.
     def run(sql, options, attempts: 2)
-      out, err, status = Open3.capture3(options.fetch(:duckdb, "duckdb"), "-json", stdin_data: sql)
+      out, err, status = DuckDB.capture(options.fetch(:duckdb, "duckdb"), sql, "-json")
       unless status.success?
         return run(sql, options, attempts: attempts - 1) if err.strip.empty? && attempts > 1
 
@@ -189,8 +188,6 @@ module Curtilage
       lists
     end
 
-    def quote(text)
-      "'#{text.to_s.gsub("'", "''")}'"
-    end
+    def quote(text) = DuckDB.quote(text)
   end
 end

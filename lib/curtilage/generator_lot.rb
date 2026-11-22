@@ -14,17 +14,18 @@ module Curtilage
     # isn't this site's alone, so it's left out and flagged.
     #
     # Parking garages, carports and canopies next to the building count as
-    # lot too (LOT_TYPES).
+    # lot too (LOT_TYPES). Returns [the site's lots, those of them shared].
     def own_parking(features, target, opts, log)
       structures = features.buildings.select do |b|
         !b.equal?(target) && (LOT_TYPES.include?(b.category) || b.area < opts[:small_building_m2])
       end
-      (features.parking + structures).select do |lot|
+      shared = []
+      lots = (features.parking + structures).select do |lot|
         next false unless Geometry.contains?(lot.xy, [0.0, 0.0]) || touches?(lot, target, opts)
 
         others = sharers(lot, features, target, opts)
         if others >= opts[:shared_lot_buildings]
-          lot.instance_variable_set(:@shared, true)
+          shared << lot
           log.note("parking #{lot.id} (#{lot.area.round} m2) is shared with #{others} other buildings: " \
                    "claimed the part nearer this building than the others")
           next true
@@ -32,6 +33,7 @@ module Curtilage
         log.note("#{lot_label(lot)} (#{lot.area.round} m2) touches the building, so it's part of the lot")
         true
       end
+      [lots, shared]
     end
 
     # Other buildings (not garages or canopies) the lot also touches.
@@ -133,7 +135,7 @@ module Curtilage
     # so the claim stops short of the yard.
     def share_lot(part, lot, site)
       features, target, opts, log = site.to_a
-      shared = lot.instance_variable_get(:@shared)
+      shared = site.shared.include?(lot)
       others = neighbours(features, target, opts).select do |other|
         touches?(lot, other, opts) && !Geometry.overlap?(other.hull, target.hull)
       end

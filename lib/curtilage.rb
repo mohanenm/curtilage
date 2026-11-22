@@ -1,7 +1,15 @@
 # frozen_string_literal: true
 
 require_relative "curtilage/version"
+
+module Curtilage
+  # Every error the gem raises on purpose is one of these (input mistakes
+  # are ArgumentError).
+  class Error < StandardError; end
+end
+
 require_relative "curtilage/config"
+require_relative "curtilage/duckdb"
 require_relative "curtilage/geometry"
 require_relative "curtilage/validation"
 require_relative "curtilage/features"
@@ -128,10 +136,26 @@ module Curtilage
   end
 
   # Builds and Overture reads wait on different hosts: run them side by side.
+  # If the reads fail, the builds are allowed to finish before the error is
+  # raised: the caller then deletes their temporary folder, which must not
+  # happen under a running build.
   def self.build_and_read(pins, built, read, auto, lookup:, data:, options:)
     builds = Thread.new { from_builds(pins.values_at(*built), auto, lookup, options) }
-    reads = read.empty? ? [] : from_overture(pins.values_at(*read), lookup, data, options)
+    builds.report_on_exception = false # value re-raises it
+    begin
+      reads = read.empty? ? [] : from_overture(pins.values_at(*read), lookup, data, options)
+    rescue StandardError
+      wait_quietly(builds)
+      raise
+    end
     merge(pins.size, [built, builds.value], [read, reads])
+  end
+
+  # The read error is the one to report, not a build error behind it.
+  def self.wait_quietly(thread)
+    thread.join
+  rescue StandardError
+    nil
   end
 
   def self.from_builds(pins, auto, lookup, options)
@@ -201,4 +225,7 @@ module Curtilage
     result.flags << :no_data
     result.explanation.unshift("no map data covers this pin")
   end
+
+  private_class_method :fetch_and_generate, :auto_plan, :build_and_read, :wait_quietly, :from_builds, :merge,
+                       :from_overture, :run_many, :preset_options, :generate_one, :partial_data, :no_data
 end

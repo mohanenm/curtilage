@@ -1,7 +1,6 @@
 # frozen_string_literal: true
 
 require "json"
-require "open3"
 
 module Curtilage
   # Reads the features around pins from features Parquet files (built by
@@ -13,13 +12,12 @@ module Curtilage
   # (e.g. a CREATE SECRET statement): it goes to DuckDB on stdin, never on
   # the command line.
   module Lookup
-    class Error < StandardError; end
+    class Error < Curtilage::Error; end
 
     # About 400 m north-south and 450 m east-west at US latitudes: room for
     # the lot and its bounding roads.
     DEFAULT_RADIUS_DEG = 0.004
     MAX_OUTPUT_BYTES = 200_000_000
-    MAX_PINS = 10_000
     # Each pin is one scan in a UNION ALL, and DuckDB refuses queries nested
     # more than 1,000 deep: larger batches take several calls.
     PINS_PER_CALL = 500
@@ -41,7 +39,7 @@ module Curtilage
       options = Curtilage.duckdb_options(options)
       files = Array(parquet)
       check_files(files)
-      raise ArgumentError, "between 1 and #{MAX_PINS} pins" unless pins.size.between?(1, MAX_PINS)
+      raise ArgumentError, "no pins given" if pins.empty?
 
       pins.each_slice(PINS_PER_CALL).flat_map { |batch| read_batch(files, batch, options) }
     end
@@ -49,7 +47,7 @@ module Curtilage
     def read_batch(files, pins, options)
       sql = sql(files, pins, options[:extension_directory], options.fetch(:radius_deg, DEFAULT_RADIUS_DEG),
                 options[:setup_sql])
-      out, err, status = Open3.capture3(options.fetch(:duckdb, "duckdb"), "-json", stdin_data: sql)
+      out, err, status = DuckDB.capture(options.fetch(:duckdb, "duckdb"), sql, "-json")
       raise Error, "duckdb failed: #{err.strip[0, 500]}" unless status.success?
       raise Error, "duckdb output too large" if out.bytesize > MAX_OUTPUT_BYTES
 
@@ -110,8 +108,6 @@ module Curtilage
       [lng, lat]
     end
 
-    def quote(text)
-      "'#{text.to_s.gsub("'", "''")}'"
-    end
+    def quote(text) = DuckDB.quote(text)
   end
 end

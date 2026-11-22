@@ -16,7 +16,7 @@ module Curtilage
   # it's installed, which streams several times faster than Net::HTTP; set
   # CURTILAGE_CURL=0 to always use Net::HTTP.
   module Download
-    class Error < StandardError; end
+    class Error < Curtilage::Error; end
 
     # Worth another try: the next attempt may well succeed.
     class Transient < Error; end

@@ -163,6 +163,19 @@ class GeneratorTest < Minitest::Test
     assert_in_delta(-30, xy(result).map(&:first).min, 0.5)
   end
 
+  # Reusing one Features with other options gives the same result as a
+  # fresh one: nothing about an earlier run is left on the features.
+  def test_features_can_be_reused_with_other_options
+    centre = scene + [polygon("building", 11, -40, 22, -30, 32), polygon("building", 12, -40, -32, -30, -22),
+                      polygon("building", 13, -60, -5, -50, 5)]
+    features = Curtilage::Features.new(PIN, centre)
+    Curtilage.generate(PIN, features, method: :grow_trim, grow_m: 10)
+    reused = Curtilage.generate(PIN, features, method: :grow_trim, grow_m: 10, shared_lot_buildings: 10)
+    fresh = Curtilage.generate(PIN, centre, method: :grow_trim, grow_m: 10, shared_lot_buildings: 10)
+
+    assert_equal fresh.ring, reused.ring
+  end
+
   def test_centre_scope_maps_the_whole_shopping_centre
     centre = scene + [polygon("building", 11, -40, 22, -30, 32), polygon("building", 12, -40, -32, -30, -22),
                       polygon("building", 13, -60, -5, -50, 5)]
@@ -336,6 +349,11 @@ class GeneratorTest < Minitest::Test
 
     assert_equal 1, result.building
     refute_includes result.flags, :ml_footprint
+  end
+
+  def test_misspelt_options_are_refused
+    error = assert_raises(ArgumentError) { Curtilage.generate(PIN, scene, parking_reach: 30) }
+    assert_match(/unknown option\(s\): parking_reach/, error.message)
   end
 
   def test_unknown_building_flavour
