@@ -1,6 +1,6 @@
 # frozen_string_literal: true
 
-require "cgi"
+require "cgi/escape"
 
 module Curtilage
   # A self-contained HTML page for checking results by eye: one map per

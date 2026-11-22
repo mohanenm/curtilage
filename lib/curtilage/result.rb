@@ -66,7 +66,7 @@ module Curtilage
       grown = metres.negative? ? Geometry.clip_inside(xy, xy, -metres) : Geometry.round_buffer(xy, metres)
       return nil if grown.size < 3 || Geometry.area(grown) < 1
 
-      out = Geometry.unproject(Geometry.clean(grown), pin).map { |lng, lat| [lng.round(7), lat.round(7)] }
+      out = Geometry.lnglat(Geometry.clean(grown), pin)
       out << out.first
     end
 

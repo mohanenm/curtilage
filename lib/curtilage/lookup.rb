@@ -46,7 +46,7 @@ module Curtilage
 
     def read_batch(files, pins, options)
       sql = sql(files, pins, options[:extension_directory], options.fetch(:radius_deg, DEFAULT_RADIUS_DEG),
-                options[:setup_sql])
+                options[:setup_sql], duckdb: options.fetch(:duckdb, "duckdb"))
       out, err, status = DuckDB.capture(options.fetch(:duckdb, "duckdb"), sql, "-json")
       raise Error, "duckdb failed: #{err.strip[0, 500]}" unless status.success?
       raise Error, "duckdb output too large" if out.bytesize > MAX_OUTPUT_BYTES
@@ -78,15 +78,15 @@ module Curtilage
       lists
     end
 
-    def sql(files, pins, extension_directory, radius_deg, setup_sql = nil)
+    def sql(files, pins, extension_directory, radius_deg, setup_sql = nil, duckdb: nil)
       r = Float(radius_deg)
       raise ArgumentError, "radius out of range" unless r.positive? && r <= 0.05
 
-      [setup(files, extension_directory, setup_sql), query(files, pins, r)].join("\n")
+      [setup(files, extension_directory, setup_sql, duckdb), query(files, pins, r)].join("\n")
     end
 
-    def setup(files, extension_directory, setup_sql)
-      [("SET extension_directory = #{quote(File.expand_path(extension_directory))};" if extension_directory),
+    def setup(files, extension_directory, setup_sql, duckdb)
+      [(DuckDB.extension_sql(extension_directory, duckdb) if extension_directory),
        "INSTALL spatial; LOAD spatial;",
        ("INSTALL httpfs; LOAD httpfs;" if files.any? { |f| f.to_s.match?(REMOTE) }),
        setup_sql].compact.join("\n")
@@ -98,8 +98,9 @@ module Curtilage
       list = files.map { |f| quote(f) }.join(", ")
       scans = pins.each_with_index.map do |pin, i|
         lng, lat = checked(pin)
-        "SELECT #{i} AS pin_index, id, feature, highway, name, ST_AsGeoJSON(wkb)::VARCHAR AS geometry " \
-          "FROM read_parquet([#{list}]) WHERE max_lng >= #{lng - radius} AND min_lng <= #{lng + radius} " \
+        "SELECT #{i} AS pin_index, id, feature, highway, name, " \
+          "ST_AsGeoJSON(ST_GeomFromWKB(wkb))::VARCHAR AS geometry FROM read_parquet([#{list}]) " \
+          "WHERE max_lng >= #{lng - radius} AND min_lng <= #{lng + radius} " \
           "AND max_lat >= #{lat - radius} AND min_lat <= #{lat + radius}"
       end
       "#{scans.join(" UNION ALL ")};"

@@ -14,12 +14,7 @@ module Curtilage
         Geometry.box_points(pin, margin).any? { |point| holds?(point) }
       end
 
-      def holds?(point)
-        lng, lat = point
-        return false unless lng.between?(bbox[0], bbox[2]) && lat.between?(bbox[1], bbox[3])
-
-        rings.nil? || rings.any? { |ring| Geometry.contains?(ring, point) }
-      end
+      def holds?(point) = Geometry.in_rings?(point, bbox, rings)
     end
 
     attr_reader :regions
@@ -29,7 +24,7 @@ module Curtilage
     # https://...), when the metadata is local but the data isn't.
     def self.from_dir(dir, base_url: nil)
       regions = Dir.glob(File.join(dir, "*.json")).filter_map do |file|
-        meta = JSON.parse(File.read(file))
+        meta = JSON.parse(File.read(file, encoding: "utf-8"))
         next unless meta["format"] == 1 && meta["parquet"] && meta["bbox"]&.size == 4
 
         parquet = base_url ? "#{base_url.chomp("/")}/#{meta["parquet"]}" : File.join(dir, meta["parquet"])

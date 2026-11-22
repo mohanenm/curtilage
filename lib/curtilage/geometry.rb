@@ -28,6 +28,12 @@ module Curtilage
       xy.map { |x, y| [lng0 + (x / sx), lat0 + (y / METRES_PER_DEGREE_LAT)] }
     end
 
+    # Inverse of project, rounded to 7 decimals (about a centimetre): what
+    # results hand out.
+    def lnglat(xy, origin)
+      unproject(xy, origin).map { |lng, lat| [lng.round(7), lat.round(7)] }
+    end
+
     def metres_per_degree_lng(lat)
       Math.cos(lat * Math::PI / 180) * METRES_PER_DEGREE_LNG_AT_EQUATOR
     end
@@ -59,6 +65,10 @@ module Curtilage
       (sum / 2.0).abs
     end
 
+    def distance(p, q)
+      Math.hypot(p[0] - q[0], p[1] - q[1])
+    end
+
     def centroid(xy)
       [xy.sum { |p| p[0] } / xy.size, xy.sum { |p| p[1] } / xy.size]
     end
@@ -83,15 +93,7 @@ module Curtilage
     end
 
     def segment_distance(point, a, b)
-      px, py = point
-      ax, ay = a
-      bx, by = b
-      dx = bx - ax
-      dy = by - ay
-      len2 = (dx * dx) + (dy * dy)
-      t = len2.zero? ? 0 : (((px - ax) * dx) + ((py - ay) * dy)) / len2
-      t = t.clamp(0.0, 1.0)
-      Math.hypot(px - (ax + (t * dx)), py - (ay + (t * dy)))
+      distance(point, closest_point_on_segment(point, a, b))
     end
 
     # True when any two non-adjacent edges cross. O(n^2), fine for premises.
@@ -157,14 +159,6 @@ module Curtilage
       best.min_by { |r| r[:area] }
     end
 
-    # [area_m2, orientation_degrees_0_to_180] of the minimum rectangle.
-    def min_rotated_rectangle(xy)
-      rect = minimum_rectangle(xy)
-      return [0.0, 0.0] unless rect
-
-      [rect[:area], (rect[:angle] * 180 / Math::PI) % 180]
-    end
-
     # The box around the points with sides parallel and perpendicular to
     # angle (radians), grown by margin metres on every side. Counter-clockwise.
     def oriented_box(xy, angle, margin = 0)
@@ -192,24 +186,6 @@ module Curtilage
       signed_area(xy).negative? ? xy.reverse : xy
     end
 
-    # Centre of mass of the polygon's area (the vertex mean is biased toward
-    # densely sampled edges).
-    def area_centroid(xy)
-      a = signed_area(xy)
-      return centroid(xy) if a.abs < 1e-9
-
-      cx = 0.0
-      cy = 0.0
-      xy.each_index do |i|
-        x1, y1 = xy[i]
-        x2, y2 = xy[(i + 1) % xy.size]
-        f = (x1 * y2) - (x2 * y1)
-        cx += (x1 + x2) * f
-        cy += (y1 + y2) * f
-      end
-      [cx / (6 * a), cy / (6 * a)]
-    end
-
     # Keeps the part of the polygon where (p - origin) . normal <= 0
     # (Sutherland-Hodgman against one line). Works for any simple polygon;
     # a non-convex input can come back with zero-width bridges, which don't
@@ -232,16 +208,7 @@ module Curtilage
     end
 
     # The part of subject inside a convex clipper.
-    def clip_convex(subject, clipper)
-      clipper = counter_clockwise(clipper)
-      clipper.each_index.reduce(subject) do |poly, i|
-        break [] if poly.size < 3
-
-        a = clipper[i]
-        b = clipper[(i + 1) % clipper.size]
-        clip_half_plane(poly, a, [b[1] - a[1], a[0] - b[0]])
-      end
-    end
+    def clip_convex(subject, clipper) = clip_inside(subject, clipper, 0)
 
     def closest_point_on_segment(point, a, b)
       dx = b[0] - a[0]
@@ -259,16 +226,20 @@ module Curtilage
         from.each do |p|
           to.each_index do |i|
             q = closest_point_on_segment(p, to[i], to[(i + 1) % to.size])
-            candidates << (if flipped
-                             [Math.hypot(p[0] - q[0], p[1] - q[1]), q,
-                              p]
-                           else
-                             [Math.hypot(p[0] - q[0], p[1] - q[1]), p, q]
-                           end)
+            candidates << [distance(p, q), *(flipped ? [q, p] : [p, q])]
           end
         end
       end
       candidates.min_by(&:first)
+    end
+
+    # Whether [lng, lat] is in a region given by its bbox and outline rings;
+    # nil rings (an older build with no outline) mean the bbox alone.
+    def in_rings?(point, bbox, rings)
+      lng, lat = point
+      return false unless lng.between?(bbox[0], bbox[2]) && lat.between?(bbox[1], bbox[3])
+
+      rings.nil? || rings.any? { |ring| contains?(ring, point) }
     end
 
     # [min_x, min_y, max_x, max_y].
@@ -373,7 +344,7 @@ module Curtilage
     end
 
     def drop_repeats(xy, tolerance)
-      near = ->(p, q) { Math.hypot(p[0] - q[0], p[1] - q[1]) < tolerance }
+      near = ->(p, q) { distance(p, q) < tolerance }
       pts = xy.each_with_object([]) { |p, out| out << p unless out.last && near.call(p, out.last) }
       pts.pop while pts.size > 1 && near.call(pts[0], pts[-1])
       pts

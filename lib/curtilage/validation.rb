@@ -63,7 +63,8 @@ module Curtilage
 
     def measure(xy)
       origin = [0.0, 0.0]
-      mbr_area, orientation = Geometry.min_rotated_rectangle(xy)
+      rect = Geometry.minimum_rectangle(xy)
+      mbr_area, orientation = rect ? [rect[:area], (rect[:angle] * 180 / Math::PI) % 180] : [0.0, 0.0]
       area = Geometry.area(xy)
       {
         area_m2: area.round,

@@ -51,8 +51,7 @@ class GeometryTest < Minitest::Test
     assert G.overlap?(SQUARE, [[5, 5], [15, 5], [15, 15], [5, 15]])
   end
 
-  def test_area_centroid_and_simplify
-    assert_equal [5.0, 5.0], G.area_centroid(SQUARE)
+  def test_simplify
     octagon = (0...8).map { |i| [Math.cos(i * Math::PI / 4), Math.sin(i * Math::PI / 4)] }
 
     assert_equal 5, G.simplify(octagon, 5).size

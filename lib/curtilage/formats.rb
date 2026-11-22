@@ -1,5 +1,6 @@
 # frozen_string_literal: true
 
+require "cgi/escape"
 require "json"
 require "strscan"
 
@@ -151,9 +152,7 @@ module Curtilage
       parts.join("\n")
     end
 
-    def xml(text)
-      text.to_s.gsub("&", "&amp;").gsub("<", "&lt;").gsub(">", "&gt;").gsub('"', "&quot;")
-    end
+    def xml(text) = CGI.escapeHTML(text.to_s)
 
     # A field that a spreadsheet would run as a formula (=, +, -, @) gets a
     # leading quote, unless it's a number.

@@ -26,6 +26,7 @@ module Curtilage
       "#{US}/california" => %W[#{US}/california/norcal #{US}/california/socal],
     }.freeze
     LAYERS = %w[buildings_a traffic_a roads railways].freeze
+    LAYER_PATTERNS = LAYERS.map { |layer| "gis_osm_#{layer}_free_*" }.freeze
     REGION = %r{\A[a-z]+(-[a-z]+)*(/[a-z]+(-[a-z]+)*)*\z}
     MAX_DOWNLOAD_BYTES = 5_000_000_000
     LOOKBACK_DAYS = 8
@@ -54,12 +55,13 @@ module Curtilage
       fetched = PARTS.fetch(path, [path]).map { |part| fetch(part, opts[:date], work_dir, opts[:log]) }
       dirs = fetched.map(&:first)
       opts = opts.merge(temp_directory: File.join(work_dir, "duckdb_tmp"))
-      ml = ml_files(dirs, work_dir, opts)
+      ml, ml_bbox = ml_files(dirs, work_dir, opts)
       out = File.join(out_dir, "#{output_name(path, opts[:name])}.parquet")
       opts[:log].puts "building #{out}"
-      run_duckdb(sql(dirs, "#{out}.tmp", opts, ml_files: ml), opts[:duckdb])
+      run_duckdb(sql(dirs, "#{out}.tmp", opts, ml_files: ml, ml_bbox: ml_bbox), opts[:duckdb])
       File.rename("#{out}.tmp", out)
-      finish(out, path, fetched.map(&:last), opts)
+      write_metadata(out, path, fetched.map(&:last), opts)
+      out
     ensure
       cleanup(work_dir, dirs, opts[:keep_downloads]) if dirs
     end
@@ -108,8 +110,7 @@ module Curtilage
 
     def fetch_layers(part, date, dir, log)
       log.puts "downloading the layers used from https://#{HOST}#{url_path(part, date)}"
-      patterns = LAYERS.map { |layer| "gis_osm_#{layer}_free_*" }
-      ZipRange.extract(HOST, url_path(part, date), patterns, dir, max_bytes: MAX_DOWNLOAD_BYTES)
+      ZipRange.extract(HOST, url_path(part, date), LAYER_PATTERNS, dir, max_bytes: MAX_DOWNLOAD_BYTES)
       true
     rescue ZipRange::Unsupported => e
       log.puts "range download not possible (#{e.message}); downloading the whole file"
@@ -147,20 +148,20 @@ module Curtilage
 
     def unzip_layers(zip, dir)
       FileUtils.mkdir_p(dir)
-      patterns = LAYERS.map { |layer| "gis_osm_#{layer}_free_*" }
-      _, err, status = unzip("-oq", zip, *patterns, "-d", dir)
+      _, err, status = unzip("-oq", zip, *LAYER_PATTERNS, "-d", dir)
       raise Error, "unzip failed: #{err.strip[0, 200]}" unless status.success?
     end
 
-    # Footprint tiles covering the region's extent, or [] when not asked for.
+    # [footprint tiles covering the region's extent, that extent], or [[],
+    # nil] when not asked for.
     def ml_files(dirs, work_dir, opts)
-      return [] unless opts[:ml_footprints]
+      return [[], nil] unless opts[:ml_footprints]
 
       bbox = extent(dirs, opts)
-      Footprints.microsoft(bbox, File.join(work_dir, "ml_footprints"), log: opts[:log]).tap do |files|
-        opts[:ml_bbox] = bbox
-        raise Error, "no ML footprint tiles cover #{bbox.inspect}" if files.empty?
-      end
+      files = Footprints.microsoft(bbox, File.join(work_dir, "ml_footprints"), log: opts[:log])
+      raise Error, "no ML footprint tiles cover #{bbox.inspect}" if files.empty?
+
+      [files, bbox]
     end
 
     # [min_lng, min_lat, max_lng, max_lat] of the region's roads.
@@ -175,9 +176,9 @@ module Curtilage
 
     # The build query reads one view per layer; large layers come in parts
     # (_1, _2, ...) and multi-part regions in several folders.
-    def sql(dirs, out, opts, ml_files: [])
+    def sql(dirs, out, opts, ml_files: [], ml_bbox: nil)
       views = LAYERS.map { |layer| layer_view(layer, dirs) }
-      [setup(opts), "INSTALL spatial; LOAD spatial;", *views, ml_view(ml_files, opts[:ml_bbox]),
+      [setup(opts), "INSTALL spatial; LOAD spatial;", *views, ml_view(ml_files, ml_bbox),
        "SET VARIABLE out_path = #{quote(out)};", File.read(SQL_FILE)].join("\n")
     end
 
@@ -204,7 +205,7 @@ module Curtilage
 
     def setup(opts)
       ext = opts[:extension_directory]
-      [("SET extension_directory = #{quote(File.expand_path(ext))};" if ext),
+      [(DuckDB.extension_sql(ext, opts[:duckdb]) if ext),
        "SET memory_limit = #{quote(opts[:memory_limit])};",
        "SET threads = #{Integer(opts[:threads])};",
        ("SET temp_directory = #{quote(opts[:temp_directory])};" if opts[:temp_directory])].compact.join("\n")
@@ -214,13 +215,6 @@ module Curtilage
       out, err, status = DuckDB.capture(duckdb, sql, *)
       raise Error, "duckdb failed: #{err.strip[0, 500]}" unless status.success? && err.strip.empty?
 
-      out
-    end
-
-    # Writes <region>.json next to the Parquet file: what it holds, where it
-    # came from and how to attribute it. Catalogue reads these.
-    def finish(out, path, dates, opts)
-      write_metadata(out, path, dates, opts.merge(outline: opts[:outline] || outline(path, opts[:log])))
       out
     end
 
@@ -235,11 +229,16 @@ module Curtilage
       nil
     end
 
+    # Writes <region>.json next to the Parquet file: what it holds, where it
+    # came from and how to attribute it. Catalogue reads these. The outline
+    # comes from Geofabrik's index only when the caller didn't pass one
+    # (AutoData does, so the index isn't downloaded twice).
     def write_metadata(parquet, path, dates, opts)
       stats = run_duckdb([setup(opts), "SELECT feature, count(*) AS n, min(min_lng) a, min(min_lat) b, " \
                                        "max(max_lng) c, max(max_lat) d FROM read_parquet(#{quote(parquet)}) " \
                                        "GROUP BY feature;"].join("\n"), opts[:duckdb], "-json")
       rows = JSON.parse(stats)
+      opts = opts.merge(outline: opts[:outline] || outline(path, opts[:log]))
       File.write(parquet.sub(/\.parquet\z/, ".json"), JSON.pretty_generate(metadata(parquet, path, dates, rows, opts)))
     end
 

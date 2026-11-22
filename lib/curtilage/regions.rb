@@ -13,12 +13,7 @@ module Curtilage
     MAX_INDEX_BYTES = 50_000_000
 
     Region = Struct.new(:id, :path, :bbox, :rings, :extent_area, keyword_init: true) do
-      def covers?(point)
-        lng, lat = point
-        return false unless lng.between?(bbox[0], bbox[2]) && lat.between?(bbox[1], bbox[3])
-
-        rings.any? { |ring| Geometry.contains?(ring, point) }
-      end
+      def covers?(point) = Geometry.in_rings?(point, bbox, rings)
     end
 
     def self.download
@@ -36,8 +31,7 @@ module Curtilage
       rings = outer_rings(feature["geometry"])
       return nil unless path && !rings.empty?
 
-      points = rings.flatten(1)
-      bbox = [points.map(&:first).min, points.map(&:last).min, points.map(&:first).max, points.map(&:last).max]
+      bbox = Geometry.bounds(rings.flatten(1))
       Region.new(id: props["id"], path: path, bbox: bbox, rings: rings,
                  extent_area: (bbox[2] - bbox[0]) * (bbox[3] - bbox[1]))
     end

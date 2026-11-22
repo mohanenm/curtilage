@@ -9,7 +9,7 @@ class DocsTest < Minitest::Test
 
   def raised_flags
     Dir[File.join(ROOT, "lib/**/*.rb")].flat_map do |file|
-      File.read(file).scan(/(?:log\.flag\(|flags << |flags\.unshift\():(\w+)/).flatten
+      File.read(file, encoding: "utf-8").scan(/(?:log\.flag\(|flags << |flags\.unshift\():(\w+)/).flatten
     end.uniq.map(&:to_sym)
   end
 
@@ -19,7 +19,7 @@ class DocsTest < Minitest::Test
 
   def test_docs_list_every_flag
     %w[README.md docs/reference.md].each do |doc|
-      text = File.read(File.join(ROOT, doc))
+      text = File.read(File.join(ROOT, doc), encoding: "utf-8")
       Curtilage::FLAGS.each_key { |flag| assert_includes text, "| `#{flag}` |", "#{doc} is missing #{flag}" }
     end
   end

@@ -49,6 +49,12 @@ module Curtilage
       @dropped += [Array(features).size - MAX_FEATURES, 0].max
     end
 
+    # Roads that bound a site (Generator::PUBLIC_HIGHWAYS), not service
+    # roads or driveways.
+    def public_roads
+      @public_roads ||= roads.select { |r| Generator::PUBLIC_HIGHWAYS.include?(r.highway) }
+    end
+
     # A copy whose buildings are the given list (see Generator buildings:).
     def with_buildings(list)
       dup.tap { |copy| copy.instance_variable_set(:@buildings, list) }
