@@ -10,7 +10,7 @@ class ConfigTest < Minitest::Test
   end
 
   def test_environment_defaults_and_configure
-    assert_equal :geofabrik, Curtilage.config.source
+    assert_equal :auto, Curtilage.config.source
     Curtilage.configure do |c|
       c.duckdb = "/opt/duckdb"
       c.source = :overture

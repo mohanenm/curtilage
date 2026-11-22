@@ -56,6 +56,38 @@ class AutoDataTest < Minitest::Test
     end
   end
 
+  def test_parallel_builds_build_each_region_once
+    built = Queue.new
+    builder = lambda do |region, dir, name|
+      sleep 0.05
+      built << region.path
+      File.write(File.join(dir, "#{name}.json"),
+                 JSON.generate(format: 1, region: region.path, parquet: "#{name}.parquet", bbox: region.bbox,
+                               built_at: Time.now.utc.iso8601))
+    end
+    Dir.mktmpdir do |dir|
+      auto = Curtilage::AutoData.new(cache_dir: dir, regions: Curtilage::Regions.parse(index), builder: builder,
+                                     log: StringIO.new, parallel_builds: 3)
+      auto.catalogue_for([[-75.0, 35.0], [-85.0, 35.0]])
+
+      assert_equal %w[test/big test/big/east], Array.new(built.size) { built.pop }.sort
+    end
+  end
+
+  # :auto builds a region only when enough pins share it (or it's cached);
+  # scattered pins, and pins outside every region, are read from Overture.
+  def test_auto_plan_builds_dense_regions_and_reads_sparse_ones
+    auto = Curtilage::AutoData.new(regions: Curtilage::Regions.parse(index), builder: ->(*) {}, log: StringIO.new)
+    pins = [[-75.0, 35.0], [-75.1, 35.1], [-75.2, 35.2], [-85.0, 35.0], [10.0, 50.0]]
+    built, read = Curtilage.auto_plan(pins, auto, 3)
+
+    assert_equal [0, 1, 2], built
+    assert_equal [3, 4], read
+    assert_equal [[], [0, 1, 2, 3, 4]], Curtilage.auto_plan(pins, auto, 10)
+  ensure
+    auto&.cleanup
+  end
+
   def test_temporary_cache_is_removed
     auto = Curtilage::AutoData.new(regions: Curtilage::Regions.parse(index), builder: ->(*) {}, log: StringIO.new)
     dir = auto.cache_dir

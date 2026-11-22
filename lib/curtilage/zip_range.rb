@@ -77,23 +77,23 @@ module Curtilage
       entries.sort_by(&:offset).slice_when { |a, b| a.data_end != b.offset }.to_a
     end
 
+    # A retry starts the run again from its first byte, with a fresh reader.
     def fetch_run(host, path, run, dir)
-      reader = RunReader.new(run, dir)
-      Download.start(host) do |http|
-        request = Net::HTTP::Get.new(path)
-        request["Range"] = "bytes=#{run.first.offset}-#{run.last.data_end - 1}"
-        http.request(request) do |res|
-          raise Unsupported, "server ignored the range request" unless res.code == "206"
-
-          res.read_body { |chunk| reader << chunk }
-        end
+      Download.with_retries("downloading #{File.basename(run.first.name)} and the files after it") do
+        reader = RunReader.new(run, dir)
+        Download.stream_range(host, path, run.first.offset, run.last.data_end - 1) { |chunk| reader << chunk }
+        reader.finish
       end
-      reader.finish
     end
 
     def content_length(host, path)
+      Download.with_retries("checking https://#{host}#{path}") { head_length(host, path) }
+    end
+
+    def head_length(host, path)
       Download.start(host) do |http|
         res = http.head(path)
+        raise Download::Transient, "HTTP #{res.code}" if res.is_a?(Net::HTTPServerError)
         raise Download::Error, "HTTP #{res.code} for https://#{host}#{path}" unless res.is_a?(Net::HTTPSuccess)
         raise Unsupported, "no range support" unless res["Accept-Ranges"].to_s.include?("bytes")
 
@@ -102,11 +102,14 @@ module Curtilage
     end
 
     def range(host, path, first, last)
-      Download.start(host) do |http|
-        res = http.get(path, "Range" => "bytes=#{first}-#{last}")
-        raise Unsupported, "server ignored the range request" unless res.code == "206"
+      Download.with_retries("reading the zip directory of https://#{host}#{path}") do
+        Download.start(host) do |http|
+          res = http.get(path, "Range" => "bytes=#{first}-#{last}")
+          raise Download::Transient, "HTTP #{res.code}" if res.is_a?(Net::HTTPServerError)
+          raise Unsupported, "server ignored the range request" unless res.code == "206"
 
-        res.body
+          res.body
+        end
       end
     end
 

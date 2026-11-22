@@ -4,7 +4,7 @@
 
 Generates a site's **premises polygon** (the building plus its customer-facing lot) and a **store zone** (the building's own outline) from free map data, so nobody has to draw them by hand.
 
-**Status:** 0.1.0, the first release. Checked on 20 real store sites across five US states against hand-drawn premises and by eye on aerial imagery. The API may still change before 1.0.
+**Status:** 0.2.0. Checked on 20 real store sites across five US states against hand-drawn premises and by eye on aerial imagery. The API may still change before 1.0.
 
 ## Quick start
 
@@ -24,14 +24,14 @@ result.to_geojson   # ready to draw or save, with the attribution to show
 
 Or from the shell: `curtilage generate --pin -80.0,35.0`.
 
-That's all the setup: map data is fetched for the pin's region as needed. Everything else (batches, Overture instead of Geofabrik, caching, styles, every option and flag) is in the [reference](docs/reference.md).
+That's all the setup: map data is fetched as needed. Everything else (batches, Overture instead of Geofabrik, caching, styles, every option and flag) is in the [reference](docs/reference.md).
 
 ## How it works
 
-1. **Data.** Buildings, parking lots, roads and railways from OpenStreetMap, from one of:
-   - **Geofabrik, built on demand** (default): the gem finds each pin's region in Geofabrik's region index, downloads only the layers it needs from that region's shapefiles, and builds a compact Parquet file. 1-5 minutes per US state the first time; nothing to host.
-   - **Overture Maps, read in place**: the same OpenStreetMap data from Overture's public release, read straight from their storage with no download up front. About 11 s per area; nearby pins share the read.
-   - **Your own prebuilt files** (`curtilage build`), local or in a bucket, for instant lookups.
+1. **Data.** Buildings, parking lots, roads and railways from OpenStreetMap, picked automatically (`source: :auto`, the default):
+   - **Scattered pins: Overture Maps, read in place.** The same OpenStreetMap data from Overture's public release, read straight from their storage: about 5-10 s per area, nothing downloaded.
+   - **Many pins in one region, or a region already cached: a Geofabrik build.** The gem downloads only the layers it needs from that region's shapefiles and builds a compact Parquet file, 1-5 minutes per US state, then answers instantly.
+   - Or force one: `source: :geofabrik` (the host only ever learns the region, never the area) or `source: :overture`. Or use your own prebuilt files (`curtilage build`), local or in a bucket.
 2. **Generate.** Start from the building at the pin and grow its rectangle 30 m toward its lot, then:
    - stop at public roads, half a typical road width short of the centreline (by road class) but at least 3 m out from the building, following each road's direction; and at railways;
    - take in the site's mapped parking (a lot shared with a few buildings is claimed whole; a shopping-centre lot is split by nearest building), parking garages, canopies, and driveways to the street;
@@ -46,8 +46,8 @@ It's rule-based: no machine learning in the method. Coordinates are `[lng, lat]`
 
 ```ruby
 pins = [[-80.0, 35.0], [-80.1, 35.2]]
-results = Curtilage.generate_many(pins)                       # Geofabrik, built on demand, cleaned up after
-results = Curtilage.generate_many(pins, source: :overture)    # Overture Maps, nothing downloaded up front
+results = Curtilage.generate_many(pins)                       # data picked automatically (Overture or Geofabrik)
+results = Curtilage.generate_many(pins, source: :geofabrik)   # always build regions: most private, slower
 results = Curtilage.generate_many(pins, preset: :centre)      # whole shopping centre where on a shared lot
 
 Curtilage.configure do |c|                                    # once, instead of options on every call
@@ -70,6 +70,7 @@ end
 | `store_may_be_unit` | Store zone is a building over 1,500 m2: the store may be one unit of it |
 | `shopping_centre` | `scope: :centre` mapped the whole centre |
 | `fallback` | The main method failed validation; the building rectangle was used |
+| `partial_data` | Part of the area around the pin is in a region that isn't built |
 | `ml_footprint` | Built on a machine-learned footprint, not an OSM building |
 | `no_data` | No map data covers the pin |
 
@@ -77,8 +78,8 @@ end
 
 - Generate: about 100 ms per site (median; a few hundred ms in dense blocks).
 - Prebuilt files: about 85 ms per lookup through the DuckDB CLI; one call serves many pins.
-- Built on demand: 1-5 minutes per US state the first time (Texas, the largest tested, about 4.5 minutes and under 650 MB of memory), then as above.
-- Overture: about 11 s per area; pins within a few km of each other share it.
+- Overture (the default for scattered pins): about 5-10 s per area; pins within a few km of each other share it. A test batch of 51 sites in 17 regions across three continents took 4 minutes from a cold start.
+- Geofabrik builds (the default once 20+ pins share a region): 1-5 minutes per US state the first time (Texas, the largest tested, about 4.5 minutes and under 650 MB of memory), then as above. Downloads use `curl` when it's installed, and `data: { parallel_builds: 2 }` builds two regions at once on machines with the memory.
 
 ## Building footprints: OSM, or OSM plus machine-learned
 
@@ -86,7 +87,7 @@ By default all buildings come from OpenStreetMap. Where OSM is missing buildings
 
 ## Network access
 
-The gem only talks to public map-data hosts, and only when it needs data: Geofabrik (region index and extracts), Overture Maps (file index and data), Microsoft's footprint files (opt-in), and your own bucket if you point it at one. Reading by area tells the host roughly which areas you're interested in. Nothing else is sent anywhere.
+The gem only talks to public map-data hosts, and only when it needs data: Geofabrik (region index and extracts), Overture Maps (file index and data), Microsoft's footprint files (opt-in), and your own bucket if you point it at one. Reading Overture by area tells its host roughly which few-km areas you read (never the pin or what it's for); Geofabrik builds only reveal the region. Use `source: :geofabrik` if that matters to you. Nothing else is sent anywhere.
 
 ## Layout
 

@@ -7,11 +7,26 @@ module Curtilage
   # <region>.json files Build writes next to each Parquet file. Picks the
   # file(s) covering a pin, so callers don't track which state is which.
   class Catalogue
-    Region = Struct.new(:name, :parquet, :bbox, :metadata, keyword_init: true) do
+    # rings: the region's outline when the build recorded it, else nil (older
+    # builds), in which case its bounding box stands in.
+    Region = Struct.new(:name, :parquet, :bbox, :rings, :metadata, keyword_init: true) do
       def covers?(pin, margin)
-        lng, lat = pin
-        lng.between?(bbox[0] - margin, bbox[2] + margin) && lat.between?(bbox[1] - margin, bbox[3] + margin)
+        Catalogue.box_points(pin, margin).any? { |point| holds?(point) }
       end
+
+      def holds?(point)
+        lng, lat = point
+        return false unless lng.between?(bbox[0], bbox[2]) && lat.between?(bbox[1], bbox[3])
+
+        rings.nil? || rings.any? { |ring| Geometry.contains?(ring, point) }
+      end
+    end
+
+    # The pin and the corners of the box read around it.
+    def self.box_points(pin, margin)
+      lng, lat = pin
+      [[lng, lat], [lng - margin, lat - margin], [lng + margin, lat - margin], [lng - margin, lat + margin],
+       [lng + margin, lat + margin]]
     end
 
     attr_reader :regions
@@ -25,7 +40,9 @@ module Curtilage
         next unless meta["format"] == 1 && meta["parquet"] && meta["bbox"]&.size == 4
 
         parquet = base_url ? "#{base_url.chomp("/")}/#{meta["parquet"]}" : File.join(dir, meta["parquet"])
-        Region.new(name: meta["region"], parquet: parquet, bbox: meta["bbox"].map { |v| Float(v) }, metadata: meta)
+        rings = meta["outline"]&.map { |ring| ring.map { |lng, lat| [Float(lng), Float(lat)] } }
+        Region.new(name: meta["region"], parquet: parquet, bbox: meta["bbox"].map { |v| Float(v) }, rings: rings,
+                   metadata: meta)
       end
       new(regions)
     end
@@ -37,6 +54,18 @@ module Curtilage
     # Parquet files whose extent covers the pin (more than one near a border).
     def files_for(pin, margin: Lookup::DEFAULT_RADIUS_DEG)
       @regions.select { |r| r.covers?(pin, margin) }.map(&:parquet)
+    end
+
+    # :full when every point of the pin's box lies in a built region, :partial
+    # when some do (the rest is in a region that isn't built), :none when
+    # none do. Regions built before outlines were recorded count by their
+    # bounding box, which can't tell :partial from :full.
+    def coverage(pin, margin: Lookup::DEFAULT_RADIUS_DEG)
+      points = Catalogue.box_points(pin, margin)
+      held = points.count { |point| @regions.any? { |r| r.holds?(point) } }
+      return :none if held.zero?
+
+      held == points.size ? :full : :partial
     end
 
     def attribution(files)

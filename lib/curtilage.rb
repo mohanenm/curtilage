@@ -52,45 +52,87 @@ module Curtilage
     method ? Generator.generate(method, pin, features, **opts) : Generator.propose(pin, features, **opts)
   end
 
+  SOURCES = %i[auto geofabrik overture].freeze
+  # :auto builds a Geofabrik region once this many pins need it (or it's
+  # already cached); fewer pins are cheaper to read from Overture.
+  AUTO_BUILD_MIN_PINS = 20
+
   # Results for many pins, in pin order, looking features up once per group
-  # of pins that share data files.
+  # of pins that share data.
   #
-  # Where the data comes from:
-  # - source: :geofabrik (the default, or Curtilage.config.source): built on demand from Geofabrik for
-  #   just the regions the pins are in (AutoData), in cache_dir if given
-  #   (reused for a month), else in a temporary folder deleted afterwards.
-  #   Minutes per region the first time; nothing to host.
-  # - source: :overture: read in place from Overture Maps' public release,
-  #   seconds per batch, nothing downloaded or hosted (Overture).
-  # - catalogue: a Catalogue of regions built ahead of time.
-  # - parquet: a path or URL, or a list of them.
+  # Where the data comes from (source:, default Curtilage.config.source):
+  # - :auto (the default): regions with many pins (auto_build_min_pins:,
+  #   default 20) or already in cache_dir are built from Geofabrik; scattered
+  #   pins are read from Overture Maps, seconds each and nothing downloaded.
+  # - :geofabrik: always build the pins' regions (private: the host only
+  #   learns the region), in cache_dir if given (reused for a month), else in
+  #   a temporary folder deleted afterwards.
+  # - :overture: always read Overture Maps in place.
+  # - catalogue: / parquet: regions built ahead of time (overrides source:).
   #
   # lookup: options for Lookup and the build (duckdb:, extension_directory:,
-  # setup_sql:). data: options for AutoData (max_age_days:, ml_footprints:).
-  # Other options go to generate.
+  # setup_sql:). data: max_age_days:, ml_footprints:, parallel_builds:,
+  # auto_build_min_pins:, release: (Overture). Other options go to generate.
   def self.generate_many(pins, source: nil, catalogue: nil, parquet: nil, cache_dir: nil, lookup: {}, data: {},
                          **options)
-    source = (source || config.source).to_sym
-    cache_dir ||= config.cache_dir
     lookup = duckdb_options(lookup)
-    return from_overture(pins, lookup, data, options) if source == :overture && !(catalogue || parquet)
-    raise ArgumentError, "unknown source #{source.inspect} (have: geofabrik, overture)" unless source == :geofabrik
+    return run_many(pins, catalogue, parquet, lookup, options) if catalogue || parquet
 
-    auto = nil
-    unless catalogue || parquet
-      auto = AutoData.new(cache_dir: cache_dir, **lookup.slice(:duckdb, :extension_directory), **data)
-      catalogue = auto.catalogue_for(pins)
+    source = (source || config.source).to_sym
+    unless SOURCES.include?(source)
+      raise ArgumentError,
+            "unknown source #{source.inspect} (have: #{SOURCES.join(", ")})"
     end
-    run_many(pins, catalogue, parquet, lookup, options)
+    return from_overture(pins, lookup, data, options) if source == :overture
+
+    auto = AutoData.new(cache_dir: cache_dir || config.cache_dir, **lookup.slice(:duckdb, :extension_directory),
+                        **data.slice(:max_age_days, :ml_footprints, :parallel_builds))
+    built, read = if source == :auto
+                    auto_plan(pins, auto,
+                              data.fetch(:auto_build_min_pins, AUTO_BUILD_MIN_PINS))
+                  else
+                    [
+                      pins.each_index.to_a, []
+                    ]
+                  end
+    merge(pins.size, [built, from_builds(pins.values_at(*built), auto, lookup, options)],
+          [read, read.empty? ? [] : from_overture(pins.values_at(*read), lookup, data, options)])
   ensure
     auto&.cleanup
+  end
+
+  # [indexes to build from Geofabrik, indexes to read from Overture]. A pin
+  # is built only if every region around it is worth building or cached;
+  # pins in no Geofabrik region (anywhere without shapefiles) go to Overture.
+  def self.auto_plan(pins, auto, min_pins)
+    around = pins.map { |pin| auto.regions.around(pin, Lookup::DEFAULT_RADIUS_DEG) }
+    counts = around.flatten.map(&:path).tally
+    build = counts.keys.select { |path| counts[path] >= min_pins || auto.fresh_region?(path) }
+    pins.each_index.partition { |i| around[i].any? && around[i].all? { |r| build.include?(r.path) } }
+  end
+
+  def self.from_builds(pins, auto, lookup, options)
+    return [] if pins.empty?
+
+    run_many(pins, auto.catalogue_for(pins), nil, lookup, options).each do |r|
+      r.explanation.unshift("map data: OpenStreetMap, built from Geofabrik")
+    end
+  end
+
+  def self.merge(size, *parts)
+    results = Array.new(size)
+    parts.each { |indexes, list| indexes.zip(list).each { |i, r| results[i] = r } }
+    results
   end
 
   def self.from_overture(pins, lookup, data, options)
     lists = Overture.features_many(pins, **lookup.slice(:duckdb, :extension_directory, :radius_deg),
                                    **data.slice(:release))
     pins.zip(lists).map do |pin, features|
-      generate(pin, features, **options).tap { |r| r.attribution = Overture::ATTRIBUTION }
+      generate(pin, features, **options).tap do |r|
+        r.attribution = Overture::ATTRIBUTION
+        r.explanation.unshift("map data: OpenStreetMap, read from Overture Maps")
+      end
     end
   end
 
@@ -103,10 +145,7 @@ module Curtilage
               else
                 Lookup.features_many(parquet: files, pins: pins.values_at(*indexes), **lookup)
               end
-      indexes.zip(lists).each do |i, features|
-        results[i] = generate(pins[i], features, **options)
-        no_data(results[i]) if files.empty?
-      end
+      indexes.zip(lists).each { |i, features| results[i] = generate_one(pins[i], features, files, catalogue, options) }
     end
     results
   end
@@ -117,6 +156,22 @@ module Curtilage
     PRESETS.fetch(preset) do
       raise ArgumentError, "unknown preset #{preset.inspect} (have: #{PRESETS.keys.join(", ")})"
     end.dup
+  end
+
+  def self.generate_one(pin, features, files, catalogue, options)
+    result = generate(pin, features, **options)
+    if files.empty?
+      no_data(result)
+    elsif catalogue && catalogue.coverage(pin) == :partial
+      partial_data(result)
+    end
+    result
+  end
+
+  def self.partial_data(result)
+    result.flags << :partial_data
+    result.explanation.unshift("part of the area around the pin is in a region that isn't built: " \
+                               "buildings or roads there are missing")
   end
 
   def self.no_data(result)
