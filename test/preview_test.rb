@@ -21,6 +21,19 @@ class PreviewTest < Minitest::Test
     refute_match(/(src|href)=|url\(|@import/, html)
   end
 
+  def test_entrances_buffer_site_building_and_flag_help
+    drive = scene + [road(9, "service", [[-30, -15], [-30, -40]])]
+    result = Curtilage.generate(PIN, drive).tap { |r| r.flags << :near_houses }
+    html = Curtilage::Preview.html([result], buffer_m: 10)
+
+    assert_equal 1, html.scan(%(class="access")).size
+    assert_includes html, %(class="buffer")
+    assert_includes html, "premises + 10 m"
+    assert_includes html, %(class="building site")
+    assert_includes html, %(title="The lot borders a home)
+    assert_includes html, "1 site(s): 0 ok, 1 ok but flagged for a look, 0 without usable premises"
+  end
+
   def test_without_features_only_the_premises_are_drawn
     result = Curtilage.generate(PIN, scene).tap { |r| r.features = nil }
     html = Curtilage::Preview.html([result])

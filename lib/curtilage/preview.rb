@@ -5,7 +5,8 @@ require "cgi"
 module Curtilage
   # A self-contained HTML page for checking results by eye: one map per
   # site, drawn from the map data the premises were made from (buildings,
-  # parking, roads, railways) with the premises and store zone on top.
+  # parking, roads, railways) with the premises, store zone and driveway
+  # entrances on top, and the site's flags, details and steps beside it.
   #
   # It loads nothing from anywhere (no map tiles, scripts or fonts), so
   # opening it reveals no locations. It does hold the coordinates you gave,
@@ -16,45 +17,99 @@ module Curtilage
   module Preview
     # Half the width of each map, in metres.
     VIEW_M = 120
+    SCALE_BAR_M = 50
+
+    # Shown when hovering over a flag.
+    FLAG_HELP = {
+      near_houses: "The lot borders a home: check where the yard or property line is.",
+      large_building: "Building over 5,000 m2: may be shared by several tenants.",
+      small_building: "Building under 50 m2: may be a kiosk or canopy rather than the store.",
+      building_not_under_pin: "No building under the pin; the nearest one within 30 m was used.",
+      store_may_be_unit: "The store zone is a building over 1,500 m2: the store may be one unit of it.",
+      shopping_centre: "The whole shopping centre was mapped (scope: :centre).",
+      fallback: "The main method failed validation; the building rectangle was used.",
+      ml_footprint: "Built on a machine-learned footprint, not an OSM building.",
+      no_data: "No map data covers the pin.",
+      partial_data: "Part of the area around the pin is in a region that isn't built.",
+    }.freeze
 
     module_function
 
-    # ids: one label per result (default 1, 2, ...). Results without
-    # features (generate_many without keep_features: true) show only the
-    # premises and store zone.
-    def html(results, ids: nil, title: "curtilage preview")
+    # ids: one label per result (default 1, 2, ...). buffer_m: also draw the
+    # premises grown by this many metres (Result#buffered), e.g. a geofence
+    # margin. Results without features (generate_many without
+    # keep_features: true) show only the premises, store zone and entrances.
+    def html(results, ids: nil, title: "curtilage preview", buffer_m: nil)
       ids ||= (1..results.size).map(&:to_s)
-      cards = results.zip(ids).map { |result, id| card(result, id) }
+      cards = results.zip(ids).map { |result, id| card(result, id, buffer_m) }
       credits = results.flat_map { |r| r.attribution || Result::OSM_ATTRIBUTION }.uniq
-      page(title, cards, credits)
+      page(title, cards, summary(results), credits, buffer_m)
     end
 
-    def card(result, id)
+    def summary(results)
+      flagged = results.count { |r| r.ok? && r.flags.any? }
+      bad = results.count { |r| !r.ok? }
+      "#{results.size} site(s): #{results.size - bad - flagged} ok, #{flagged} ok but flagged for a look, " \
+        "#{bad} without usable premises"
+    end
+
+    def card(result, id, buffer_m)
       status = result.ok? ? "" : %(<span class="bad">not valid: #{h(result.validation.errors.join(", "))}</span>)
-      flags = result.flags.map { |f| %(<span class="flag">#{h(f)}</span>) }.join(" ")
       notes = result.explanation.map { |n| "<li>#{h(n)}</li>" }.join
       <<~HTML
         <section><h2>#{h(id)} #{status}</h2>
-        <svg viewBox="#{-VIEW_M} #{-VIEW_M} #{VIEW_M * 2} #{VIEW_M * 2}" role="img" aria-label="site #{h(id)}">#{shapes(result).join}</svg>
-        <p>#{flags}</p>#{facts(result)}<details><summary>How it was made</summary><ol>#{notes}</ol></details></section>
+        <svg viewBox="#{-VIEW_M} #{-VIEW_M} #{VIEW_M * 2} #{VIEW_M * 2}" role="img" aria-label="site #{h(id)}">#{shapes(result, buffer_m).join}</svg>
+        <p>#{flag_tags(result.flags)}</p>#{facts(result)}<details><summary>How it was made</summary><ol>#{notes}</ol></details></section>
       HTML
     end
 
-    def shapes(result)
-      parts = result.features ? map_shapes(result.features) : []
-      parts << path(result.ring, result.pin, "premises") if result.ring
-      parts << path(result.store_ring, result.pin, "store") if result.store_ring
-      parts << %(<circle r="2" class="pin"/>)
+    def flag_tags(flags)
+      flags.map { |f| %(<span class="flag" title="#{h(FLAG_HELP[f])}">#{h(f)}</span>) }.join(" ")
     end
 
-    def map_shapes(features)
+    def shapes(result, buffer_m)
+      parts = result.features ? map_shapes(result.features, result.building) : []
+      if buffer_m && result.ring && result.buffered(buffer_m)
+        parts << path(result.buffered(buffer_m), result.pin,
+                      "buffer")
+      end
+      parts << path(result.ring, result.pin, "premises") if result.ring
+      parts << path(result.store_ring, result.pin, "store") if result.store_ring
+      parts.concat(access_marks(result))
+      parts << %(<circle r="2.2" class="pin"><title>pin</title></circle>) << scale_bar
+    end
+
+    def access_marks(result)
+      points = result.details ? result.details[:access_points] : []
+      tip = "<title>driveway entrance</title>"
+      Geometry.project(points, result.pin).map do |x, y|
+        %(<circle cx="#{x.round(1)}" cy="#{(-y).round(1)}" r="3.5" class="access">#{tip}</circle>)
+      end
+    end
+
+    def scale_bar
+      x0 = -VIEW_M + 8
+      y = VIEW_M - 8
+      %(<g class="scale"><path d="M#{x0},#{y - 3} V#{y} H#{x0 + SCALE_BAR_M} V#{y - 3}"/>) +
+        %(<text x="#{x0 + SCALE_BAR_M + 4}" y="#{y}">#{SCALE_BAR_M} m</text></g>)
+    end
+
+    def map_shapes(features, building_id)
       parts = in_view(features.parking).map { |p| xy_path(p.xy, "parking") }
-      parts += in_view(features.buildings).map { |b| xy_path(b.xy, "building") }
+      parts += building_shapes(features, building_id)
       parts += in_view(features.roads).map do |road|
         kind = Generator::PUBLIC_HIGHWAYS.include?(road.highway) ? "road" : "service"
         xy_path(road.xy, kind, close: false, title: [road.name, road.highway].compact.join(" "))
       end
       parts + in_view(features.railways).map { |r| xy_path(r.xy, "rail", close: false) }
+    end
+
+    # The building the premises were made from is drawn darker than its
+    # neighbours.
+    def building_shapes(features, building_id)
+      in_view(features.buildings).map do |b|
+        b.id == building_id ? xy_path(b.xy, "building site", title: "the site's building") : xy_path(b.xy, "building")
+      end
     end
 
     def in_view(list)
@@ -68,9 +123,10 @@ module Curtilage
 
       items = []
       items << "building #{d[:building][:area_m2]} m²" if d[:building]
+      items << "premises #{result.validation.metrics[:area_m2]&.round} m²" if result.ring
       items << "parking #{d[:parking_area_m2]} m² (about #{d[:parking_spaces_estimate]} spaces)"
       items << "street frontage #{d[:frontage_m]} m"
-      items << "#{d[:access_points].size} driveway(s) to the street" if d[:access_points].any?
+      items << "#{d[:access_points].size} driveway entrance(s)" if d[:access_points].any?
       %(<p class="facts">#{h(items.join(" · "))}</p>)
     end
 
@@ -88,49 +144,64 @@ module Curtilage
 
     def h(text) = CGI.escapeHTML(text.to_s)
 
-    def page(title, cards, credits)
+    def page(title, cards, summary, credits, buffer_m)
       <<~HTML
         <!doctype html><html lang="en"><head><meta charset="utf-8">
         <meta name="viewport" content="width=device-width, initial-scale=1">
         <title>#{h(title)}</title><style>#{STYLE}</style></head><body>
-        <h1>#{h(title)}</h1>
-        <p class="legend"><span><i class="k-premises"></i>premises</span><span><i class="k-store"></i>store zone</span>
-        <span><i class="k-building"></i>building</span><span><i class="k-parking"></i>parking</span>
-        <span><i class="k-road"></i>public road</span><span><i class="k-service"></i>service road</span>
-        <span><i class="k-rail"></i>railway</span></p>
+        <h1>#{h(title)}</h1><p>#{h(summary)}</p>
+        <p class="legend">#{legend(buffer_m)}</p>
         <p class="muted">Each map is #{VIEW_M * 2} m across, north up, drawn from the map data only (no imagery).
-        Map data: #{h(credits.join("; "))}.</p>
+        Hover over a flag for what it means, or a road for its name. Map data: #{h(credits.join("; "))}.</p>
         <main>#{cards.join}</main></body></html>
       HTML
     end
 
+    def legend(buffer_m)
+      keys = [%w[premises premises], ["store", "store zone"], ["site", "the site's building"],
+              ["building", "other buildings"], %w[parking parking], ["road", "public road"],
+              ["service", "service road or driveway"], %w[rail railway], ["access", "driveway entrance"]]
+      keys << ["buffer", "premises + #{format("%g", buffer_m)} m"] if buffer_m
+      keys.map { |css, text| %(<span><i class="k-#{css}"></i>#{h(text)}</span>) }.join(" ")
+    end
+
     STYLE = <<~CSS
-      :root { --bg: #fff; --fg: #222; --muted: #666; --card: #fafaf7; --line: #ddd; --building: #c9c4bb;
-              --parking: #e7e2f3; --road: #e05050; --premises: #1a9a4a; --store: #111; }
+      :root { --bg: #fff; --fg: #222; --muted: #666; --card: #fafaf7; --line: #ddd; --building: #d6d1c8;
+              --site: #9c9385; --parking: #e7e2f3; --road: #e05050; --premises: #1a9a4a; --store: #111;
+              --access: #1565c0; }
       @media (prefers-color-scheme: dark) {
-        :root { --bg: #161616; --fg: #e8e8e8; --muted: #aaa; --card: #202020; --line: #333; --building: #5a564f;
-                --parking: #3a3550; --road: #ff6b6b; --premises: #3ddc84; --store: #f2f2f2; } }
+        :root { --bg: #161616; --fg: #e8e8e8; --muted: #aaa; --card: #202020; --line: #333; --building: #4a4741;
+                --site: #8a8378; --parking: #3a3550; --road: #ff6b6b; --premises: #3ddc84; --store: #f2f2f2;
+                --access: #64b5f6; } }
       body { font: 14px system-ui, sans-serif; margin: 16px; background: var(--bg); color: var(--fg); }
-      h1 { font-size: 20px; } h2 { font-size: 15px; margin: 0 0 6px; }
+      h1 { font-size: 20px; margin-bottom: 4px; } h2 { font-size: 15px; margin: 0 0 6px; }
       main { display: grid; grid-template-columns: repeat(auto-fill, minmax(min(100%, 340px), 1fr)); gap: 16px; }
       section { border: 1px solid var(--line); border-radius: 6px; padding: 8px; min-width: 0; }
       svg { width: 100%; background: var(--card); display: block; }
-      .building { fill: var(--building); } .parking { fill: var(--parking); }
+      .building { fill: var(--building); } .site { fill: var(--site); } .parking { fill: var(--parking); }
       .road { fill: none; stroke: var(--road); stroke-width: 2; }
       .service { fill: none; stroke: var(--road); stroke-width: 1; stroke-dasharray: 3 2; opacity: .6; }
       .rail { fill: none; stroke: var(--fg); stroke-width: 2; stroke-dasharray: 6 3; }
       .premises { fill: var(--premises); fill-opacity: .12; stroke: var(--premises); stroke-width: 2; }
+      .buffer { fill: none; stroke: var(--premises); stroke-width: 1.2; stroke-dasharray: 4 3; }
       .store { fill: none; stroke: var(--store); stroke-width: 1.5; } .pin { fill: var(--fg); }
+      .access { fill: var(--access); stroke: var(--card); stroke-width: 1; }
+      .scale path { fill: none; stroke: var(--fg); stroke-width: 1.2; }
+      .scale text { fill: var(--fg); font-size: 9px; dominant-baseline: middle; }
       .bad { color: #d33; font-weight: normal; font-size: 13px; }
-      .flag { display: inline-block; background: #fff3d6; color: #8a5a00; border-radius: 4px; padding: 0 4px; font-size: 12px; }
+      .flag { display: inline-block; background: #fff3d6; color: #8a5a00; border-radius: 4px; padding: 0 4px;
+              font-size: 12px; cursor: help; }
       .facts, .muted, details { color: var(--muted); font-size: 13px; }
-      .legend span { margin-right: 14px; white-space: nowrap; }
+      .legend span { margin-right: 14px; white-space: nowrap; display: inline-block; }
       .legend i { display: inline-block; width: 16px; height: 10px; margin-right: 4px; vertical-align: middle; }
       .k-premises { border: 2px solid var(--premises); } .k-store { border: 2px solid var(--store); }
-      .k-building { background: var(--building); } .k-parking { background: var(--parking); }
+      .k-site { background: var(--site); } .k-building { background: var(--building); }
+      .k-parking { background: var(--parking); }
       .k-road { height: 0 !important; border-top: 2px solid var(--road); }
       .k-service { height: 0 !important; border-top: 1px dashed var(--road); }
       .k-rail { height: 0 !important; border-top: 2px dashed var(--fg); }
+      .k-access { width: 9px !important; height: 9px !important; border-radius: 50%; background: var(--access); }
+      .k-buffer { border: 1px dashed var(--premises); }
     CSS
   end
 end

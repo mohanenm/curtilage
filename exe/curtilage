@@ -52,6 +52,9 @@ def io_flags(o, opts, command)
   end
   if command == "preview"
     o.on("--out FILE", "Where to write the page (default: curtilage-preview.html)") { |v| opts[:out] = v }
+    o.on("--buffer METRES", Float, "Also draw the premises grown by this much (a geofence margin)") do |v|
+      opts[:buffer] = v
+    end
   else
     o.on("--out FILE", "Write here instead of printing; the format follows the extension") { |v| opts[:out] = v }
     o.on("--format NAME", Curtilage::Formats::OUTPUTS.map(&:to_s), "geojson (default), csv or kml") do |v|
@@ -120,7 +123,7 @@ def preview(args)
   pins, ids = read_sites(opts, "preview")
   results = run(opts, pins, keep_features: true)
   out = opts[:out] || "curtilage-preview.html"
-  File.write(out, Curtilage::Preview.html(results, ids: ids))
+  File.write(out, Curtilage::Preview.html(results, ids: ids, buffer_m: opts[:buffer]))
   puts "#{results.count(&:ok?)} of #{results.size} ok; open #{File.expand_path(out)}"
 end
 

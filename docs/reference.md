@@ -117,13 +117,39 @@ All distances in metres, areas in square metres. These are `Curtilage::Generator
 | `no_data` | No map data covers the pin. |
 | `partial_data` | Part of the area around the pin is in a region that isn't built (a hand-built catalogue near a border): buildings or roads there are missing. |
 
+### Files: `Curtilage::Formats`
+
+Reading pins:
+
+- `Formats.read_pins(path)`: pins from a `.csv` or `.geojson`/`.json` file, as `[{ id:, pin: [lng, lat] }, ...]`. `Formats.parse_pins(text, :csv | :geojson)` does the same from a string.
+- CSV: a header row, then one pin per row. Longitude is the column named `lng`, `lon`, `long`, `longitude` or `x`; latitude is `lat`, `latitude` or `y`; the id, if any, is `id`, `site_id` or `name` (names are case-insensitive). Quoted fields, a byte-order mark and blank lines are fine.
+- GeoJSON: a FeatureCollection of Point features (or one Point feature). The id is the feature's `id`, or its `id` or `name` property.
+- Pins without an id are numbered from 1. Files are capped at 50 MB and 100,000 pins.
+
+Writing results: `Formats.write(results, format, ids: nil, store: true)` returns text.
+
+| Format | What |
+|---|---|
+| `:geojson` | One FeatureCollection: for each pin, its premises and (unless `store: false`) its store zone, with `properties.id`, `properties.role` and everything `to_geojson` carries. |
+| `:csv` | One row per pin. Columns: `id`, `lng`, `lat`, `ok`, `method`, `flags` and `errors` (`;`-separated), `building`, `building_area_m2`, `parking_area_m2`, `parking_spaces_estimate`, `frontage_m`, `premises_area_m2`, `premises_wkt`, `store_wkt`. Cells a spreadsheet would run as a formula get a leading `'`. |
+| `:kml` | A placemark per polygon (premises and store zone), with the flags and attribution in its description, for Google Earth. |
+
+`Formats.format_of(path)` names the format a file extension stands for.
+
+### Preview: `Curtilage::Preview`
+
+`Preview.html(results, ids: nil, title: "curtilage preview", buffer_m: nil)` returns a self-contained HTML page with a card per result:
+
+- A map 240 m across, north up, with a 50 m scale bar: the premises, store zone and pin; the site's building (darker) and other buildings, mapped parking, public roads (hover for the name), service roads and driveways, railways; driveway entrances (blue dots); with `buffer_m:`, the premises grown by that much (dashed).
+- Under it: the flags (hover for their meaning), the building and premises areas, parking area and estimated spaces, street frontage, the number of entrances, and the step-by-step explanation. Invalid results say why.
+- At the top, a count of sites that are ok, flagged or without usable premises.
+
+The surroundings come from `Result#features`, so pass results from `generate_many(pins, keep_features: true)`; without them only the premises, store zone and entrances are drawn. The page loads nothing from the internet (no tiles, scripts or fonts), so opening it reveals no locations; it does contain the coordinates, so share it only as you would them.
+
 ### Other entry points
 
 - `Curtilage::Audit.check(pin, ring, features, thresholds: {}, **options)`: checks an existing polygon. Returns a report with `verdict` (`:ok`, `:review`, `:invalid`), `reasons` (`crosses_road`, `covers_neighbour`, `differs_from_generated`, validation warnings), `overlap`, `road_m`, `neighbour_m2` and the `generated` result.
 - `Curtilage::Validation.check(pin, ring, **thresholds)`: the checks every polygon goes through.
-- `Curtilage::Formats.read_pins(path)` / `parse_pins(text, :csv | :geojson)`: pins from a file, as `[{ id:, pin: }, ...]`. CSV needs a header row with `lng`/`lon`/`longitude` and `lat`/`latitude` columns, and may have `id`, `site_id` or `name`; GeoJSON takes Point features (id from the feature or its `id`/`name` property). Rows without an id are numbered from 1.
-- `Curtilage::Formats.write(results, :geojson | :csv | :kml, ids: nil, store: true)`: results as text. GeoJSON is one FeatureCollection (premises and store zone per pin, `properties.id`); CSV has one row per pin (`id`, `lng`, `lat`, `ok`, `method`, `flags`, `errors`, `building`, the details, `premises_area_m2`, `premises_wkt`, `store_wkt`; cells a spreadsheet would run as formulas are quoted); KML has a placemark per polygon, for Google Earth.
-- `Curtilage::Preview.html(results, ids: nil, title:)`: a self-contained HTML page with a map of each site drawn from its map data (pass results from `generate_many(pins, keep_features: true)`), the premises and store zone on top, flags, details and how each was made. It loads nothing from the internet (no tiles, scripts or fonts), but it holds the coordinates, so share it only as you would them.
 - `Curtilage::Build.run(region, out_dir:, work_dir:, **options)`: build a region's files ahead of time (`date:`, `ml_footprints:`, `memory_limit:` `"400MB"`, `threads:` `1`, `keep_downloads:`). Downloads retry network hiccups (3 tries) and use `curl` when available. Each build records its region's outline from Geofabrik's index.
 - `Curtilage::Catalogue.from_dir(dir, base_url: nil)`: the regions built into a folder; `base_url:` when the Parquet files live in a bucket. It uses each region's recorded outline to decide which files cover a pin, and `coverage(pin)` says whether that's `:full`, `:partial` or `:none`.
 - `Curtilage::Lookup.features(parquet:, pin:)` / `features_many(parquet:, pins:)`: the map features around pins, from built files.
@@ -159,8 +185,14 @@ curtilage build REGION [options]
 curtilage doctor
 ```
 
-- `generate` writes the premises and store zone for each pin as one GeoJSON FeatureCollection (each feature has `properties.id`), or CSV or KML. Pins come from `--pin` (repeatable; ids 1, 2, ...) and/or `--in FILE` (CSV or GeoJSON, as `Formats.read_pins`). `--out FILE` writes there instead of printing, in the format its extension names (`.geojson`/`.json`, `.csv`, `.kml`); `--format geojson|csv|kml` overrides. Other options: `--source auto|geofabrik|overture` (default auto), `--cache-dir DIR`, `--catalogue DIR`, `--parquet FILE`, `--preset NAME`, `--buildings FLAVOUR`, `--[no-]store`, `--duckdb PATH`, `--extension-directory DIR`. Exits 1 if any result isn't usable.
-- `preview` generates the same way, then writes an HTML page to check by eye (`--out`, default `curtilage-preview.html`; see `Curtilage::Preview`). Same options as `generate`, except `--format`.
+- `generate`: premises and store zones for one or more pins.
+  - Pins: `--pin LNG,LAT` (repeat for several; ids 1, 2, ...) and/or `--in FILE` (CSV or GeoJSON; see [Files](#files-curtilageformats)).
+  - Output: printed as GeoJSON, or `--out FILE` in the format its extension names (`.geojson`/`.json`, `.csv`, `.kml`). `--format geojson|csv|kml` overrides.
+  - Data: `--source auto|geofabrik|overture` (default auto), `--cache-dir DIR`, `--catalogue DIR`, `--parquet FILE`.
+  - Style: `--preset whole_lot|tight|centre`, `--buildings osm|osm_filled|ml`, `--[no-]store`.
+  - DuckDB: `--duckdb PATH`, `--extension-directory DIR`.
+  - Exits 1 if any result isn't usable, so scripts can tell.
+- `preview`: generates the same way (same options, except `--format`), then writes the page described under [Preview](#preview-curtilagepreview). `--out FILE` (default `curtilage-preview.html`); `--buffer METRES` also draws the premises grown by that much.
 - `build REGION` writes `REGION.parquet` and `REGION.json`. REGION is a US state (`tennessee`, `new-york`) or a Geofabrik path (`europe/germany/bayern`). Options: `--out DIR` (default `.`), `--work DIR`, `--date YYMMDD`, `--keep-downloads`, `--ml-footprints microsoft`, `--duckdb`, `--extension-directory`.
 - `doctor` checks that DuckDB runs and its extensions load, and says what to install if not.
 
@@ -168,11 +200,11 @@ Run `curtilage COMMAND --help` for the same list.
 
 ### Docker
 
-The `Dockerfile` packages the gem with the DuckDB CLI and its extensions; the image runs `curtilage`:
+The repository's `Dockerfile` packages the gem with the DuckDB CLI (1.4.4, `--build-arg DUCKDB_VERSION=` to change) and its extensions, fetched while building. The image runs `curtilage`:
 
 ```sh
 docker build -t curtilage .
 docker run --rm -v "$PWD:/work" -v curtilage-cache:/cache curtilage generate --in pins.csv --out premises.csv
 ```
 
-`/work` is the working folder; on-demand builds are kept in `/cache` (`CURTILAGE_CACHE_DIR`) and reused for a month.
+The container's working folder is `/work`: mount yours there and give file names relative to it. On-demand builds go to `/cache` (`CURTILAGE_CACHE_DIR`); mount a volume there to reuse them for a month. It runs as a non-root user.

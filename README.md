@@ -8,7 +8,7 @@ Generates a site's **premises polygon** (the building plus its customer-facing l
 
 ## Quick start
 
-1. Install the gem (`gem "curtilage"` in your Gemfile, once published) and the [DuckDB CLI](https://duckdb.org/docs/installation/) 1.4. Check with `curtilage doctor`; DuckDB's extensions install themselves.
+1. Install the gem (`gem install curtilage`, or `gem "curtilage"` in your Gemfile) and the [DuckDB CLI](https://duckdb.org/docs/installation/) 1.4. Check with `curtilage doctor`; DuckDB's extensions install themselves.
 2. Ask for premises:
 
 ```ruby
@@ -25,14 +25,20 @@ result.to_geojson   # ready to draw or save, with the attribution to show
 Or from the shell:
 
 ```sh
-curtilage generate --pin -80.0,35.0                      # GeoJSON to the screen
-curtilage generate --in sites.csv --out premises.csv     # a CSV of pins (lng, lat, optional id) in; CSV, GeoJSON or KML out
-curtilage preview --in sites.csv                          # an HTML page with a map of each site, to check by eye
+curtilage generate --pin -80.0,35.0                     # one pin: GeoJSON to the screen
+curtilage generate --in sites.csv --out premises.csv    # a file of pins in; CSV, GeoJSON or KML out
+curtilage preview --in sites.csv                        # a page with a map of each site, to check by eye
 ```
 
-No Ruby? `docker build -t curtilage .` and `docker run --rm -v "$PWD:/work" curtilage generate --in sites.csv --out premises.csv`.
+`sites.csv` needs `lng` and `lat` columns; an `id` column is carried through to the output:
 
-That's all the setup: map data is fetched as needed. Everything else (batches, Overture instead of Geofabrik, caching, styles, every option and flag) is in the [reference](docs/reference.md).
+```csv
+id,lng,lat
+store-1,-80.0,35.0
+store-2,-80.1,35.2
+```
+
+That's all the setup: map data is fetched as needed. No Ruby? Use [Docker](#docker). Everything else (every option, flag and command) is in the [reference](docs/reference.md).
 
 ## How it works
 
@@ -52,6 +58,8 @@ It's rule-based: no machine learning in the method. Coordinates are `[lng, lat]`
 
 ## Usage
 
+### In Ruby
+
 ```ruby
 pins = [[-80.0, 35.0], [-80.1, 35.2]]
 results = Curtilage.generate_many(pins)                       # data picked automatically (Overture or Geofabrik)
@@ -65,9 +73,54 @@ end
 
 - Styles: `preset: :whole_lot` (default), `:tight` (building plus a small margin) or `:centre`. `store_zone: false` skips the store zone. Every rule's distance is an option ([reference](docs/reference.md#generation-options)).
 - Built ahead of time, for instant lookups: `curtilage build tennessee`, then `generate_many(pins, catalogue: Curtilage::Catalogue.from_dir("."))`. Files can also live in a bucket (`s3://`, `gs://`, `https://`).
-- Check an existing polygon: `Curtilage::Audit.check(pin, ring, features)` returns `:ok`, `:review` (with reasons) or `:invalid`.
-- More from each result: `result.details` (the building, mapped parking area and an estimate of spaces, street frontage, where driveways meet the street), `result.buffered(15)` (the premises grown 15 m, for a geofence with a margin), `result.to_wkt`. `Curtilage.building_at(pin)` returns just the building.
-- Files: `Curtilage::Formats` reads pins from CSV or GeoJSON and writes results as GeoJSON, CSV or KML; `Curtilage::Preview.html(results)` makes the review page (`generate_many(pins, keep_features: true)` to draw the surroundings).
+- Just the building at a pin: `Curtilage.building_at(pin)`.
+- Check a polygon someone already drew: `Curtilage::Audit.check(pin, ring, features)` returns `:ok`, `:review` (with reasons) or `:invalid`.
+
+### What each result holds
+
+| | |
+|---|---|
+| `ok?` | It passed validation. Never save one that isn't. |
+| `ring` / `store_ring` | The premises and the store zone, `[[lng, lat], ...]` closed. |
+| `flags` | Reasons a person should look first ([below](#flags)). |
+| `explanation` | Each step, in plain words. |
+| `details` | The building (id, name, type, area, outline), mapped parking inside the premises and an estimate of spaces, street frontage, and where driveways meet the street. Rough, like the map data. |
+| `buffered(15)` | The premises grown 15 m (rounded corners), e.g. for a geofence with a margin; negative shrinks. |
+| `to_geojson`, `to_wkt` | Ready to draw or store. GeoJSON carries everything above and the attribution to show. |
+
+### Files
+
+`curtilage generate --in FILE --out FILE` reads pins from a CSV (as above) or a GeoJSON file of points, and writes:
+
+- **CSV** (`.csv`): one row per pin with its id, `ok`, flags, the details and the polygons as WKT. Opens in any spreadsheet.
+- **GeoJSON** (`.geojson`): one FeatureCollection, the premises and store zone of each pin, with the id in each feature's properties.
+- **KML** (`.kml`): for Google Earth.
+
+From Ruby, `Curtilage::Formats` does the same ([reference](docs/reference.md#files-curtilageformats)).
+
+### Checking results by eye
+
+`curtilage preview --in sites.csv` writes `curtilage-preview.html`: a card per site with a map drawn from the map data the premises were made from. Each map shows:
+
+- the premises (green), the store zone (outline) and the pin;
+- the site's building (darker) and its neighbours, mapped parking, public roads (hover for the name), service roads and driveways, and railways;
+- where driveways meet the street (blue dots), and with `--buffer 15` the premises grown 15 m (dashed);
+- a 50 m scale bar; each map is 240 m across, north up.
+
+Under each map: the flags (hover for what they mean), the building and premises areas, parking and an estimate of spaces, street frontage, the number of entrances, and "How it was made", the step-by-step explanation. Invalid results say why. A line at the top counts the sites that are ok, flagged or unusable.
+
+The page loads nothing from the internet (no map tiles, scripts or fonts), so opening it reveals no locations. It does contain the coordinates, so share it only as you would them. From Ruby: `Curtilage::Preview.html(Curtilage.generate_many(pins, keep_features: true))`.
+
+### Docker
+
+The repository's `Dockerfile` packages the gem with DuckDB and its extensions, for machines without Ruby:
+
+```sh
+docker build -t curtilage .
+docker run --rm -v "$PWD:/work" -v curtilage-cache:/cache curtilage generate --in sites.csv --out premises.csv
+```
+
+The current folder is mounted at `/work`, so file names are relative to it. The `curtilage-cache` volume keeps on-demand builds for a month.
 
 ### Flags
 
@@ -108,7 +161,7 @@ By default all buildings come from OpenStreetMap. Where OSM is missing buildings
 
 ## Network access
 
-The gem only talks to public map-data hosts, and only when it needs data: Geofabrik (region index and extracts), Overture Maps (file index and data), Microsoft's footprint files (opt-in), and your own bucket if you point it at one. Reading Overture by area tells its host roughly which few-km areas you read (never the pin or what it's for); Geofabrik builds only reveal the region. Use `source: :geofabrik` if that matters to you. Nothing else is sent anywhere.
+The gem only talks to public map-data hosts, and only when it needs data: Geofabrik (region index and extracts), Overture Maps (file index and data), Microsoft's footprint files (opt-in), and your own bucket if you point it at one. Reading Overture by area tells its host roughly which few-km areas you read (never the pin or what it's for); Geofabrik builds only reveal the region. Use `source: :geofabrik` if that matters to you. Nothing else is sent anywhere: the preview page loads nothing, and building the Docker image only fetches DuckDB from its GitHub releases and extensions repository.
 
 ## Layout
 

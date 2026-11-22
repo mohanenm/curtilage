@@ -3,7 +3,7 @@
 ## [Unreleased]
 
 - Command line: `generate --in FILE` reads pins from a CSV (`lng`, `lat`, optional `id`) or GeoJSON, and `--out FILE` / `--format` write GeoJSON, CSV or KML. Output is now always one GeoJSON FeatureCollection with each feature's `properties.id` (several pins used to print a list).
-- `curtilage preview` and `Curtilage::Preview.html`: an HTML page with a map of each site, drawn from its map data, to check results by eye. It loads nothing from the internet.
+- `curtilage preview` and `Curtilage::Preview.html`: an HTML page with a map of each site, drawn from its map data, to check results by eye: premises, store zone, the site's building and its neighbours, parking, roads, railways and driveway entrances, with a scale bar, the flags (explained on hover), the details and the step-by-step explanation. `--buffer METRES` also draws the premises grown by that much. It loads nothing from the internet.
 - `Result#details`: the building (id, name, type, area, footprint), mapped parking inside the premises and an estimate of spaces, street frontage, and where driveways meet the street.
 - `Result#buffered(metres)` grows or shrinks the premises evenly (a geofence with a margin); `Result#to_wkt` and `#store_wkt`; `to_geojson(properties:)`.
 - `Curtilage.building_at(pin)`: just the building at a pin.
