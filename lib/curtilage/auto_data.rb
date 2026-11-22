@@ -58,6 +58,11 @@ module Curtilage
 
     def name(region) = region.path.tr("/", "-")
 
+    # Whether the region (by its Geofabrik path) is already built and fresh.
+    def fresh_region?(path)
+      fresh?(File.join(@cache_dir, "#{path.tr("/", "-")}.json"))
+    end
+
     private
 
     def ensure_built(region)

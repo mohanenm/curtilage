@@ -14,12 +14,12 @@ Premises for many pins, in pin order. Pins that share map data share the work.
 
 | Option | Default | What |
 |---|---|---|
-| `source:` | `Curtilage.config.source` (`:geofabrik`) | `:geofabrik`: build the pins' regions on demand. `:overture`: read Overture Maps in place. |
+| `source:` | `Curtilage.config.source` (`:auto`) | `:auto`: build a Geofabrik region when enough pins share it (`data: { auto_build_min_pins: 20 }`) or it's already cached, and read scattered pins from Overture Maps. `:geofabrik`: always build the pins' regions (the host learns only the region). `:overture`: always read Overture Maps in place. |
 | `cache_dir:` | `Curtilage.config.cache_dir` (none) | Keep on-demand builds here and reuse them for a month. Without it, builds go to a temporary folder deleted afterwards. |
 | `catalogue:` | none | A `Curtilage::Catalogue` of regions built ahead of time (overrides `source:`). |
 | `parquet:` | none | One built file, or a list, local or `s3://`, `gs://`, `https://` (overrides `source:`). |
 | `lookup:` | `{}` | `duckdb:`, `extension_directory:` (default: the configuration), `setup_sql:` (e.g. `CREATE SECRET` for a private bucket), `radius_deg:` (how far around each pin to read, default 0.004). |
-| `data:` | `{}` | For on-demand builds: `max_age_days:` (31), `ml_footprints:` (`"microsoft"`), `parallel_builds:` (1; each build peaks near 600 MB, so raise it to 2-3 only on machines with the memory). For Overture: `release:` (default: the latest). |
+| `data:` | `{}` | For builds: `max_age_days:` (31), `ml_footprints:` (`"microsoft"`), `parallel_builds:` (1; each build peaks near 600 MB, so raise it to 2-3 only on machines with the memory). For `:auto`: `auto_build_min_pins:` (20). For Overture: `release:` (default: the latest). |
 | `preset:` | none | `:whole_lot`, `:tight` or `:centre` (below). |
 | `method:` | none | `:grow_trim`, `:building` or `:box` to force one method, no fallback. |
 | any generation option | | See the table below. |
@@ -115,7 +115,7 @@ Set once instead of passing on every call. Defaults come from the environment.
 | `duckdb` | `CURTILAGE_DUCKDB` | `duckdb` on the PATH |
 | `extension_directory` | `CURTILAGE_EXTENSIONS` | DuckDB's own |
 | `cache_dir` | `CURTILAGE_CACHE_DIR` | none (temporary folders) |
-| `source` | `CURTILAGE_SOURCE` | `geofabrik` |
+| `source` | `CURTILAGE_SOURCE` | `auto` |
 | | `CURTILAGE_CURL` | Downloads use the `curl` command when installed (much faster); `0` forces Ruby's own HTTP client |
 
 ```ruby
@@ -135,7 +135,7 @@ curtilage build REGION [options]
 curtilage doctor
 ```
 
-- `generate` prints GeoJSON (premises and store zone; several pins print a list). Options: `--source geofabrik|overture`, `--cache-dir DIR`, `--catalogue DIR`, `--parquet FILE`, `--preset NAME`, `--buildings FLAVOUR`, `--[no-]store`, `--duckdb PATH`, `--extension-directory DIR`. Exits 1 if any result isn't usable.
+- `generate` prints GeoJSON (premises and store zone; several pins print a list). Options: `--source auto|geofabrik|overture` (default auto), `--cache-dir DIR`, `--catalogue DIR`, `--parquet FILE`, `--preset NAME`, `--buildings FLAVOUR`, `--[no-]store`, `--duckdb PATH`, `--extension-directory DIR`. Exits 1 if any result isn't usable.
 - `build REGION` writes `REGION.parquet` and `REGION.json`. REGION is a US state (`tennessee`, `new-york`) or a Geofabrik path (`europe/germany/bayern`). Options: `--out DIR` (default `.`), `--work DIR`, `--date YYMMDD`, `--keep-downloads`, `--ml-footprints microsoft`, `--duckdb`, `--extension-directory`.
 - `doctor` checks that DuckDB runs and its extensions load, and says what to install if not.
 

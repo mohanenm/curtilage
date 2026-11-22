@@ -42,7 +42,8 @@ def generate_options(args)
 end
 
 def data_flags(o, opts)
-  o.on("--source NAME", %w[geofabrik overture], "geofabrik (default: built on demand) or overture") do |v|
+  o.on("--source NAME", %w[auto geofabrik overture],
+       "auto (default: Overture for scattered pins, Geofabrik builds for many), geofabrik or overture") do |v|
     opts[:source] = v.to_sym
   end
   o.on("--cache-dir DIR", "Keep on-demand builds here and reuse them for a month") { |v| opts[:cache_dir] = v }
