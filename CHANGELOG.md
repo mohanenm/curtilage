@@ -31,6 +31,7 @@
 
 ### Changed
 
+- Generation is about five times faster (34 ms to 7 ms a site in a test of 500 made-up pins), with identical results: road trims no longer sample road segments too far from the building to matter.
 - Results no longer depend on the order map data arrives in (DuckDB promises no row order, so a re-run could give a different polygon on about a fifth of sites). Neighbouring buildings are now cut nearest first, and the input is sorted into one order before the rules run. Some polygons change: on a private held-out set, mean IoU against hand-drawn premises went from 0.469 to 0.466 (random input orders used to give 0.464-0.466).
 
 ### Security
