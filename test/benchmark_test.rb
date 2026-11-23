@@ -55,6 +55,16 @@ class BenchmarkTest < Minitest::Test
     assert_equal 1, summary["placeholders"]["sites"]
   end
 
+  def test_held_out_sites_are_scored_only_on_request
+    sites = [site("a"), site("h").merge("holdout" => true)]
+
+    assert_equal(["a"], B.scored_sites(sites).map { |s| s["id"] })
+    ENV["CURTILAGE_BENCHMARK_HOLDOUT"] = "1"
+    assert_equal(["h"], B.scored_sites(sites).map { |s| s["id"] })
+  ensure
+    ENV.delete("CURTILAGE_BENCHMARK_HOLDOUT")
+  end
+
   def test_features_are_fetched_once_then_cached
     Dir.mktmpdir do |dir|
       calls = []

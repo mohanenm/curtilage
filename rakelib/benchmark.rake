@@ -23,8 +23,9 @@ namespace :benchmark do
 
   desc "Run the benchmark and save its numbers (no polygons) as benchmark/baseline.json"
   task :baseline do
-    if benchmark.paths[:private]
-      abort "benchmark:baseline is for the public benchmark only (CURTILAGE_BENCHMARK_DIR is set)"
+    if benchmark.paths[:private] || ENV["CURTILAGE_BENCHMARK_HOLDOUT"] == "1"
+      abort "benchmark:baseline is for the public benchmark's tuning sites only " \
+            "(unset CURTILAGE_BENCHMARK_DIR and CURTILAGE_BENCHMARK_HOLDOUT)"
     end
     run = benchmark.run
     puts benchmark.table(run)
@@ -54,7 +55,7 @@ namespace :benchmark do
     paths = benchmark.paths
     abort "benchmark:gallery is for the public benchmark only (CURTILAGE_BENCHMARK_DIR is set)" if paths[:private]
     config = benchmark.config
-    sites = benchmark.sites
+    sites = benchmark.scored_sites
     html = benchmark.gallery(sites, benchmark.features(sites, config.fetch("overture_release")), paths[:labels],
                              benchmark.views(*paths[:views]).fetch("default"), config.fetch("options", {}))
     out = File.expand_path("../docs/gallery/index.html", __dir__)

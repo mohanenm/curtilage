@@ -97,7 +97,15 @@ module CurtilageBenchmark
     data["pin"] == site["pin"] ? data["features"] : nil
   end
 
-  def run(sites: self.sites, features: nil, references: paths[:references], config: self.config,
+  # Held-out sites ("holdout": true) are never scored with the rest, so rule
+  # changes can't be tuned on them: CURTILAGE_BENCHMARK_HOLDOUT=1 scores
+  # only them, for a final check.
+  def scored_sites(all = sites)
+    holdout = ENV["CURTILAGE_BENCHMARK_HOLDOUT"] == "1"
+    all.select { |s| (s["holdout"] == true) == holdout }
+  end
+
+  def run(sites: scored_sites, features: nil, references: paths[:references], config: self.config,
           labels: paths[:labels], views: self.views(*paths[:views]))
     release = config.fetch("overture_release")
     data = features || self.features(sites, release, **(paths[:private] ? { fetch: method(:refuse_fetch) } : {}))

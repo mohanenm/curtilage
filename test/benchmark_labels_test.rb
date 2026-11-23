@@ -97,7 +97,7 @@ class BenchmarkLabelsTest < Minitest::Test
   def test_the_shipped_views_load_and_cover_only_known_kinds
     views = B.views(File.join(B::DIR, "views"))
 
-    assert_equal %w[arrival centre default], views.keys.sort
+    assert_equal %w[arrival centre core default], views.keys.sort
     assert_equal({ "scope" => "centre" }, views["centre"]["options"])
   end
 

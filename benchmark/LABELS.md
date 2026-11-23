@@ -33,32 +33,33 @@ Pick the most specific kind that fits. "This site" means the business at the pin
 
 `in` and `out` are scored; `-` means ignored. A user can add their own view as a file (same kinds, their own in/out). The scorer reads any number of them.
 
-| kind | default | arrival | centre |
-| --- | --- | --- | --- |
-| building | in | in | in |
-| walkway | in | in | in |
-| own_parking | in | in | in |
-| drive_through | in | in | in |
-| forecourt | in | in | in |
-| entrance | in | in | in |
-| service | - | out | in |
-| landscaping | in | - | in |
-| shared_parking_near | in | in | in |
-| shared_parking_far | out | out | in |
-| centre_road | - | - | in |
-| sidewalk | - | - | - |
-| public_road | out | out | out |
-| neighbour_lot | out | out | out |
-| neighbour_building | out | out | out |
-| residential | out | out | out |
-| railway | out | out | out |
-| open_land | out | out | out |
-| construction | - | - | - |
-| unclear | - | - | - |
+| kind | default | arrival | centre | core |
+| --- | --- | --- | --- | --- |
+| building | in | in | in | in |
+| walkway | in | in | in | in |
+| own_parking | in | in | in | in |
+| drive_through | in | in | in | in |
+| forecourt | in | in | in | in |
+| entrance | in | in | in | in |
+| service | - | out | in | - |
+| landscaping | in | - | in | - |
+| shared_parking_near | in | in | in | - |
+| shared_parking_far | out | out | in | - |
+| centre_road | - | - | in | - |
+| sidewalk | - | - | - | - |
+| public_road | out | out | out | out |
+| neighbour_lot | out | out | out | out |
+| neighbour_building | out | out | out | out |
+| residential | out | out | out | out |
+| railway | out | out | out | out |
+| open_land | out | out | out | out |
+| construction | - | - | - | - |
+| unclear | - | - | - | - |
 
 - **default** is what curtilage documents as premises: the building and its customer-facing lot, up to the kerb and short of neighbours. It describes the place and serves no particular use. It scores the default settings and is the headline number.
 - **arrival** (opt-in): where a customer counts as having arrived at the store. It scores the arrival settings (approach and pickup zones). Service yards are out because staff aren't customers.
 - **centre**: the whole shopping centre, scoring `scope: :centre`.
+- **core**: only the kinds every other view agrees on. Shared parking, service yards, landscaping and centre roads are ignored, so no convention for shared lots or back of house counts for or against a result. Judge rule changes on it first; the other views then show what a change does for each convention.
 - `landscaping` is ignored for arrival rather than out: planting islands sit between stalls, inside any sensible outline, so marking them out would punish good outlines. `open_land` is out: an outline may cut around it.
 - `service` is ignored in the default view for now: the goal says "customer-facing", but today's rules take service yards in, and ignoring them rewards neither.
 - `sidewalk` is ignored everywhere: it lies within GPS error of the kerb, so it can't tell a good outline from a bad one.
