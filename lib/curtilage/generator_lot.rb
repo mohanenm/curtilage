@@ -114,8 +114,8 @@ module Curtilage
       site.log.note("took in the driveway #{road.id} to the street", step: "take_driveway", rule: "ENTRANCE_REACH_M",
                                                                      features: [road.id], distance_m: ENTRANCE_REACH_M)
       taken = pts.select { |p| Geometry.contains?(poly, p) || Geometry.distance_to_edges(poly, p) <= ENTRANCE_REACH_M }
-      access = street_access(taken, site.features)
-      site.log.access_point(access) if access
+      point, street = street_access(taken, site.features)
+      site.log.access_point(point, street, road.id) if point
       taken
     end
 
@@ -126,15 +126,16 @@ module Curtilage
       street.any? { |d| d <= ENTRANCE_MAX_M }
     end
 
-    # Where the part of a driveway taken in meets the street: the point on a
-    # public road nearest it, or nil if that's further than ENTRANCE_MAX_M
-    # (the driveway reaches the street elsewhere, beyond the premises).
+    # Where the part of a driveway taken in meets the street: [the point on
+    # a public road nearest it, that road], or nil if that's further than
+    # ENTRANCE_MAX_M (the driveway reaches the street elsewhere, beyond the
+    # premises).
     def street_access(points, features)
-      pair = points.filter_map { |p| nearest_street_point(p, features)&.then { |q| [p, q] } }
-                   .min_by { |p, q| Geometry.distance(p, q) }
-      return nil unless pair && Geometry.distance(*pair) <= ENTRANCE_MAX_M
+      best = points.filter_map { |p| nearest_street(p, features)&.then { |road, q| [p, q, road] } }
+                   .min_by { |p, q, _| Geometry.distance(p, q) }
+      return nil unless best && Geometry.distance(best[0], best[1]) <= ENTRANCE_MAX_M
 
-      pair.last
+      best.drop(1)
     end
 
     # A lot the site shares with one or two other buildings is still the

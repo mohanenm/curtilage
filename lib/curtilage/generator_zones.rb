@@ -59,7 +59,18 @@ module Curtilage
       end
       return unless opts[:pickup_m] && target
 
-      result.pickup_ring = zone_ring(pickup_xy(target, premises, features, opts, log), "pickup", result.pin, opts, log)
+      pickup = pickup_xy(target, premises, features, opts, log)
+      result.pickup_ring = zone_ring(pickup, "pickup", result.pin, opts, log)
+      result.staging_point = staging_point(pickup, target, result.pin, opts, log) if result.pickup_ring
+    end
+
+    # Where a driver might wait: the pickup zone's point nearest the
+    # building. Estimated like the zone (no entrances are mapped).
+    def staging_point(pickup, target, pin, opts, log)
+      distance, point, = Geometry.closest_points(pickup, target.hull)
+      log.note("staging point: the pickup zone's nearest point to the building, #{distance.round} m from it",
+               step: "staging_point", features: [target.id], distance_m: distance.round(1))
+      Geometry.lnglat([point], pin, opts[:precision]).first
     end
 
     def ring_of(xy, pin, precision)

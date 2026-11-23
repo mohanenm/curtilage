@@ -61,6 +61,17 @@ class ZonesTest < Minitest::Test
     assert pickup[:properties][:estimated]
   end
 
+  def test_the_staging_point_is_the_pickup_zone_point_nearest_the_building
+    r = Curtilage.generate(PIN, scene, pickup_m: 25)
+    x, y = G.project([r.staging_point], PIN).first
+
+    assert_in_delta(-11, x, 0.2) # the parking's edge facing the building (10 m west of the pin, plus a 1 m aisle)
+    assert G.contains?(ring_xy(r.ring), [x, y])
+    assert_operator y.abs, :<=, 7.5
+    assert_match(/\APOINT \(/, r.staging_wkt)
+    assert_nil Curtilage.generate(PIN, scene).staging_point
+  end
+
   def test_no_pickup_zone_without_parking_nearby
     r = Curtilage.generate(PIN, scene.reject { |f| f["feature"] == "parking" }, pickup_m: 25)
 
@@ -75,7 +86,7 @@ class ZonesTest < Minitest::Test
     row = Curtilage::Formats.parse_csv(Curtilage::Formats.write(results, :csv))[1]
 
     assert_equal %w[Polygon Polygon], [line["properties"]["approach"]["type"], line["properties"]["pickup"]["type"]]
-    assert_equal %w[premises store approach pickup], roles
+    assert_equal %w[premises store approach pickup staging], roles
     assert_match(/\APOLYGON/, row[Curtilage::Formats::CSV_COLUMNS.index("pickup_wkt")])
     assert_includes Curtilage::Formats.write(results, :kml), "1 pickup (estimated)"
     assert_includes Curtilage::Preview.html(results), %(class="pickup")

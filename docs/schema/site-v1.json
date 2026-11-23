@@ -228,6 +228,27 @@
         "pickup": {
           "$ref": "#/$defs/polygon_or_null",
           "description": "The pickup zone, always estimated (mapped parking within pickup_m of the building, inside the premises); only with --pickup, and absent when none was found."
+        },
+        "staging": {
+          "type": "object",
+          "required": [
+            "type",
+            "coordinates"
+          ],
+          "properties": {
+            "type": {
+              "const": "Point"
+            },
+            "coordinates": {
+              "type": "array",
+              "minItems": 2,
+              "maxItems": 2,
+              "items": {
+                "type": "number"
+              }
+            }
+          },
+          "description": "The staging point, always estimated (the pickup zone's point nearest the building); only with a pickup zone."
         }
       }
     }

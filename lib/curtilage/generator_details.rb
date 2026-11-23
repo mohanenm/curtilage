@@ -18,20 +18,32 @@ module Curtilage
 
     def details(target, premises, features, pin, log, precision: 7)
       parking = parking_area(premises, features)
+      entrances = entrances(log, pin, precision)
       {
         building: building_info(target, pin, precision),
         parking_area_m2: parking.round,
         parking_spaces_estimate: (parking / M2_PER_PARKING_SPACE).floor,
         frontage_m: frontage(premises, features).round,
-        access_points: Geometry.lnglat(distinct(log.access || []), pin, precision),
+        access_points: entrances.map { |e| e[:point] },
+        entrances: entrances,
       }
+    end
+
+    # Where vehicles enter from the street: one per driveway mouth (those
+    # within ACCESS_MERGE_M are one), with the street it opens onto.
+    def entrances(log, pin, precision)
+      distinct(log.access || []).map do |a|
+        street = a[:street]
+        { point: Geometry.lnglat([a[:xy]], pin, precision).first, street: street.name, street_class: street.highway,
+          street_id: street.id, driveway: a[:driveway] }
+      end
     end
 
     # Driveways mapped as several pieces meet the street at nearly the same
     # spot: count it once.
-    def distinct(points, within = ACCESS_MERGE_M)
-      points.each_with_object([]) do |p, out|
-        out << p unless out.any? { |q| Geometry.distance(p, q) < within }
+    def distinct(access, within = ACCESS_MERGE_M)
+      access.each_with_object([]) do |a, out|
+        out << a unless out.any? { |b| Geometry.distance(a[:xy], b[:xy]) < within }
       end
     end
 

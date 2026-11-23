@@ -42,6 +42,8 @@ Premises from features you already have (from `Curtilage::Lookup.features` or `C
 | `ring` | The premises: `[[lng, lat], ...]`, closed, convex, at most `max_vertices` corners. `nil` if nothing could be made. |
 | `store_ring` | The store zone: the building's own outline, always inside `ring`. `nil` with `store_zone: false`. |
 | `approach_ring`, `pickup_ring` | The [zones](#zones), when asked for (`approach_m:`, `pickup_m:`); `nil` otherwise. |
+| `staging_point` | `[lng, lat]` where a driver might wait, estimated, with a pickup zone ([Zones](#zones)); `nil` otherwise. |
+| `entrances` | Where vehicles enter from the street, with the street's name and class (`details[:entrances]`, below); `[]` when none. |
 | `flags` | Reasons a person should look first (below). |
 | `explanation` | Each step, in plain words. |
 | `steps` | The same steps as records, one per line of `explanation` and in the same order, for tools to show or audit (below). |
@@ -56,7 +58,7 @@ Premises from features you already have (from `Curtilage::Lookup.features` or `C
 | `provenance` | What the result was made from, to reproduce or audit it (below). |
 | `features` | The map data it was made from (`Curtilage::Features`, in metres around the pin), or `nil` unless `keep_features: true`. |
 | `to_geojson(include_store: false, properties: {})` | A GeoJSON Feature (premises) with everything above in its properties, including the attribution to show; with `include_store: true`, a FeatureCollection of premises and store zone (`properties.role`). `properties:` are merged into each feature's properties (your own id, say). |
-| `to_wkt`, `store_wkt`, `approach_wkt`, `pickup_wkt` | The premises and store zone as well-known text (`POLYGON ((lng lat, ...))`), for databases and spreadsheets. |
+| `to_wkt`, `store_wkt`, `approach_wkt`, `pickup_wkt`, `staging_wkt` | The premises and store zone as well-known text (`POLYGON ((lng lat, ...))`), for databases and spreadsheets. |
 | `buffered(metres)` | The premises grown (positive) or shrunk (negative) evenly, as a closed ring: a geofence with a margin. Corners are rounded when growing. `nil` if there are no premises or they shrink away. |
 
 `provenance`:
@@ -79,6 +81,7 @@ It holds no timestamps: the same pins, options and data give the same output, by
 | `parking_spaces_estimate` | That area over 25 m2 a space (aisles included). Unmapped parking counts as none. |
 | `frontage_m` | Length of premises edges running along a public road. |
 | `access_points` | `[[lng, lat], ...]`: where driveways taken into the premises meet the street (entrances within 10 m are counted once). |
+| `entrances` | The same entrances with what they open onto: `[{ point: [lng, lat], street:, street_class:, street_id:, driveway: }, ...]` (`street` is the street's name, `nil` when unnamed; `driveway` the driveway's id). Also `Result#entrances`. |
 
 ### Errors
 
@@ -147,8 +150,11 @@ For arrival detection, two optional zones nest with the premises and store zone:
 
 - **Approach** (`approach_m:`): the premises grown by that many metres with rounded corners, then simplified to at most 16 corners by dropping only corners that keep every premises corner inside. "The customer is near." It may cross roads; the premises never do.
 - **Pickup** (`pickup_m:`): the largest piece of mapped parking within that many metres of the building's rectangle, kept inside the premises. Neither OpenStreetMap extracts (Geofabrik's free shapefiles) nor Overture carry pickup or curbside spots or entrances, so it's always estimated (`estimated: true` on its GeoJSON feature): the parking right by the store, not marked bays. `nil` (with a step saying so) when no mapped parking is that close.
+- **Staging point** (with a pickup zone): the pickup zone's point nearest the building, where a driver might wait. Estimated like the zone.
 
-In GeoJSON they're extra features with `properties.role` `approach` and `pickup`; in NDJSON, geometries in `properties.approach` and `properties.pickup`; in CSV, `approach_wkt` and `pickup_wkt`; in KML, placemarks; the preview draws them.
+Building entrances (`entrance=*`) and drive-through lanes (`service=drive-through`) aren't in either data source today (Geofabrik's free shapefiles drop those tags; Overture has no entrances and no drive-through subclass), so they aren't output. Driveway entrances from the street are (`details[:entrances]`).
+
+In GeoJSON they're extra features with `properties.role` `approach`, `pickup` and `staging` (a Point); in NDJSON, geometries in `properties.approach`, `properties.pickup` and `properties.staging`; in CSV, `approach_wkt`, `pickup_wkt` and `staging_wkt`; in KML, placemarks; the preview draws them.
 
 ### Steps
 
@@ -177,6 +183,7 @@ In GeoJSON they're extra features with `properties.role` `approach` and `pickup`
 | `trim_store` | The store outline trimmed to fit inside the premises. | |
 | `approach_zone` | The approach zone made (or dropped). | `approach_m` |
 | `pickup_zone` | The pickup zone estimated from a parking lot, or none found. | `pickup_m` |
+| `staging_point` | The staging point placed. | |
 
 New step names may be added in minor versions; treat an unknown one as a plain note.
 
@@ -235,8 +242,8 @@ Writing results: `Formats.write(results, format, ids: nil, store: true)` returns
 |---|---|
 | `:geojson` | One FeatureCollection: for each pin, its premises, (unless `store: false`) its store zone, and any [zones](#zones) asked for, with `properties.id`, `properties.role` and everything `to_geojson` carries. |
 | `:ndjson` | One line per pin: a GeoJSON Feature of its premises (`geometry` is `null` when none could be made) with everything `to_geojson` carries in its properties, the store zone's geometry in `properties.store` (absent with `store: false`), and any [zones](#zones) in `properties.approach` and `properties.pickup`. The schema is [`docs/schema/site-v1.json`](schema/site-v1.json) (it ships in the gem); version 1 only gains optional properties, and anything that would break a reader gets a new schema version. |
-| `:csv` | One row per pin. Columns: `id`, `lng`, `lat`, `ok`, `problem`, `method`, `flags` and `errors` (`;`-separated), `building`, `building_area_m2`, `parking_area_m2`, `parking_spaces_estimate`, `frontage_m`, `premises_area_m2`, `premises_wkt`, `store_wkt`, `attribution` (`; `-separated), then `gem_version`, `data_source`, `data_release` (the Overture release or the Geofabrik extract dates, `;`-separated) and `features_sha256` from `provenance` (the options are only in GeoJSON), then `confidence`, `approach_wkt` and `pickup_wkt` (empty unless asked for). Cells a spreadsheet would run as a formula (starting with `=`, `+`, `-`, `@`, `|` or `%`, or their full-width forms, even after spaces) get a leading `'`; plain numbers don't. |
-| `:kml` | A placemark per polygon (premises and store zone), with the confidence, flags, attribution, gem version and data release in its description, and every source credited in the document's description, for Google Earth. |
+| `:csv` | One row per pin. Columns: `id`, `lng`, `lat`, `ok`, `problem`, `method`, `flags` and `errors` (`;`-separated), `building`, `building_area_m2`, `parking_area_m2`, `parking_spaces_estimate`, `frontage_m`, `premises_area_m2`, `premises_wkt`, `store_wkt`, `attribution` (`; `-separated), then `gem_version`, `data_source`, `data_release` (the Overture release or the Geofabrik extract dates, `;`-separated) and `features_sha256` from `provenance` (the options are only in GeoJSON), then `confidence`, `approach_wkt`, `pickup_wkt` and `staging_wkt` (empty unless asked for). Cells a spreadsheet would run as a formula (starting with `=`, `+`, `-`, `@`, `|` or `%`, or their full-width forms, even after spaces) get a leading `'`; plain numbers don't. |
+| `:kml` | A placemark per polygon (premises, store zone and any zones) and per point (driveway entrances, named by their street, and the staging point), with the confidence, flags, attribution, gem version and data release in its description, and every source credited in the document's description, for Google Earth. |
 
 `Formats.format_of(path)` names the format a file extension stands for.
 

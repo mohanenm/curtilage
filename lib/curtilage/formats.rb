@@ -29,7 +29,8 @@ module Curtilage
 
     CSV_COLUMNS = %w[id lng lat ok problem method flags errors building building_area_m2 parking_area_m2
                      parking_spaces_estimate frontage_m premises_area_m2 premises_wkt store_wkt attribution
-                     gem_version data_source data_release features_sha256 confidence approach_wkt pickup_wkt].freeze
+                     gem_version data_source data_release features_sha256 confidence approach_wkt pickup_wkt
+                     staging_wkt].freeze
 
     module_function
 
@@ -167,6 +168,7 @@ module Curtilage
         premises[:properties][:store] = store_zone[:geometry] if store
         premises[:properties][:approach] = Result.polygon(result.approach_ring) if result.approach_ring
         premises[:properties][:pickup] = Result.polygon(result.pickup_ring) if result.pickup_ring
+        premises[:properties][:staging] = Result.point(result.staging_point) if result.staging_point
         "#{JSON.generate(premises)}\n"
       end.join
     end
@@ -183,7 +185,7 @@ module Curtilage
        d[:parking_spaces_estimate],
        d[:frontage_m], result.validation.metrics[:area_m2]&.round, result.to_wkt, result.store_wkt,
        credits(result).join("; "), *provenance_columns(result), result.confidence, result.approach_wkt,
-       result.pickup_wkt]
+       result.pickup_wkt, result.staging_wkt]
     end
 
     # gem_version, data_source, data_release, features_sha256 (the full
@@ -205,7 +207,10 @@ module Curtilage
         [placemark("#{id} premises", result.ring, kml_description(result), "premises"),
          (placemark("#{id} store", result.store_ring, nil, "store") if store),
          placemark("#{id} approach", result.approach_ring, nil, "approach"),
-         placemark("#{id} pickup (estimated)", result.pickup_ring, nil, "pickup")].compact
+         placemark("#{id} pickup (estimated)", result.pickup_ring, nil, "pickup"),
+         point_mark("#{id} staging (estimated)", result.staging_point),
+         *result.entrances.map { |e| point_mark("#{id} entrance from #{e[:street] || e[:street_class]}", e[:point]) }]
+          .compact
       end
       <<~KML
         <?xml version="1.0" encoding="UTF-8"?>
@@ -229,6 +234,11 @@ module Curtilage
       "<Placemark><name>#{xml(name)}</name>#{desc}<styleUrl>##{style}</styleUrl>" \
         "<Polygon><outerBoundaryIs><LinearRing><coordinates>#{coords}</coordinates></LinearRing></outerBoundaryIs>" \
         "</Polygon></Placemark>"
+    end
+
+    def point_mark(name, lnglat)
+      lnglat && "<Placemark><name>#{xml(name)}</name><Point><coordinates>#{lnglat.join(",")},0</coordinates></Point>" \
+                "</Placemark>"
     end
 
     def kml_description(result)

@@ -35,7 +35,8 @@ module Curtilage
         steps << { step: step, text: text, **fields }.compact
       end
 
-      def access_point(xy) = (self.access ||= []) << xy
+      # Where a driveway (id) meets a street (a Features::Line), in metres.
+      def access_point(xy, street, driveway) = (self.access ||= []) << { xy: xy, street: street, driveway: driveway }
 
       def flag(name, text, **)
         flags << name unless flags.include?(name)
@@ -584,11 +585,14 @@ module Curtilage
       cosine < -0.5
     end
 
-    def nearest_street_point(point, features)
-      points = features.public_roads.flat_map do |road|
-        road.xy.each_cons(2).map { |a, b| Geometry.closest_point_on_segment(point, a, b) }
+    def nearest_street_point(point, features) = nearest_street(point, features)&.last
+
+    # [public road, its point nearest point], or nil without public roads.
+    def nearest_street(point, features)
+      pairs = features.public_roads.flat_map do |road|
+        road.xy.each_cons(2).map { |a, b| [road, Geometry.closest_point_on_segment(point, a, b)] }
       end
-      points.min_by { |p| Geometry.distance(p, point) }
+      pairs.min_by { |_, p| Geometry.distance(p, point) }
     end
 
     # Never less than halfway: a narrow gap is still split down the middle.

@@ -17,7 +17,7 @@ module Curtilage
   # output byte for byte.
   Result = Struct.new(:method_name, :pin, :ring, :store_ring, :explanation, :flags, :validation, :building,
                       :details, :attribution, :features, :provenance, :steps, :approach_ring, :pickup_ring,
-                      keyword_init: true) do
+                      :staging_point, keyword_init: true) do
     def ok?
       !ring.nil? && validation.ok?
     end
@@ -61,14 +61,21 @@ module Curtilage
       [premises, store] + zone_features(properties.merge(attribution: attribution))
     end
 
-    # The approach and pickup zones, when asked for and made. The pickup
-    # zone is always estimated (no source maps pickup spots).
+    # The approach and pickup zones and the staging point, when asked for
+    # and made. The pickup zone and staging point are always estimated (no
+    # source maps pickup spots or entrances).
     def zone_features(properties)
-      zones = { "approach" => [approach_ring, {}], "pickup" => [pickup_ring, { estimated: true }] }
-      zones.filter_map do |role, (ring, extra)|
-        ring && { type: "Feature", geometry: Result.polygon(ring), properties: properties.merge(role: role, **extra) }
+      zones = { "approach" => [Result.polygon(approach_ring), {}],
+                "pickup" => [Result.polygon(pickup_ring), { estimated: true }],
+                "staging" => [Result.point(staging_point), { estimated: true }] }
+      zones.filter_map do |role, (geometry, extra)|
+        geometry && { type: "Feature", geometry: geometry, properties: properties.merge(role: role, **extra) }
       end
     end
+
+    # Where vehicles enter from the street: [{ point: [lng, lat], street:,
+    # street_class:, street_id:, driveway: }, ...] (details[:entrances]).
+    def entrances = details ? details[:entrances] : []
 
     # Puts a step, and its line of the explanation, before the others (the
     # data source, a failed first attempt).
@@ -88,6 +95,7 @@ module Curtilage
     def store_wkt = Result.wkt(store_ring)
     def approach_wkt = Result.wkt(approach_ring)
     def pickup_wkt = Result.wkt(pickup_ring)
+    def staging_wkt = staging_point && "POINT (#{staging_point.join(" ")})"
 
     # The premises grown (positive metres) or shrunk (negative) evenly, for a
     # geofence with a margin: [[lng, lat], ...] closed. Corners are rounded
@@ -111,6 +119,10 @@ module Curtilage
 
     def self.polygon(ring)
       ring && { type: "Polygon", coordinates: [ring] }
+    end
+
+    def self.point(lnglat)
+      lnglat && { type: "Point", coordinates: lnglat }
     end
   end
 

@@ -107,10 +107,14 @@ module Curtilage
     end
 
     def access_marks(result)
-      points = result.details ? result.details[:access_points] : []
-      tip = "<title>driveway entrance</title>"
-      Geometry.project(points, result.pin).map do |x, y|
-        %(<circle cx="#{x.round(1)}" cy="#{(-y).round(1)}" r="3.5" class="access">#{tip}</circle>)
+      marks = result.entrances.map do |e|
+        street = [e[:street], e[:street_class]].compact.join(", ")
+        [e[:point], "driveway entrance#{" from #{street}" unless street.empty?}", "access"]
+      end
+      marks << [result.staging_point, "staging point (estimated)", "staging"] if result.staging_point
+      marks.map do |point, tip, css|
+        x, y = Geometry.project([point], result.pin).first
+        %(<circle cx="#{x.round(1)}" cy="#{(-y).round(1)}" r="3.5" class="#{css}"><title>#{h(tip)}</title></circle>)
       end
     end
 
@@ -275,6 +279,7 @@ module Curtilage
       .store { fill: none; stroke: var(--store); stroke-width: 1.5; } .pin { fill: var(--fg); }
       .approach { fill: none; stroke: var(--premises); stroke-width: 1; stroke-dasharray: 1 3; }
       .pickup { fill: var(--access); fill-opacity: .25; stroke: var(--access); stroke-width: 1; }
+      .staging { fill: var(--card); stroke: var(--access); stroke-width: 2; }
       .access { fill: var(--access); stroke: var(--card); stroke-width: 1; }
       .scale path { fill: none; stroke: var(--fg); stroke-width: 1.2; }
       .scale text { fill: var(--fg); font-size: 9px; dominant-baseline: middle; }
