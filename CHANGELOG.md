@@ -27,6 +27,7 @@
 - Interrupting a run (Ctrl-C) stops DuckDB too; it has its own process group, so before this the caller waited for the query to finish. A failed or interrupted download leaves no `.part` file, and `curtilage build` without `--work` uses a private temporary folder instead of a fixed name in `/tmp`.
 - Offline mode (`CURTILAGE_OFFLINE=1`): extensions are loaded but never installed, and downloads, Overture reads and bucket reads are refused. `doctor` prints the extension versions it loads, and builds record the DuckDB and `spatial` versions. A test checks that no SQL the gem builds relaxes extension signature checks. `curtilage build` reports errors as a message instead of a stack trace.
 - `generate_many` checks every pin before fetching any data (a bad pin used to fail the batch after builds had run), takes at most 100,000 pins per call (`max_pins:`), refuses unknown `data:` options, and checks `parallel_builds` (1 to 8), `max_age_days` and `auto_build_min_pins`.
+- In a batch, a site whose generation raises gets a result flagged `error` (with the error in its explanation) instead of aborting every other site; generation options are checked once, before any data is fetched.
 - Text placed into DuckDB SQL (paths, bucket URLs, folders) may not contain line breaks or NUL bytes, `memory_limit` must look like `"400MB"`, and `threads` must be 1 to 64. Tests push crafted values through every path into SQL.
 
 ### Fixed

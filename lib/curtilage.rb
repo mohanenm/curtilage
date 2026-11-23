@@ -41,6 +41,7 @@ module Curtilage
     ml_footprint: "Built on a machine-learned footprint, not an OSM building.",
     no_data: "No map data covers the pin.",
     partial_data: "Part of the area around the pin is in a region that isn't built.",
+    error: "Generating this site raised an error (see its explanation); the rest of the batch went on.",
   }.freeze
 
   # Named styles; any option passed alongside a preset overrides it.
@@ -128,6 +129,26 @@ module Curtilage
     end
   end
 
+  # Options are checked once, before any work, so a mistake in them fails
+  # the call instead of turning every site into an error result.
+  def self.check_generation_options(options)
+    opts = preset_options(options[:preset]).merge(options.except(:preset))
+    method = opts.delete(:method)
+    raise ArgumentError, "unknown method #{method.inspect}" if method && !Generator::METHODS.include?(method)
+
+    Generator.checked_options(opts)
+  end
+
+  # One site's result, never an exception: a site whose generation raises
+  # gets an error result (flag :error) and the rest of the batch goes on.
+  def self.generate_safely(pin, features, options)
+    generate(pin, features, **options)
+  rescue StandardError => e
+    Result.new(method_name: nil, pin: pin, flags: [:error], building: nil,
+               explanation: ["generating this site failed: #{e.class}: #{e.message[0, 300]}"],
+               validation: Validation::Result.new(["error"], [], {}))
+  end
+
   def self.check_data(data)
     unknown = data.keys - DATA_OPTIONS
     raise ArgumentError, "unknown data: option(s): #{unknown.join(", ")} (have: #{DATA_OPTIONS.join(", ")})" \
@@ -141,6 +162,7 @@ module Curtilage
   def self.fetch_and_generate(pins, source: nil, catalogue: nil, parquet: nil, cache_dir: nil, lookup: {}, data: {},
                               **options)
     check_data(data)
+    check_generation_options(options)
     lookup = duckdb_options(lookup)
     return run_many(pins, catalogue, parquet, lookup, options) if catalogue || parquet
 
@@ -214,7 +236,7 @@ module Curtilage
     lists = Overture.features_many(pins, **lookup.slice(:duckdb, :extension_directory, :radius_deg),
                                    **data.slice(:release))
     pins.zip(lists).map do |pin, features|
-      generate(pin, features, **options).tap do |r|
+      generate_safely(pin, features, options).tap do |r|
         r.attribution = Overture.attribution(r.features)
         r.explanation.unshift("map data: OpenStreetMap, read from Overture Maps")
       end
@@ -266,7 +288,7 @@ module Curtilage
   end
 
   def self.generate_one(pin, features, files, catalogue, options)
-    result = generate(pin, features, **options)
+    result = generate_safely(pin, features, options)
     credits = catalogue&.attribution(files) || []
     result.attribution = credits unless credits.empty?
     if files.empty?
@@ -288,7 +310,7 @@ module Curtilage
     result.explanation.unshift("no map data covers this pin")
   end
 
-  private_class_method :fetch_and_generate, :checked_pins, :check_data, :auto_plan, :build_and_read, :wait_quietly,
-                       :from_builds, :merge, :from_overture, :run_many, :preset_options, :generate_one, :partial_data,
-                       :no_data
+  private_class_method :fetch_and_generate, :checked_pins, :check_data, :check_generation_options, :generate_safely,
+                       :auto_plan, :build_and_read, :wait_quietly, :from_builds, :merge, :from_overture, :run_many,
+                       :preset_options, :generate_one, :partial_data, :no_data
 end

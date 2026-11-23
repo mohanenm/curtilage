@@ -14,7 +14,7 @@ Just the building at a pin (the one its premises would be made from): `{ id:, na
 
 ### `Curtilage.generate_many(pins, **options) → [Result]`
 
-Premises for many pins, in pin order. Pins that share map data share the work. Every pin is checked before any data is fetched (a bad one raises `ArgumentError` naming it), and a call takes at most 100,000 pins (`max_pins:` raises the cap; bigger batches are better split).
+Premises for many pins, in pin order. Pins that share map data share the work. Every pin is checked before any data is fetched (a bad one raises `ArgumentError` naming it), and so are the generation options; a call takes at most 100,000 pins (`max_pins:` raises the cap; bigger batches are better split). If generating one site raises, that site gets a result with the `error` flag and the error in its explanation, and the rest of the batch goes on; problems fetching map data still raise for the whole call.
 
 | Option | Default | What |
 |---|---|---|
@@ -137,6 +137,7 @@ The same list is `Curtilage::FLAGS` (flag => what it asks a person to check).
 | `fallback` | The main method failed validation; the building rectangle was used. |
 | `ml_footprint` | Built on a machine-learned footprint, not an OSM building. |
 | `no_data` | No map data covers the pin. |
+| `error` | Generating this site raised an error (see its explanation); the rest of the batch went on. |
 | `partial_data` | Part of the area around the pin is in a region that isn't built (a hand-built catalogue near a border): buildings or roads there are missing. |
 
 ### Files: `Curtilage::Formats`

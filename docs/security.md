@@ -49,6 +49,7 @@ What curtilage trusts, what it doesn't, who might attack it, and how each attack
 - **Zip extraction** (`ZipRange`): only plain file names (no folders, so nothing can be written outside the target, and no symlinks are created); at most 1,000 entries; compressed size capped; the layers taken may inflate to at most 20 GB in all and no member by more than 200 times; inflated size must match the header; CRC-32 checked. A whole zip downloaded as a fallback gets the same checks before `unzip` runs, and `unzip -j` drops any folder paths.
 - **Atomic writes**: the cached region index, each region's metadata and the command line's `--out` files are written to a temporary name and renamed; an unreadable cached index is fetched again. `--out` refuses a symbolic link at the target.
 - **Errors**: everything raised on purpose is a `Curtilage::Error`, or an `ArgumentError` for bad input.
+- **Batches**: pins and options are checked before any data is fetched; at most 100,000 pins per call and 8 parallel builds; one site that raises during generation gets an `error` result instead of aborting the batch.
 - **Output**: the preview escapes all text, drops Unicode direction controls from it, and carries a Content-Security-Policy that allows only its own inline style and script (by hash) and no loads at all, so a missed escape can't run script. CSV cells a spreadsheet would run as a formula (a leading `=`, `+`, `-`, `@`, `|` or `%`, full-width forms, after any whitespace) get a leading `'`, in every column; KML escapes all text; GeoJSON is written by a JSON library.
 - **Fuzz tests** (`test/fuzz_test.rb`, plain Ruby, fixed seed): the CSV and GeoJSON readers, map-data parsing, geometry on degenerate input (repeated, lined-up and coincident points), validation, and generation near the poles and the antimeridian. `FUZZ_ITERATIONS=5000` runs a longer pass.
 - **Docker**: the image runs as a non-root user.
@@ -61,7 +62,6 @@ DuckDB's extensions come from its own repository, signed, and their versions fol
 
 Being worked on; this list shrinks as they're fixed.
 
-- A site that raises during generation aborts its whole batch; there's no cap on pins per call.
 - CI actions aren't pinned to commit SHAs; the Docker image downloads DuckDB without a checksum and isn't pinned to a base-image digest.
 
 ## Out of scope
