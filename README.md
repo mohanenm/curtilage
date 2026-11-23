@@ -98,6 +98,7 @@ end
 | `ok?` | It passed validation. Never save one that isn't. |
 | `ring` / `store_ring` | The premises and the store zone, `[[lng, lat], ...]` closed. |
 | `flags` | Reasons a person should look first ([below](#flags)). |
+| `pin_quality` | Where the pin was given: `on_building`, `on_road`, `near_building` or `far`, and how far from the nearest building. With `snap_m: 30`, a pin off any building is moved onto the nearest one (flag `pin_moved`). |
 | `confidence` | 0 to 1, from documented rules (fallback used, pin off the building, no mapped parking, ...), to decide which sites to review first ([reference](docs/reference.md#confidence)). |
 | `explanation` | Each step, in plain words. |
 | `details` | The building (id, name, type, area, outline), mapped parking inside the premises and an estimate of spaces, street frontage, and where driveways meet the street. Rough, like the map data. |
@@ -155,6 +156,7 @@ The current folder is mounted at `/work`, so file names are relative to it. The 
 | `large_building` | Building over 5,000 m2: may be shared by several tenants |
 | `small_building` | Building under 50 m2: may be a kiosk or canopy rather than the store |
 | `building_not_under_pin` | No building under the pin; the nearest one within 30 m was used |
+| `pin_moved` | The pin wasn't on a building and was moved onto the nearest one (`snap_m:`): check it's the right one |
 | `store_may_be_unit` | Store zone is a building over 1,500 m2: the store may be one unit of it |
 | `shopping_centre` | `scope: :centre` mapped the whole centre |
 | `fallback` | The main method failed validation; the building rectangle was used |

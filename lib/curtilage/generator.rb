@@ -104,6 +104,7 @@ module Curtilage
       precision: 7,                  # decimal places in output coordinates (7: about 1 cm)
       approach_m: nil,               # also an approach zone: the premises grown this much (nil: none)
       pickup_m: nil,                 # also a pickup zone: mapped parking this close to the building (nil: none)
+      snap_m: nil,                   # move a pin that's off any building onto the nearest within this (nil: don't)
     }.freeze
 
     BUILDING_SOURCES = %i[osm osm_filled ml].freeze
@@ -118,14 +119,14 @@ module Curtilage
       building_max_distance_m: DISTANCE, pin_clearance_m: DISTANCE, building_clearance_m: DISTANCE,
       grow_m: DISTANCE, road_offset_m: DISTANCE, neighbour_gap_m: DISTANCE, house_street_m: DISTANCE,
       parking_reach_m: DISTANCE, parking_max_extent_m: DISTANCE, building_margin_m: DISTANCE,
-      approach_m: DISTANCE, pickup_m: DISTANCE,
+      approach_m: DISTANCE, pickup_m: DISTANCE, snap_m: DISTANCE,
       large_building_m2: AREA, large_building_note_m2: AREA, neighbour_min_area_m2: AREA,
       neighbour_strip_min_area_m2: AREA, house_max_m2: AREA, small_building_m2: AREA,
       shared_lot_buildings: [1, 1_000, true], max_vertices: [4, 50, true], max_store_vertices: [3, 200, true],
       precision: [5, 15, true]
     }.freeze
     # Options where nil means "work it out" (by road class; halfway).
-    NIL_ALLOWED = %i[road_offset_m neighbour_gap_m approach_m pickup_m].freeze
+    NIL_ALLOWED = %i[road_offset_m neighbour_gap_m approach_m pickup_m snap_m].freeze
 
     module_function
 
@@ -159,8 +160,11 @@ module Curtilage
       features = choose_buildings(features, opts[:buildings])
       log = Log.new([], [])
       log.note("dropped #{features.dropped} unusable OSM features", step: "drop_features") if features.dropped.positive?
+      quality = pin_quality(features, opts)
+      features, quality[:moved_from] = snap_pin(features, opts, log) if opts[:snap_m]
       xy, target = send(method, features, opts, log)
-      finish(method, pin, [xy, target, features], log, opts)
+      finish(method, quality[:moved_from] ? features.pin : pin, [xy, target, features], log, opts)
+        .tap { |r| r.pin_quality = quality.compact }
     end
 
     # DEFAULTS with the options applied. A misspelt option would otherwise be
@@ -358,10 +362,7 @@ module Curtilage
     # A tiny structure (a canopy or kiosk roof) right by the pin loses to a
     # real building in reach: the canopy then counts as part of the lot.
     def nearest_building(features, opts, log)
-      in_reach = features.buildings.map { |b| [Geometry.distance_to_edges(b.xy, [0.0, 0.0]), b] }
-                         .select { |d, _| d <= opts[:building_max_distance_m] }
-      real = in_reach.reject { |_, b| b.area < opts[:small_building_m2] }
-      distance, target = (real.empty? ? in_reach : real).min_by(&:first)
+      distance, target = nearest_in_reach(features, opts, opts[:building_max_distance_m])
       if target
         log.flag(:building_not_under_pin, "no building under the pin; using building #{target.id}, " \
                                           "#{distance.round} m away (#{target.area.round} m2)",

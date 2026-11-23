@@ -30,7 +30,7 @@ module Curtilage
     CSV_COLUMNS = %w[id lng lat ok problem method flags errors building building_area_m2 parking_area_m2
                      parking_spaces_estimate frontage_m premises_area_m2 premises_wkt store_wkt attribution
                      gem_version data_source data_release features_sha256 confidence approach_wkt pickup_wkt
-                     staging_wkt].freeze
+                     staging_wkt pin_quality].freeze
 
     module_function
 
@@ -184,8 +184,13 @@ module Curtilage
        result.validation.errors.join(";"), result.building, d.dig(:building, :area_m2), d[:parking_area_m2],
        d[:parking_spaces_estimate],
        d[:frontage_m], result.validation.metrics[:area_m2]&.round, result.to_wkt, result.store_wkt,
-       credits(result).join("; "), *provenance_columns(result), result.confidence, result.approach_wkt,
-       result.pickup_wkt, result.staging_wkt]
+       credits(result).join("; "), *provenance_columns(result), *later_columns(result)]
+    end
+
+    # Columns added after the first release, in order.
+    def later_columns(result)
+      [result.confidence, result.approach_wkt, result.pickup_wkt, result.staging_wkt,
+       result.pin_quality&.dig(:quality)]
     end
 
     # gem_version, data_source, data_release, features_sha256 (the full

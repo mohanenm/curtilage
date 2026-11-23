@@ -107,10 +107,10 @@ class ZonesTest < Minitest::Test
       File.write(File.join(dir, "region.parquet"), "")
       out, = Open3.capture3("ruby", "-I", lib, exe, "generate", "--pin", "-80,35", "--parquet",
                             File.join(dir, "region.parquet"), "--duckdb", fake, "--format", "ndjson",
-                            "--approach", "--pickup", "10")
+                            "--approach", "--pickup", "10", "--snap")
       options = JSON.parse(out.force_encoding(Encoding::UTF_8))["properties"]["provenance"]["options"]
 
-      assert_equal [150, 10.0], options.values_at("approach_m", "pickup_m")
+      assert_equal [150, 10.0, 30], options.values_at("approach_m", "pickup_m", "snap_m")
     end
   end
 end

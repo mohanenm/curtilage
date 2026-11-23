@@ -49,6 +49,34 @@
           "type": "boolean",
           "description": "The premises passed validation. Never use one that isn't."
         },
+        "pin_quality": {
+          "type": [
+            "object",
+            "null"
+          ],
+          "description": "Where the pin was given and how far from the nearest building; moved_from when snapped.",
+          "properties": {
+            "quality": {
+              "enum": [
+                "on_building",
+                "on_road",
+                "near_building",
+                "far"
+              ]
+            },
+            "building_m": {
+              "type": "number"
+            },
+            "moved_from": {
+              "type": "array",
+              "minItems": 2,
+              "maxItems": 2,
+              "items": {
+                "type": "number"
+              }
+            }
+          }
+        },
         "confidence": {
           "type": "number",
           "minimum": 0,

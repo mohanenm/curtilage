@@ -14,7 +14,7 @@ module Curtilage
     FACTORS = {
       valid: [1.0, "The premises passed validation."],
       main_method: [0.30, "Made by the main method (no fallback to the building rectangle)."],
-      building_under_pin: [0.20, "The pin is on the building used."],
+      building_under_pin: [0.20, "The pin was given on the building used (not near it, nor moved onto it)."],
       full_data: [0.20, "Map data covers the whole area around the pin."],
       osm_building: [0.10, "The building is from OpenStreetMap, not a machine-learned footprint."],
       single_building_store: [0.10, "The building is small enough to be one store, not several tenants."],
@@ -40,7 +40,8 @@ module Curtilage
       details = result.details || {}
       {
         valid: result.ok?, main_method: !flags.include?(:fallback),
-        building_under_pin: !flags.include?(:building_not_under_pin), full_data: !flags.include?(:partial_data),
+        building_under_pin: !flags.intersect?(%i[building_not_under_pin pin_moved]),
+        full_data: !flags.include?(:partial_data),
         osm_building: !flags.include?(:ml_footprint),
         single_building_store: !flags.intersect?(%i[large_building store_may_be_unit]),
         plausible_building: !flags.include?(:small_building),

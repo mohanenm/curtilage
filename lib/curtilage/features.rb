@@ -83,6 +83,21 @@ module Curtilage
       @public_roads ||= roads.select { |r| Generator::PUBLIC_HIGHWAYS.include?(r.highway) }
     end
 
+    # A copy centred on another point (metres, in this copy's frame): the
+    # pin moves there and every feature shifts with it. A flat shift, exact
+    # to well under a metre over the tens of metres a pin is snapped.
+    def moved_to(point)
+      dx, dy = point
+      copy = dup
+      copy.instance_variable_set(:@pin, Geometry.lnglat([point], pin, 9).first)
+      copy.instance_variable_set(:@public_roads, nil)
+      %i[@buildings @ml_buildings @parking @roads @railways].each do |name|
+        list = instance_variable_get(name).map { |f| f.class.new(**f.to_h, xy: f.xy.map { |x, y| [x - dx, y - dy] }) }
+        copy.instance_variable_set(name, list)
+      end
+      copy
+    end
+
     # A copy whose buildings are the given list (see Generator buildings:).
     def with_buildings(list)
       dup.tap { |copy| copy.instance_variable_set(:@buildings, list) }

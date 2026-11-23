@@ -17,7 +17,7 @@ module Curtilage
   # output byte for byte.
   Result = Struct.new(:method_name, :pin, :ring, :store_ring, :explanation, :flags, :validation, :building,
                       :details, :attribution, :features, :provenance, :steps, :approach_ring, :pickup_ring,
-                      :staging_point, keyword_init: true) do
+                      :staging_point, :pin_quality, keyword_init: true) do
     def ok?
       !ring.nil? && validation.ok?
     end
@@ -50,7 +50,8 @@ module Curtilage
         type: "Feature",
         geometry: Result.polygon(ring),
         properties: properties.merge(
-          role: "premises", ok: ok?, confidence: confidence, confidence_factors: confidence_factors,
+          role: "premises", ok: ok?, pin_quality: pin_quality, confidence: confidence,
+          confidence_factors: confidence_factors,
           method: method_name, flags: flags, building: building, details: details,
           errors: validation.errors, warnings: validation.warnings, metrics: validation.metrics,
           explanation: explanation, steps: steps || [], attribution: attribution, provenance: provenance

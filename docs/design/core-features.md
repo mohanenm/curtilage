@@ -50,6 +50,13 @@ What the data allows today:
 - **Staging point: estimated.** "Parking nearest the main entrance" needs the main entrance, which isn't mapped in our data, so it's the pickup zone's point nearest the building, made only with a pickup zone.
 - **Building entrances and drive-through lanes: no.** Geofabrik's free shapefiles drop `entrance=*` and `service=*`; Overture's buildings have no entrances and its road subclasses (`link`, `sidewalk`, `crosswalk`, `parking_aisle`, `driveway`, `alley`, `cycle_crossing`) have no drive-through. Getting them means reading full OSM data (`.osm.pbf`, same host, much bigger files, a second build path) or waiting for Overture. Decision pending.
 
+## 6.6 Fixing pins and finding places
+
+- **Pin quality** on every result: `on_building`, `on_road` (within half a public road's width of its centreline, the same width the road trims use), `near_building` (within `building_max_distance_m`) or `far`, with the distance to the nearest building. On road beats near building: a geocoder's street pin is the case to catch.
+- **Snapping** (`snap_m:`, off by default because it moves the pin and so changes results). A pin on the street matters more than it looks: the premises always hold the pin with 5 m clearance, so a street pin stops the road trim and drags the premises into the road. Snapping moves the pin 1 m inside the nearest building (the same choice as `building_max_distance_m`: real buildings before kiosks) and shifts the map data to the new pin rather than re-reading it: a flat shift, exact to well under a metre at these distances, and it works on `Features` passed in. Flag `pin_moved`; `pin_quality.moved_from` keeps the pin as given; confidence counts it as not on the building.
+- Held-out set: 154 of 164 pins are on a building, 4 near one, 1 on a road, 5 far. Snapping at 30 m moves 5 and leaves validity and IoU as they were: this set's pins are good; geocoded pins are where it pays.
+- **By name, brand or place id, and pins from Overture places:** not built yet (see the open question in the phase notes).
+
 ## 8.2 A stable CLI contract
 
 (Pulled ahead of Phase 8 because the provenance and NDJSON schema go together.)

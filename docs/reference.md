@@ -45,6 +45,7 @@ Premises from features you already have (from `Curtilage::Lookup.features` or `C
 | `staging_point` | `[lng, lat]` where a driver might wait, estimated, with a pickup zone ([Zones](#zones)); `nil` otherwise. |
 | `entrances` | Where vehicles enter from the street, with the street's name and class (`details[:entrances]`, below); `[]` when none. |
 | `flags` | Reasons a person should look first (below). |
+| `pin_quality` | `{ quality:, building_m:, moved_from: }`: where the pin was given (`on_building`; `on_road`, within half a public road's width of its centreline; `near_building`, a building within `building_max_distance_m`; or `far`), the distance to the nearest building's edge (0 on one, absent with none), and with `snap_m:` the pin as given when it was moved (`pin` is then the moved pin). `nil` for results that raised an error. |
 | `explanation` | Each step, in plain words. |
 | `steps` | The same steps as records, one per line of `explanation` and in the same order, for tools to show or audit (below). |
 | `validation` | `errors`, `warnings` and `metrics` (area, rectangularity, pin inside, distances). |
@@ -126,6 +127,7 @@ All distances in metres, areas in square metres. These are `Curtilage::Generator
 | `max_vertices` | `10` | The premises are simplified to at most this many corners (never cutting the building). |
 | `max_store_vertices` | `20` | The store outline is simplified to at most this many corners. |
 | `validation` | `{}` | Limits for the validation every polygon goes through (below), e.g. `{ max_area_error_m2: 300_000 }` for a big-box store's lot. |
+| `snap_m` | `nil` | Move a pin that isn't on any building 1 m inside the nearest one within this distance (real buildings before kiosks), then generate from there. Flags `pin_moved`; `pin_quality` keeps where it was given. Useful for geocoded pins that land on the street, which otherwise pull the premises toward the road (they always hold the pin). |
 | `approach_m` | `nil` | Also make an approach zone: the premises grown by this much, for "customer is near" (see [Zones](#zones)). `Generator::DEFAULT_APPROACH_M` is 150. |
 | `pickup_m` | `nil` | Also make an estimated pickup zone: mapped parking within this much of the building ([Zones](#zones)). `Generator::DEFAULT_PICKUP_M` is 25. |
 | `precision` | `7` | Decimal places in output coordinates (7 is about 1 cm). Validation checks the rounded polygon. |
@@ -184,6 +186,7 @@ In GeoJSON they're extra features with `properties.role` `approach`, `pickup` an
 | `approach_zone` | The approach zone made (or dropped). | `approach_m` |
 | `pickup_zone` | The pickup zone estimated from a parking lot, or none found. | `pickup_m` |
 | `staging_point` | The staging point placed. | |
+| `snap_pin` | The pin moved onto the nearest building (flag `pin_moved`). | `snap_m` |
 
 New step names may be added in minor versions; treat an unknown one as a plain note.
 
@@ -195,7 +198,7 @@ New step names may be added in minor versions; treat an unknown one as a plain n
 |---|---|---|
 | `valid` | 1.0 | The premises passed validation. |
 | `main_method` | 0.30 | Made by the main method (no `fallback`). |
-| `building_under_pin` | 0.20 | The pin is on the building used (no `building_not_under_pin`). |
+| `building_under_pin` | 0.20 | The pin was given on the building used (no `building_not_under_pin` or `pin_moved`). |
 | `full_data` | 0.20 | Map data covers the whole area around the pin (no `partial_data`). |
 | `plausible_building` | 0.15 | The building is big enough to be a store (no `small_building`). |
 | `mapped_parking` | 0.15 | Mapped parking is inside the premises. |
@@ -217,6 +220,7 @@ The same list is `Curtilage::FLAGS` (flag => what it asks a person to check).
 | `large_building` | Building over 5,000 m2: may be shared by several tenants. |
 | `small_building` | Building under 50 m2: may be a kiosk or canopy rather than the store. |
 | `building_not_under_pin` | No building under the pin; the nearest one within 30 m was used. |
+| `pin_moved` | The pin wasn't on a building and was moved onto the nearest one (`snap_m:`): check it's the right one. |
 | `store_may_be_unit` | The store zone is a building over 1,500 m2: the store may be one unit of it. |
 | `shopping_centre` | `scope: :centre` mapped the whole centre. |
 | `fallback` | The main method failed validation; the building rectangle was used. |
@@ -242,7 +246,7 @@ Writing results: `Formats.write(results, format, ids: nil, store: true)` returns
 |---|---|
 | `:geojson` | One FeatureCollection: for each pin, its premises, (unless `store: false`) its store zone, and any [zones](#zones) asked for, with `properties.id`, `properties.role` and everything `to_geojson` carries. |
 | `:ndjson` | One line per pin: a GeoJSON Feature of its premises (`geometry` is `null` when none could be made) with everything `to_geojson` carries in its properties, the store zone's geometry in `properties.store` (absent with `store: false`), and any [zones](#zones) in `properties.approach` and `properties.pickup`. The schema is [`docs/schema/site-v1.json`](schema/site-v1.json) (it ships in the gem); version 1 only gains optional properties, and anything that would break a reader gets a new schema version. |
-| `:csv` | One row per pin. Columns: `id`, `lng`, `lat`, `ok`, `problem`, `method`, `flags` and `errors` (`;`-separated), `building`, `building_area_m2`, `parking_area_m2`, `parking_spaces_estimate`, `frontage_m`, `premises_area_m2`, `premises_wkt`, `store_wkt`, `attribution` (`; `-separated), then `gem_version`, `data_source`, `data_release` (the Overture release or the Geofabrik extract dates, `;`-separated) and `features_sha256` from `provenance` (the options are only in GeoJSON), then `confidence`, `approach_wkt`, `pickup_wkt` and `staging_wkt` (empty unless asked for). Cells a spreadsheet would run as a formula (starting with `=`, `+`, `-`, `@`, `|` or `%`, or their full-width forms, even after spaces) get a leading `'`; plain numbers don't. |
+| `:csv` | One row per pin. Columns: `id`, `lng`, `lat`, `ok`, `problem`, `method`, `flags` and `errors` (`;`-separated), `building`, `building_area_m2`, `parking_area_m2`, `parking_spaces_estimate`, `frontage_m`, `premises_area_m2`, `premises_wkt`, `store_wkt`, `attribution` (`; `-separated), then `gem_version`, `data_source`, `data_release` (the Overture release or the Geofabrik extract dates, `;`-separated) and `features_sha256` from `provenance` (the options are only in GeoJSON), then `confidence`, `approach_wkt`, `pickup_wkt` and `staging_wkt` (empty unless asked for), then `pin_quality`. Cells a spreadsheet would run as a formula (starting with `=`, `+`, `-`, `@`, `|` or `%`, or their full-width forms, even after spaces) get a leading `'`; plain numbers don't. |
 | `:kml` | A placemark per polygon (premises, store zone and any zones) and per point (driveway entrances, named by their street, and the staging point), with the confidence, flags, attribution, gem version and data release in its description, and every source credited in the document's description, for Google Earth. |
 
 `Formats.format_of(path)` names the format a file extension stands for.
@@ -308,6 +312,7 @@ curtilage doctor
   - Output: printed as GeoJSON, or `--out FILE` in the format its extension names (`.geojson`/`.json`, `.ndjson`/`.jsonl`, `.csv`, `.kml`). `--format geojson|ndjson|csv|kml` overrides. The file is written whole (to a temporary name, then renamed) and replaces any file there; a symbolic link at that path is refused.
   - Data: `--source auto|geofabrik|overture` (default auto), `--cache-dir DIR`, `--catalogue DIR`, `--parquet FILE`.
   - Style: `--preset whole_lot|tight|centre`, `--buildings osm|osm_filled|ml`, `--[no-]store`.
+  - Pins: `--snap [METRES]` (default 30) moves pins that aren't on a building onto the nearest one (`snap_m:`).
   - Zones: `--approach [METRES]` (default 150) and `--pickup [METRES]` (default 25) add the [zones](#zones).
   - DuckDB: `--duckdb PATH`, `--extension-directory DIR`.
   - `--min-confidence N` (0 to 1) leaves out results whose confidence is below N, and says how many on standard error; the exit code is then 1, as some sites weren't written.
