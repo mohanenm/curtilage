@@ -98,14 +98,35 @@ module CurtilageBenchmark
       <div id="note"></div>
       <div id="kinds"></div>
       <p><b>Sites</b></p><div id="list"></div>
-      <p class="muted">Imagery: USGS The National Map (public domain). Drafts stay in this browser until saved.</p>
+      <p class="muted">Imagery: USGS The National Map (public domain); switch source with the control at the top right
+        of the map if a site is blurry. Drafts stay in this browser until saved.</p>
     </div><div id="map"></div></div>
     <script>
     const SITES = %<sites>s, KINDS = %<kinds>s, RANDOM = %<random>d, RADIUS = %<radius>d;
     const COLOUR = { site: "#1a7f37", shared: "#d4a000", outside: "#cf222e", other: "#888" };
     const map = L.map("map", { maxZoom: 21 });
-    L.tileLayer("https://basemap.nationalmap.gov/arcgis/rest/services/USGSImageryOnly/MapServer/tile/{z}/{y}/{x}", {
-      maxNativeZoom: 16, maxZoom: 21, attribution: "Imagery: USGS The National Map (public domain)" }).addTo(map);
+    // Both public domain (USGS). NAIP aerial photos (30-60 cm a pixel) are drawn on request for any view, a
+    // tile at a time, so they can take a moment to appear; the cached tiles stop at zoom 16 (about 2.4 m a
+    // pixel), blurry close up, but quick.
+    const credit = "Imagery: USGS The National Map (public domain)";
+    const Export = L.TileLayer.extend({ getTileUrl(c) {
+      const size = this.getTileSize(), nw = c.scaleBy(size), se = nw.add(size);
+      const a = map.options.crs.project(map.unproject(nw, c.z)), b = map.options.crs.project(map.unproject(se, c.z));
+      return this._url + "/exportImage?f=image&format=jpg&bboxSR=3857&imageSR=3857&size=256,256&bbox=" +
+        [a.x, b.y, b.x, a.y].join(",");
+    } });
+    const NAIP = "USGS NAIP aerial photos (sharp)", CACHED = "USGS cached tiles (quick, blurry close up)";
+    const layers = {
+      [NAIP]: new Export("https://imagery.nationalmap.gov/arcgis/rest/services/USGSNAIPPlus/ImageServer",
+        { maxZoom: 21, attribution: credit + ", NAIP" }),
+      [CACHED]: L.tileLayer("https://basemap.nationalmap.gov/arcgis/rest/services/USGSImageryOnly/MapServer/tile/{z}/{y}/{x}",
+        { maxNativeZoom: 16, maxZoom: 21, attribution: credit }),
+    };
+    let base = NAIP;
+    try { if (layers[localStorage.getItem("labels-imagery")]) base = localStorage.getItem("labels-imagery"); } catch (e) {}
+    layers[base].addTo(map);
+    L.control.layers(layers).addTo(map);
+    map.on("baselayerchange", e => { try { localStorage.setItem("labels-imagery", e.name); } catch (err) {} });
     const store = {
       get(k) { try { return JSON.parse(localStorage.getItem("labels-" + k) || "null"); } catch (e) { return null; } },
       set(k, v) { try { localStorage.setItem("labels-" + k, JSON.stringify(v)); } catch (e) {} },
