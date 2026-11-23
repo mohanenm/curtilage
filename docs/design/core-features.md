@@ -90,6 +90,10 @@ What the data allows today:
 - **Then the lookup and parsing.** The lookup ran one scan of the file per pin, each decoding at least a 20,000-row group; local files are now read once, joined to the pins' boxes (7 ms to 2 ms a pin), while remote files keep per-pin scans so only nearby row groups are fetched, and new builds write 5,000-row groups. Parsing spent 3.3 ms of 8 checking polygons for self-intersection by comparing every edge pair; an edge sweep halves it with the same answers. 10,000 pins: 145 s (69 sites/s), all premises identical to the first run.
 - Left as they are: sorting and hashing the input for determinism (1.8 ms, mostly generating each feature's canonical JSON), and generation on one core (a site is now about 15 ms all in: 2 lookup, 7 parsing, 6 generating).
 
+## 6.11 International support
+
+Deferred (2026-11-23): checking road classes, building tags and units outside the US, with made-up left-hand-traffic and other-tagging test sites, is left for a later round. The rules have no country-specific tuning, and the 51-site set (Brazil, Hungary, US) gave similar validity across countries at 0.1.0.
+
 ## 8.2 A stable CLI contract
 
 (Pulled ahead of Phase 8 because the provenance and NDJSON schema go together.)
