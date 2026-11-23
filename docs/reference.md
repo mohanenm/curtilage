@@ -152,7 +152,7 @@ Writing results: `Formats.write(results, format, ids: nil, store: true)` returns
 - Under it: the flags (hover for their meaning), the building and premises areas, parking area and estimated spaces, street frontage, the number of entrances, and the step-by-step explanation. Invalid results say why.
 - At the top, a count of sites that are ok, flagged or without usable premises, and two controls: **Show** (all sites; those that need a look, meaning flagged or not valid; not valid; ok with no flags; or those with a given flag, with counts) and **Sort by** (input order, needs a look first, id, largest or smallest premises). The choice is remembered in the browser. The controls are a short inline script; without it every card shows, in input order.
 
-The surroundings come from `Result#features`, so pass results from `generate_many(pins, keep_features: true)`; without them only the premises, store zone and entrances are drawn. The page loads nothing from the internet (no tiles, scripts or fonts), so opening it reveals no locations; it does contain the coordinates, so share it only as you would them.
+The surroundings come from `Result#features`, so pass results from `generate_many(pins, keep_features: true)`; without them only the premises, store zone and entrances are drawn. The page loads nothing from the internet (no tiles, scripts or fonts), so opening it reveals no locations; it does contain the coordinates, so share it only as you would them. Its Content-Security-Policy allows only its own inline style and script, and text from map data is escaped.
 
 ### Other entry points
 

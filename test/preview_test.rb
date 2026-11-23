@@ -21,6 +21,40 @@ class PreviewTest < Minitest::Test
     refute_match(/(src|href)=|url\(|@import/, html)
   end
 
+  # Only the page's own style and script may run, and it names no URL.
+  def test_content_security_policy_allows_only_the_pages_own_code
+    html = Curtilage::Preview.html([Curtilage.generate(PIN, scene)])
+    policy = html[/<meta http-equiv="Content-Security-Policy" content="([^"]+)"/, 1]
+
+    assert_includes policy, "default-src 'none'"
+    style = html[%r{<style>(.*?)</style>}m, 1]
+    script = html[%r{<script>(.*?)</script>}m, 1]
+    assert_includes policy, "'sha256-#{Digest::SHA256.base64digest(style)}'"
+    assert_includes policy, "'sha256-#{Digest::SHA256.base64digest(script)}'"
+    assert_equal 1, html.scan("<script").size
+    refute_match(%r{https?://}, html)
+  end
+
+  # Names come from map data, which anyone can edit, and ids from input
+  # files: each hostile one, as a road name and as an id, stays text.
+  def test_hostile_map_names_are_inert
+    hostile = ["<script>alert(1)</script>", "\"><img src=x onerror=alert(1)>", "javascript:alert(1)",
+               "Main St\u202Eevil"]
+    results = hostile.map do |name|
+      Curtilage.generate(PIN, scene.map { |f| f["feature"] == "road" ? f.merge("name" => name) : f })
+    end
+    html = Curtilage::Preview.html(results, ids: hostile)
+    tags = html.scan(/<([a-z0-9]+)/i).flatten.map(&:downcase).uniq
+
+    assert_empty tags - %w[html head meta title style body h1 p label select option span main section h2 svg path
+                           title circle g text i details summary ol li script]
+    assert_equal 1, html.scan("<script").size
+    refute_includes html, "\u202E"
+    assert_includes html, "&lt;script&gt;alert(1)&lt;/script&gt;"
+    assert_includes html, "&quot;&gt;&lt;img src=x onerror=alert(1)&gt;"
+    assert_includes html, "trimmed at &lt;script&gt;alert(1)&lt;/script&gt; (secondary)"
+  end
+
   def test_entrances_buffer_site_building_and_flag_help
     drive = scene + [road(9, "service", [[-30, -15], [-30, -40]])]
     result = Curtilage.generate(PIN, drive).tap { |r| r.flags << :near_houses }
