@@ -9,12 +9,14 @@ module Curtilage
   # premises were made. features: the map data it was made from (a Features,
   # in metres around pin), kept for previews and debugging; generate_many
   # drops it unless asked (keep_features: true), and it isn't serialised.
+  # steps: the explanation as records, one per line, for tools to show or
+  # audit (see the reference for the fields).
   # provenance: what the result was made from and with (gem version, data
   # source and release, options, a hash of the map data), so it can be
   # reproduced; it holds no timestamps, so the same inputs give the same
   # output byte for byte.
   Result = Struct.new(:method_name, :pin, :ring, :store_ring, :explanation, :flags, :validation, :building,
-                      :details, :attribution, :features, :provenance, keyword_init: true) do
+                      :details, :attribution, :features, :provenance, :steps, keyword_init: true) do
     def ok?
       !ring.nil? && validation.ok?
     end
@@ -49,12 +51,20 @@ module Curtilage
           role: "premises", ok: ok?, confidence: confidence, confidence_factors: confidence_factors,
           method: method_name, flags: flags, building: building, details: details,
           errors: validation.errors, warnings: validation.warnings, metrics: validation.metrics,
-          explanation: explanation, attribution: attribution, provenance: provenance
+          explanation: explanation, steps: steps || [], attribution: attribution, provenance: provenance
         ),
       }
       store = { type: "Feature", geometry: Result.polygon(store_ring),
                 properties: properties.merge(role: "store", building: building, attribution: attribution) }
       [premises, store]
+    end
+
+    # Puts a step, and its line of the explanation, before the others (the
+    # data source, a failed first attempt).
+    def prepend_step(text, step:, **fields)
+      explanation.unshift(text)
+      (self.steps ||= []).unshift({ step: step, text: text, **fields }.compact)
+      self
     end
 
     # How far to trust the result, 0 to 1 (see Confidence), and the factors

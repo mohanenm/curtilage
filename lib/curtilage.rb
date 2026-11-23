@@ -13,6 +13,7 @@ require_relative "curtilage/generator"
 require_relative "curtilage/generator_lot"
 require_relative "curtilage/generator_store"
 require_relative "curtilage/generator_details"
+require_relative "curtilage/generator_steps"
 require_relative "curtilage/lookup"
 require_relative "curtilage/download"
 require_relative "curtilage/zip_range"
@@ -147,8 +148,9 @@ module Curtilage
     generate(pin, features, **options)
   rescue StandardError => e
     Result.new(method_name: nil, pin: pin, flags: [:error], building: nil,
-               explanation: ["generating this site failed: #{e.class}: #{e.message[0, 300]}"],
+               explanation: [], steps: [],
                validation: Validation::Result.new(["error"], [], {}), provenance: { gem_version: VERSION })
+          .prepend_step("generating this site failed: #{e.class}: #{e.message[0, 300]}", step: "error", flag: :error)
   end
 
   def self.check_data(data)
@@ -224,7 +226,7 @@ module Curtilage
     return [] if pins.empty?
 
     run_many(pins, auto.catalogue_for(pins), nil, lookup, options).each do |r|
-      r.explanation.unshift("map data: OpenStreetMap, built from Geofabrik")
+      r.prepend_step("map data: OpenStreetMap, built from Geofabrik", step: "data")
     end
   end
 
@@ -244,7 +246,7 @@ module Curtilage
       generate_safely(pin, features, options).tap do |r|
         r.provenance[:data] = { source: "overture", release: release }
         r.attribution = Overture.attribution(r.features)
-        r.explanation.unshift("map data: OpenStreetMap, read from Overture Maps")
+        r.prepend_step("map data: OpenStreetMap, read from Overture Maps", step: "data")
       end
     end
   end
@@ -311,13 +313,13 @@ module Curtilage
 
   def self.partial_data(result)
     result.flags << :partial_data
-    result.explanation.unshift("part of the area around the pin is in a region that isn't built: " \
-                               "buildings or roads there are missing")
+    result.prepend_step("part of the area around the pin is in a region that isn't built: " \
+                        "buildings or roads there are missing", step: "data", flag: :partial_data)
   end
 
   def self.no_data(result)
     result.flags << :no_data
-    result.explanation.unshift("no map data covers this pin")
+    result.prepend_step("no map data covers this pin", step: "data", flag: :no_data)
   end
 
   private_class_method :fetch_and_generate, :checked_pins, :check_data, :check_generation_options, :generate_safely,

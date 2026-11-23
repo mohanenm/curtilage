@@ -22,6 +22,16 @@ Each result carries `provenance`: gem version, data source and release, every op
 - **First measurement** (private held-out set, aggregate only, weights not tuned to it): the 17 lowest-confidence sites (bottom 10%) hold all 5 invalid results and have mean IoU 0.25 against 0.49 for the rest; 10 of the 31 sites under IoU 0.3 land there. Among valid results the ranking is weak (Spearman 0.14 against IoU), and IoU against hand-drawn polygons, which are tighter than the goal, is itself a weak measure. So: good at surfacing the clearly bad, not yet at ordering the rest. Calibrate on the benchmark and on review outcomes (accept / nudge / redraw).
 - **`--min-confidence N`** leaves results below N out of the output (exit 1, count on stderr), giving a file of results to save unattended while the rest go to review. The preview sorts by confidence instead of filtering, as it's for review.
 
+## 6.3 Machine-readable explanation
+
+`Result#steps`: one record per line of the explanation, same order, with `text` equal to the line. Keeping them one-to-one means a tool can show either and nothing is said in one but not the other; the notes and steps are written by the same call (`Log#note` takes the structured fields), so they can't drift apart.
+
+- **Fields:** `step`, `text`, and when they apply `rule`, `features`, `distance_m`, `area_before_m2`, `area_after_m2`, `flag`. Absent rather than null, to keep lines short.
+- **`rule`** is an option name where an option set the distance (`grow_m`, `parking_reach_m`, ...), so a reviewer can see which knob to turn; otherwise a short rule name (`road_class_half_width`, `clearance`, `halfway`).
+- **Areas** are the premises in whole square metres, recorded only where a step changes the polygon. A road trimmed along several stretches is one step whose area after is the final one.
+- One explanation line was added (`add_lot`, with its areas): before, adding the lot changed the polygon without a line saying so.
+- Step names are documented; new ones may appear in minor versions, so readers should treat unknown names as plain notes.
+
 ## 8.2 A stable CLI contract
 
 (Pulled ahead of Phase 8 because the provenance and NDJSON schema go together.)

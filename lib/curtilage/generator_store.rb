@@ -21,10 +21,14 @@ module Curtilage
       end
       if target.area > opts[:large_building_note_m2]
         log.flag(:store_may_be_unit, "the store outline is the whole #{target.area.round} m2 building: " \
-                                     "if the store is one unit of it, trim the outline to that unit")
+                                     "if the store is one unit of it, trim the outline to that unit",
+                 step: "check_store", rule: "large_building_note_m2", features: [target.id])
       end
       inside = Geometry.clean(Geometry.clip_inside(xy, premises, store_margin(opts[:precision])))
-      log.note("trimmed the store outline to fit inside the premises") if Geometry.area(inside) < Geometry.area(xy) - 1
+      if Geometry.area(inside) < Geometry.area(xy) - 1
+        log.note("trimmed the store outline to fit inside the premises",
+                 step: "trim_store", features: [target.id], area_before_m2: m2(xy), area_after_m2: m2(inside))
+      end
       inside
     end
 

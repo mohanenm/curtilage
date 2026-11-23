@@ -33,6 +33,7 @@
         "warnings",
         "metrics",
         "explanation",
+        "steps",
         "attribution",
         "provenance"
       ],
@@ -126,6 +127,43 @@
             "type": "string"
           },
           "description": "Each step in plain words."
+        },
+        "steps": {
+          "type": "array",
+          "description": "The explanation as records, one per line in the same order (see the reference for step names and rules).",
+          "items": {
+            "type": "object",
+            "required": [
+              "step",
+              "text"
+            ],
+            "properties": {
+              "step": {
+                "type": "string"
+              },
+              "text": {
+                "type": "string"
+              },
+              "rule": {
+                "type": "string"
+              },
+              "features": {
+                "type": "array"
+              },
+              "distance_m": {
+                "type": "number"
+              },
+              "area_before_m2": {
+                "type": "number"
+              },
+              "area_after_m2": {
+                "type": "number"
+              },
+              "flag": {
+                "type": "string"
+              }
+            }
+          }
         },
         "attribution": {
           "type": "array",

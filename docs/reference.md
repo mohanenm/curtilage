@@ -43,6 +43,7 @@ Premises from features you already have (from `Curtilage::Lookup.features` or `C
 | `store_ring` | The store zone: the building's own outline, always inside `ring`. `nil` with `store_zone: false`. |
 | `flags` | Reasons a person should look first (below). |
 | `explanation` | Each step, in plain words. |
+| `steps` | The same steps as records, one per line of `explanation` and in the same order, for tools to show or audit (below). |
 | `validation` | `errors`, `warnings` and `metrics` (area, rectangularity, pin inside, distances). |
 | `method_name` | `:grow_trim`, or `:building` after a fallback. |
 | `building` | The id of the building used. |
@@ -136,6 +137,34 @@ All distances in metres, areas in square metres. These are `Curtilage::Generator
 | `max_vertices` | `50` | Error (`too_many_vertices`) above this many corners. |
 | `off_centre_m` | `200` | Warn (`off_centre`) if the polygon's centre is further than this from the pin. |
 | `swap_far_m`, `swap_near_m` | `10000`, `1000` | Error (`swapped`) when the polygon is further than `swap_far_m` from the pin but within `swap_near_m` of it with longitude and latitude swapped. |
+
+### Steps
+
+`Result#steps` (GeoJSON and NDJSON `steps`) is the explanation as records: `{ step:, text:, rule:, features:, distance_m:, area_before_m2:, area_after_m2:, flag: }`. `step` and `text` (the line of `explanation`) are always there; the rest only when they apply. `rule` names the option (from [Generation options](#generation-options)) or rule that set the distance, `features` are the map-data ids involved, and the areas are the premises in whole square metres before and after the step changed them.
+
+| `step` | What happened | `rule` |
+|---|---|---|
+| `data` | Where the map data came from, or that it's missing or partial (`flag`). | |
+| `fallback` | A method failed validation; the next was tried. | the method that failed |
+| `error` | Generation raised an error (flag `error`). | |
+| `drop_features` | Unusable map features were dropped. | |
+| `find_building` | The building under the pin, the nearest one in reach, or none. | `building_max_distance_m` when not under the pin |
+| `check_building`, `check_store` | The building's size or source raised a flag or a note. | `small_building_m2`, `large_building_m2`, `large_building_note_m2` |
+| `grow` | The building's rectangle grown toward its lot. | `grow_m`, or `building_margin_m` (fallback) |
+| `trim_road` | Trimmed at a public road or railway (one step per road). | `road_class_half_width`, `road_offset_m`, or `clearance` when the building or pin clearance kept the cut closer to the centreline |
+| `keep_road_side` | A road wasn't trimmed at because the cut would cross the building. | |
+| `claim_lot` | Parking, a garage or a canopy is the site's lot. | `parking_reach_m`, or `shared_lot_buildings` for a shared lot |
+| `share_lot` | A claimed lot also touches other buildings. | |
+| `split_neighbour` | Cut short of, or halfway to, a neighbouring building. | `neighbour_gap_m` or `halfway` |
+| `keep_neighbour` | A neighbour touching the building couldn't be split off. | |
+| `take_driveway` | A driveway to the street was taken in. | `ENTRANCE_REACH_M` |
+| `add_lot` | The claimed lot was added to the premises. | `parking_max_extent_m` |
+| `keep_off_neighbour` | Kept 1 m off a neighbour the lot reached. | |
+| `whole_centre` | The whole shopping centre (`scope: :centre`). | |
+| `widen`, `simplify` | The premises widened to hold the building, or simplified. | `max_vertices` for `simplify` |
+| `trim_store` | The store outline trimmed to fit inside the premises. | |
+
+New step names may be added in minor versions; treat an unknown one as a plain note.
 
 ### Confidence
 

@@ -25,16 +25,22 @@ module Curtilage
         next false unless Geometry.contains?(lot.xy, [0.0, 0.0]) || touches?(lot, target, opts)
 
         others = sharers(lot, features, target, opts)
-        if others >= opts[:shared_lot_buildings]
-          shared << lot
-          log.note("parking #{lot.id} (#{lot.area.round} m2) is shared with #{others} other buildings: " \
-                   "claimed the part nearer this building than the others")
-        else
-          log.note("#{lot_label(lot)} (#{lot.area.round} m2) touches the building, so it's part of the lot")
-        end
+        shared << lot if others >= opts[:shared_lot_buildings]
+        note_lot(log, lot, others, opts)
         true
       end
       [lots, shared]
+    end
+
+    def note_lot(log, lot, others, opts)
+      if others >= opts[:shared_lot_buildings]
+        log.note("parking #{lot.id} (#{lot.area.round} m2) is shared with #{others} other buildings: " \
+                 "claimed the part nearer this building than the others",
+                 step: "claim_lot", rule: "shared_lot_buildings", features: [lot.id])
+      else
+        log.note("#{lot_label(lot)} (#{lot.area.round} m2) touches the building, so it's part of the lot",
+                 step: "claim_lot", rule: "parking_reach_m", features: [lot.id], distance_m: opts[:parking_reach_m])
+      end
     end
 
     # Other buildings (not garages or canopies) the lot also touches.
@@ -63,6 +69,9 @@ module Curtilage
       parts = lots.map { |lot| share_lot(Geometry.clip_convex(lot.xy, far), lot, site) }
       grown = lot_box(poly + parts.select { |p| p.size >= 3 }.flatten(1), far, site.target)
       grown = add_entrances(grown, far, site)
+      site.log.note("took in the lot: premises #{m2(poly)} m2 to #{m2(grown)} m2",
+                    step: "add_lot", rule: "parking_max_extent_m", features: lots.map(&:id),
+                    distance_m: site.opts[:parking_max_extent_m], area_before_m2: m2(poly), area_after_m2: m2(grown))
       keep_off_neighbours(grown, site.features, site.target, site.opts, site.log)
     end
 
@@ -102,7 +111,8 @@ module Curtilage
       pts = road.xy.each_cons(2).flat_map { |a, b| samples(a, b) }.select { |p| Geometry.contains?(fence, p) }
       return [] unless pts.any? { |p| Geometry.contains?(poly, p) } && meets_public_road?(pts, site.features)
 
-      site.log.note("took in the driveway #{road.id} to the street")
+      site.log.note("took in the driveway #{road.id} to the street", step: "take_driveway", rule: "ENTRANCE_REACH_M",
+                                                                     features: [road.id], distance_m: ENTRANCE_REACH_M)
       taken = pts.select { |p| Geometry.contains?(poly, p) || Geometry.distance_to_edges(poly, p) <= ENTRANCE_REACH_M }
       access = street_access(taken, site.features)
       site.log.access_point(access) if access
@@ -143,7 +153,10 @@ module Curtilage
 
         part = split_from_neighbour(part, target.hull, other.hull, target.rectangle[:angle])
       end
-      log.note("parking #{lot.id} also touches building #{others.map(&:id).join(", ")}") if others.any?
+      if others.any?
+        log.note("parking #{lot.id} also touches building #{others.map(&:id).join(", ")}",
+                 step: "share_lot", features: [lot.id, *others.map(&:id)])
+      end
       part
     end
 
@@ -167,7 +180,9 @@ module Curtilage
                                        stop: ->(near, far) { [far - 1, near].max })
         next if trimmed.size < 3
 
-        log.note("stopped 1 m short of building #{other.id}")
+        log.note("stopped 1 m short of building #{other.id}", step: "keep_off_neighbour", features: [other.id],
+                                                              distance_m: 1, area_before_m2: m2(poly),
+                                                              area_after_m2: m2(trimmed))
         poly = trimmed
       end
       poly
@@ -183,7 +198,8 @@ module Curtilage
       points = shared.flat_map(&:xy) + members.flat_map(&:hull)
       poly = trim_at_roads(Geometry.counter_clockwise(Geometry.convex_hull(points)), features, target, opts, log)
       log.flag(:shopping_centre, "mapped the whole shopping centre: #{members.size} buildings around " \
-                                 "#{shared.size} shared parking lot(s)")
+                                 "#{shared.size} shared parking lot(s)",
+               step: "whole_centre", features: members.map(&:id) + shared.map(&:id), area_after_m2: m2(poly))
       poly
     end
 
