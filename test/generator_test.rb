@@ -302,7 +302,7 @@ class GeneratorTest < Minitest::Test
   # Nothing bounds a 2 km grow to the north, so grow_trim fails validation
   # (too large) and the building fallback is used.
   def test_propose_falls_back_to_building_and_flags_it
-    result = Curtilage.generate(PIN, scene, grow_m: 2_000, parking_reach_m: -1)
+    result = Curtilage.generate(PIN, scene, grow_m: 1_000, parking_reach_m: 0)
 
     assert_equal :building, result.method_name
     assert_includes result.flags, :fallback
@@ -391,5 +391,14 @@ class GeneratorTest < Minitest::Test
 
     refute_predicate result, :ok?
     assert_includes result.validation.errors, "too_large"
+  end
+
+  def test_numeric_options_are_range_checked
+    [{ grow_m: -1 }, { grow_m: 1_001 }, { grow_m: Float::NAN }, { grow_m: "30" }, { max_vertices: 3 },
+     { max_vertices: 10.5 }, { house_max_m2: -5 }, { shared_lot_buildings: 0 }, { store_zone: "yes" },
+     { road_offset_m: -2 }].each do |bad|
+      assert_raises(ArgumentError, bad.inspect) { Curtilage.generate(PIN, scene, **bad) }
+    end
+    assert_predicate Curtilage.generate(PIN, scene, road_offset_m: nil, neighbour_gap_m: nil, grow_m: 0), :ok?
   end
 end

@@ -13,7 +13,7 @@ What curtilage trusts, what it doesn't, who might attack it, and how each attack
 
 | Input | Trusted? | How it's handled |
 |---|---|---|
-| Your Ruby calls | The caller is trusted, the values are checked | Unknown options raise; pins are converted to numbers and range-checked before use in SQL. |
+| Your Ruby calls | The caller is trusted, the values are checked | Unknown options raise; numeric options are range-checked; pins are checked before use in SQL. |
 | Pin files (CSV, GeoJSON) | No | Capped at 50 MB and 100,000 pins; fields and ids at 10,000 characters, rows at 1,000 columns, JSON nesting at 20, all enforced while reading; must be UTF-8 without NUL bytes; CSV parsed by a strict quoted-field reader; every pin checked as finite plain decimals in range. |
 | Map data (Geofabrik, Overture, Microsoft, your own catalogue files) | No | At most 20,000 features per pin and 5,000 vertices per ring; empty, self-intersecting or invalid geometry dropped; names and ids escaped in every output; DuckDB output capped at 200 MB; values from map data never become SQL. |
 | The DuckDB binary (`CURTILAGE_DUCKDB`, or `duckdb` on the `PATH`) | **Yes**: trusted configuration | It runs with your user's rights. Point it only at a DuckDB you installed. `curtilage doctor` shows which one runs. |
@@ -53,7 +53,6 @@ What curtilage trusts, what it doesn't, who might attack it, and how each attack
 
 Being worked on; this list shrinks as they're fixed.
 
-- Numeric options aren't range-checked (a negative distance or a huge radius is accepted).
 - DuckDB runs have no timeout, and lookups no memory cap; DuckDB's output is read in full before its size is checked. A failed query's error message can quote the query, including the box around a pin.
 - The preview has no Content-Security-Policy; the CSV formula guard misses a leading `|`, `%`, whitespace before a formula character, and full-width forms.
 - `--out` follows a symlink at the target and isn't written atomically.

@@ -46,11 +46,18 @@ module Curtilage
       end
     end
 
+    RELEASE = /\A\d{4}-\d{2}-\d{2}(\.\d+)?\z/
+
     def release(options)
-      return options[:release] if options[:release]
+      if options[:release]
+        raise ArgumentError, "an Overture release looks like 2026-11-18.0: #{options[:release].inspect}" \
+          unless options[:release].to_s.match?(RELEASE)
+
+        return options[:release].to_s
+      end
 
       latest = JSON.parse(Download.read(STAC_HOST, CATALOG, max_bytes: 1_000_000))["latest"].to_s
-      raise Error, "no latest Overture release in the catalog" unless latest.match?(/\A[\d.-]+\z/)
+      raise Error, "no latest Overture release in the catalog" unless latest.match?(RELEASE)
 
       latest
     end

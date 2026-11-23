@@ -97,6 +97,22 @@ module Curtilage
     BUILDING_SOURCES = %i[osm osm_filled ml].freeze
     SCOPES = %i[site centre].freeze
 
+    # Allowed values for the numeric options: [min, max, whole number?].
+    # Out-of-range values would make no sense (a negative distance) or make
+    # the rules run on a city block.
+    DISTANCE = [0, 1_000, false].freeze
+    AREA = [0, 10_000_000, false].freeze
+    RANGES = {
+      building_max_distance_m: DISTANCE, pin_clearance_m: DISTANCE, building_clearance_m: DISTANCE,
+      grow_m: DISTANCE, road_offset_m: DISTANCE, neighbour_gap_m: DISTANCE, house_street_m: DISTANCE,
+      parking_reach_m: DISTANCE, parking_max_extent_m: DISTANCE, building_margin_m: DISTANCE,
+      large_building_m2: AREA, large_building_note_m2: AREA, neighbour_min_area_m2: AREA,
+      neighbour_strip_min_area_m2: AREA, house_max_m2: AREA, small_building_m2: AREA,
+      shared_lot_buildings: [1, 1_000, true], max_vertices: [4, 50, true], max_store_vertices: [3, 200, true]
+    }.freeze
+    # Options where nil means "work it out" (by road class; halfway).
+    NIL_ALLOWED = %i[road_offset_m neighbour_gap_m].freeze
+
     module_function
 
     # The recommended path: grow_trim, falling back to building when its
@@ -144,8 +160,20 @@ module Curtilage
         unless SCOPES.include?(opts[:scope])
       raise ArgumentError, "unknown buildings: #{opts[:buildings].inspect} (have: #{BUILDING_SOURCES.join(", ")})" \
         unless BUILDING_SOURCES.include?(opts[:buildings])
+      raise ArgumentError, "store_zone must be true or false" unless [true, false].include?(opts[:store_zone])
 
+      RANGES.each { |key, range| check_range(key, opts[key], *range) }
       opts
+    end
+
+    def check_range(key, value, min, max, whole)
+      return if value.nil? && NIL_ALLOWED.include?(key)
+
+      ok = value.is_a?(Numeric) && value.real? && value.to_f.finite? && value.between?(min, max) &&
+           (!whole || value.is_a?(Integer))
+      return if ok
+
+      raise ArgumentError, "#{key} must be #{"a whole number " if whole}from #{min} to #{max}: #{value.inspect}"
     end
 
     # The building flavour: OSM only (default), OSM filled in with ML
