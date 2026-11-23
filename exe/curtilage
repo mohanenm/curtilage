@@ -133,6 +133,10 @@ def output_flags(o, opts)
 
     opts[:min_confidence] = v
   end
+  o.on("--resume", "Carry on an interrupted run into --out FILE.ndjson or .csv, skipping finished sites") do
+    opts[:resume] = true
+  end
+  o.on("--progress", "Show progress even when standard error isn't a terminal") { opts[:progress] = true }
 end
 
 # [pins, ids] from --pin and --in.
@@ -239,16 +243,65 @@ rescue SystemCallError => e
   raise ArgumentError, "can't write #{path}: #{e.message}"
 end
 
+# In chunks of Batch::CHUNK sites: progress shows, NDJSON and CSV stream
+# (memory stays flat) and an interrupted run can --resume.
 def generate(args)
   opts = generate_options(args, "generate")
   format = opts[:format] || Curtilage::Formats.format_of(opts[:out]) || :geojson
   check_out(opts[:out])
   pins, ids = read_sites(opts)
-  results = run(opts, pins, corrections: corrections(opts, ids))
-  kept, ids = confident(results, ids, opts[:min_confidence])
-  deliver(Curtilage::Formats.write(kept, format, ids: ids, store: opts.fetch(:store_zone, true)), opts[:out],
-          "#{results.count(&:ok?)} of #{results.size} ok")
-  exit(kept.size == results.size && results.all?(&:ok?) ? 0 : 1)
+  batch = open_batch(opts, format, ids)
+  todo = ids.each_index.reject { |i| batch.done.include?(ids[i]) }
+  totals = run_batch(opts, [pins, ids], todo, corrections(opts, ids), batch)
+  batch.finish { |text| write_out(opts[:out], text) }
+  report(totals, opts)
+  exit(totals[:kept] == totals[:all] && totals[:ok] == totals[:all] ? 0 : 1)
+end
+
+def open_batch(opts, format, ids)
+  raise ArgumentError, "--resume needs unique site ids" if opts[:resume] && ids.uniq.size != ids.size
+
+  Curtilage::Batch.new(format: format, out: opts[:out], store: opts.fetch(:store_zone, true), resume: opts[:resume])
+end
+
+def run_batch(opts, sites, todo, fixes, batch)
+  pins, ids = sites
+  totals = Hash.new(0)
+  progress = Curtilage::Batch::Progress.new(todo.size) if opts[:progress] || ($stderr.tty? && !opts[:quiet])
+  with_run_cache(opts, todo.size) do |cache|
+    todo.each_slice(Curtilage::Batch::CHUNK) do |chunk|
+      local = chunk.each_with_index.filter_map { |g, i| [i, fixes[g]] if fixes[g] }.to_h
+      results = run(opts.merge(cache_dir: cache), pins.values_at(*chunk), corrections: local)
+      batch.add(*confident(results, ids.values_at(*chunk), opts[:min_confidence]))
+      count(totals, results, opts[:min_confidence])
+      progress&.step(chunk.size)
+    end
+  end
+  progress&.finish
+  totals
+end
+
+def count(totals, results, min)
+  totals[:all] += results.size
+  totals[:ok] += results.count(&:ok?)
+  totals[:kept] += min ? results.count { |r| r.confidence >= min } : results.size
+end
+
+def report(totals, opts)
+  left = totals[:all] - totals[:kept]
+  LOG.puts "#{left} result(s) below --min-confidence #{opts[:min_confidence]} left out" if left.positive?
+  LOG.puts "#{totals[:ok]} of #{totals[:all]} ok; wrote #{opts[:out]}" if opts[:out]
+end
+
+# A Geofabrik region a run builds is reused by every chunk: without
+# --cache-dir, a temporary cache lasts the run.
+def with_run_cache(opts, count)
+  shared = count > Curtilage::Batch::CHUNK && opts[:source] != :overture &&
+           !(opts[:cache_dir] || opts[:catalogue] || opts[:parquet])
+  dir = Dir.mktmpdir("curtilage-run") if shared
+  yield dir || opts[:cache_dir]
+ensure
+  FileUtils.rm_rf(dir) if dir
 end
 
 # Writes text to out, or prints it.
@@ -266,7 +319,6 @@ def confident(results, ids, min)
   return [results, ids] unless min
 
   kept = results.zip(ids).select { |result, _| result.confidence >= min }
-  LOG.puts "#{results.size - kept.size} result(s) below --min-confidence #{min} left out" if kept.size < results.size
   [kept.map(&:first), kept.map(&:last)]
 end
 

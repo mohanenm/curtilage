@@ -21,6 +21,7 @@
 - Your own named profiles from a JSON or YAML file (`Curtilage::Profiles.load`, `--profiles FILE --preset NAME`): sets of generation options, optionally starting from a built-in preset, checked at load.
 - Corrections: `corrections:` (`--corrections FILE`, matched by id; the gem's own output, edited, works) uses your polygons instead of generating, validated and marked manual (`method_name: :manual`, data source `manual`). `Formats.read_results` reads result files back.
 - `curtilage diff OLD NEW` (`Curtilage::Diff`): compares two runs site by site (IoU, area change, ok, flags gained and lost, confidence) and marks sites that changed beyond a threshold for review, exiting 1 when any need it.
+- Big batches from the command line: `curtilage generate` works in chunks of 500 sites, shows progress with an ETA on a terminal (`--progress` to force it), streams NDJSON and CSV so memory stays flat, and `--resume` carries on an interrupted run from where it stopped. Without `--cache-dir`, a region a run builds is shared by every chunk.
 - A `precision:` option sets the decimal places of output coordinates (default 7, as before).
 - `curtilage doctor` checks everything the gem needs outside Ruby with a fix for each problem (DuckDB version, with a warning outside the tested 1.4 and 2.0; extensions; the cache folder), and takes `--network` (are the map-data hosts reachable) and `--json`; it exits 1 when something's missing.
 - A `validation:` option raises or lowers the validation limits for generated polygons (e.g. `{ max_area_error_m2: 300_000 }` for a big-box store's lot, which could only ever get the fallback before). The limits are documented in the reference.
@@ -31,7 +32,7 @@
 
 ### Changed
 
-- Generation is about five times faster (34 ms to 7 ms a site in a test of 500 made-up pins), with identical results: road trims no longer sample road segments too far from the building to matter.
+- Generation is faster with identical results: road trims no longer sample road segments too far from the building to matter. About five times on ordinary buildings (34 ms to 7 ms a site on 500 made-up pins), about 1.4 times on busy commercial sites (median 92 ms to 65 ms on a held-out set).
 - Results no longer depend on the order map data arrives in (DuckDB promises no row order, so a re-run could give a different polygon on about a fifth of sites). Neighbouring buildings are now cut nearest first, and the input is sorted into one order before the rules run. Some polygons change: on a private held-out set, mean IoU against hand-drawn premises went from 0.469 to 0.466 (random input orders used to give 0.464-0.466).
 
 ### Security

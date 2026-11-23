@@ -80,6 +80,15 @@ What the data allows today:
 - **No separate lock.** The brief asked for a result kept unless the data changed materially. 6.1 already makes unchanged data give byte-identical results; corrections re-applied each run keep the human fixes; `diff` shows the generated sites that changed materially. A lock would add stored state and a definition of "material" for little more.
 - Result files are untrusted input: size capped, rings capped at 1,000 vertices (the shape check is quadratic), ids required.
 
+## 6.10 Big batches
+
+- **Chunks of 500** (the lookup's batch size): progress per chunk, memory bounded by a chunk, and a natural checkpoint.
+- **Streaming and resume share one file.** NDJSON and CSV stream into `.OUT.part` (a fixed name, so a later run can find it), renamed to `OUT` at the end: readers never see half a file, as before. `--resume` reads the ids already in the `.part`, drops a line a crash cut short, and appends. No separate checkpoint format. GeoJSON and KML are single documents, so they're written whole (results are small once their map data is dropped).
+- **Progress** only on a terminal (or `--progress`), so logs and pipes stay clean.
+- **Builds are reused across chunks:** without `--cache-dir`, a temporary cache lives for the run, or `:auto` would rebuild a region per chunk.
+- **Throughput, 10,000 made-up pins** (centres of randomly sampled buildings in a prebuilt Delaware file, laptop, one process): 497 s at first (20 sites/s). Profiling 500 of them: lookup 7 ms, parsing 8 ms, generation 34 ms a site, 85% of it sampling every road around the pin every 2 m, several times a site. Skipping segments whose box is beyond reach of the building's box (exactly the samples that were being discarded) took generation to 7 ms and the run to 203 s (49 sites/s), with all 10,000 premises identical. Ruby's memory levels off around 550-650 MB (the map data for a chunk), whatever the batch size.
+- Next bottlenecks, not tackled: parsing DuckDB's JSON (8 ms a site) and the lookup (7 ms); generation is single-threaded (one core).
+
 ## 8.2 A stable CLI contract
 
 (Pulled ahead of Phase 8 because the provenance and NDJSON schema go together.)
