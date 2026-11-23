@@ -1,9 +1,9 @@
 {
   "gem_version": "0.4.0",
-  "commit": "fa50779",
+  "commit": "5378b55-dirty",
   "overture_release": "2026-11-18.0",
   "options": {},
-  "run_at": "2026-11-23T19:33:19Z",
+  "run_at": "2026-11-23T19:41:38Z",
   "summary": {
     "all": {
       "sites": 10,
@@ -19,7 +19,7 @@
         "near_houses": 1,
         "store_may_be_unit": 3
       },
-      "total_ms": 428
+      "total_ms": 429
     },
     "categories": {
       "backs_onto_houses": {
@@ -59,7 +59,7 @@
         "median_area_ratio": 1.15,
         "fallbacks": 0,
         "flags": {},
-        "total_ms": 15
+        "total_ms": 14
       },
       "deep_lot": {
         "sites": 1,
@@ -97,7 +97,7 @@
         "median_area_ratio": 0.47,
         "fallbacks": 0,
         "flags": {},
-        "total_ms": 50
+        "total_ms": 47
       },
       "shared_lot": {
         "sites": 1,
@@ -123,7 +123,7 @@
         "median_area_ratio": 0.11,
         "fallbacks": 0,
         "flags": {},
-        "total_ms": 120
+        "total_ms": 123
       },
       "standalone": {
         "sites": 1,
@@ -137,7 +137,7 @@
         "flags": {
           "store_may_be_unit": 1
         },
-        "total_ms": 24
+        "total_ms": 23
       },
       "urban_storefront": {
         "sites": 1,
@@ -149,7 +149,7 @@
         "median_area_ratio": 0.18,
         "fallbacks": 0,
         "flags": {},
-        "total_ms": 13
+        "total_ms": 14
       }
     },
     "placeholders": {
@@ -167,71 +167,71 @@
     "views": {
       "arrival": {
         "sites": 9,
-        "points": 484,
-        "in_caught": 0.413,
-        "out_included": 0.051,
-        "errors": 162,
-        "errors_beyond_tolerance": 155,
-        "hard_failures": 7,
+        "points": 625,
+        "in_caught": 0.437,
+        "out_included": 0.06,
+        "errors": 170,
+        "errors_beyond_tolerance": 158,
+        "hard_failures": 8,
         "kinds": {
           "building": {
             "n": 9,
             "right": 9
           },
           "drive_through": {
-            "n": 3,
-            "right": 3
+            "n": 1,
+            "right": 1
           },
           "entrance": {
-            "n": 21,
-            "right": 3
+            "n": 24,
+            "right": 5
           },
           "forecourt": {
             "n": 8,
             "right": 5
           },
           "neighbour_building": {
-            "n": 44,
-            "right": 44
+            "n": 47,
+            "right": 47
           },
           "neighbour_lot": {
-            "n": 26,
-            "right": 26
+            "n": 32,
+            "right": 32
           },
           "open_land": {
-            "n": 9,
-            "right": 8
+            "n": 8,
+            "right": 7
           },
           "own_parking": {
-            "n": 72,
-            "right": 44
+            "n": 148,
+            "right": 117
           },
           "public_road": {
-            "n": 88,
-            "right": 88
+            "n": 121,
+            "right": 121
           },
           "railway": {
             "n": 7,
             "right": 7
           },
           "residential": {
-            "n": 33,
-            "right": 33
+            "n": 42,
+            "right": 40
           },
           "service": {
-            "n": 14,
-            "right": 5
+            "n": 21,
+            "right": 9
           },
           "shared_parking_far": {
-            "n": 31,
-            "right": 31
+            "n": 40,
+            "right": 40
           },
           "shared_parking_near": {
-            "n": 106,
-            "right": 11
+            "n": 105,
+            "right": 10
           },
           "walkway": {
-            "n": 13,
+            "n": 12,
             "right": 5
           }
         },
@@ -246,79 +246,79 @@
       },
       "centre": {
         "sites": 9,
-        "points": 555,
-        "in_caught": 0.503,
-        "out_included": 0.092,
-        "errors": 206,
-        "errors_beyond_tolerance": 194,
-        "hard_failures": 8,
+        "points": 712,
+        "in_caught": 0.53,
+        "out_included": 0.097,
+        "errors": 230,
+        "errors_beyond_tolerance": 213,
+        "hard_failures": 9,
         "kinds": {
           "building": {
             "n": 9,
             "right": 9
           },
           "centre_road": {
-            "n": 52,
-            "right": 11
+            "n": 60,
+            "right": 18
           },
           "drive_through": {
-            "n": 3,
-            "right": 3
+            "n": 1,
+            "right": 1
           },
           "entrance": {
-            "n": 21,
-            "right": 4
+            "n": 24,
+            "right": 6
           },
           "forecourt": {
             "n": 8,
             "right": 5
           },
           "landscaping": {
-            "n": 19,
-            "right": 9
+            "n": 27,
+            "right": 12
           },
           "neighbour_building": {
-            "n": 44,
-            "right": 30
+            "n": 47,
+            "right": 33
           },
           "neighbour_lot": {
-            "n": 26,
-            "right": 26
+            "n": 32,
+            "right": 32
           },
           "open_land": {
-            "n": 9,
-            "right": 9
+            "n": 8,
+            "right": 8
           },
           "own_parking": {
-            "n": 72,
-            "right": 56
+            "n": 148,
+            "right": 129
           },
           "public_road": {
-            "n": 88,
-            "right": 88
+            "n": 121,
+            "right": 121
           },
           "railway": {
             "n": 7,
             "right": 7
           },
           "residential": {
-            "n": 33,
-            "right": 33
+            "n": 42,
+            "right": 40
           },
           "service": {
-            "n": 14,
-            "right": 2
+            "n": 21,
+            "right": 5
           },
           "shared_parking_far": {
-            "n": 31,
+            "n": 40,
             "right": 3
           },
           "shared_parking_near": {
-            "n": 106,
-            "right": 48
+            "n": 105,
+            "right": 47
           },
           "walkway": {
-            "n": 13,
+            "n": 12,
             "right": 6
           }
         },
@@ -333,71 +333,71 @@
       },
       "default": {
         "sites": 9,
-        "points": 489,
-        "in_caught": 0.415,
-        "out_included": 0.004,
-        "errors": 160,
-        "errors_beyond_tolerance": 150,
-        "hard_failures": 7,
+        "points": 631,
+        "in_caught": 0.438,
+        "out_included": 0.008,
+        "errors": 170,
+        "errors_beyond_tolerance": 157,
+        "hard_failures": 8,
         "kinds": {
           "building": {
             "n": 9,
             "right": 9
           },
           "drive_through": {
-            "n": 3,
-            "right": 3
+            "n": 1,
+            "right": 1
           },
           "entrance": {
-            "n": 21,
-            "right": 3
+            "n": 24,
+            "right": 5
           },
           "forecourt": {
             "n": 8,
             "right": 5
           },
           "landscaping": {
-            "n": 19,
-            "right": 12
+            "n": 27,
+            "right": 15
           },
           "neighbour_building": {
-            "n": 44,
-            "right": 44
+            "n": 47,
+            "right": 47
           },
           "neighbour_lot": {
-            "n": 26,
-            "right": 26
+            "n": 32,
+            "right": 32
           },
           "open_land": {
-            "n": 9,
-            "right": 8
+            "n": 8,
+            "right": 7
           },
           "own_parking": {
-            "n": 72,
-            "right": 44
+            "n": 148,
+            "right": 117
           },
           "public_road": {
-            "n": 88,
-            "right": 88
+            "n": 121,
+            "right": 121
           },
           "railway": {
             "n": 7,
             "right": 7
           },
           "residential": {
-            "n": 33,
-            "right": 33
+            "n": 42,
+            "right": 40
           },
           "shared_parking_far": {
-            "n": 31,
-            "right": 31
+            "n": 40,
+            "right": 40
           },
           "shared_parking_near": {
-            "n": 106,
-            "right": 11
+            "n": 105,
+            "right": 10
           },
           "walkway": {
-            "n": 13,
+            "n": 12,
             "right": 5
           }
         },
@@ -427,65 +427,47 @@
       "reference_area_m2": 9987,
       "iou": 0.736,
       "area_ratio": 1.13,
-      "ms": 23.5,
+      "ms": 22.6,
       "views": {
         "arrival": {
-          "in": 5,
-          "caught": 4,
-          "out": 7,
-          "included": 1,
-          "wrong_near_edge": 0,
+          "in": 56,
+          "caught": 55,
+          "out": 21,
+          "included": 4,
+          "wrong_near_edge": 2,
           "kinds": {
-            "building": {
-              "n": 1,
-              "right": 1
-            },
-            "walkway": {
-              "n": 1,
-              "right": 0
-            },
-            "own_parking": {
-              "n": 1,
-              "right": 1
-            },
-            "drive_through": {
-              "n": 1,
-              "right": 1
-            },
-            "entrance": {
-              "n": 1,
-              "right": 1
-            },
-            "service": {
-              "n": 1,
-              "right": 0
-            },
             "shared_parking_far": {
               "n": 1,
               "right": 1
             },
-            "public_road": {
+            "building": {
               "n": 1,
               "right": 1
             },
-            "neighbour_lot": {
-              "n": 1,
-              "right": 1
+            "own_parking": {
+              "n": 52,
+              "right": 52
+            },
+            "entrance": {
+              "n": 3,
+              "right": 2
+            },
+            "service": {
+              "n": 8,
+              "right": 4
+            },
+            "public_road": {
+              "n": 11,
+              "right": 11
             },
             "neighbour_building": {
               "n": 1,
               "right": 1
-            },
-            "residential": {
-              "n": 1,
-              "right": 1
-            },
-            "open_land": {
-              "n": 1,
-              "right": 1
             }
           },
-          "hard": [],
+          "hard": [
+            "missed entrance"
+          ],
           "random": {
             "in": 0,
             "caught": 0,
@@ -497,66 +479,44 @@
           }
         },
         "centre": {
-          "in": 8,
-          "caught": 5,
-          "out": 5,
+          "in": 65,
+          "caught": 59,
+          "out": 12,
           "included": 0,
-          "wrong_near_edge": 1,
+          "wrong_near_edge": 2,
           "kinds": {
-            "building": {
-              "n": 1,
-              "right": 1
-            },
-            "walkway": {
-              "n": 1,
-              "right": 0
-            },
-            "own_parking": {
-              "n": 1,
-              "right": 1
-            },
-            "drive_through": {
-              "n": 1,
-              "right": 1
-            },
-            "entrance": {
-              "n": 1,
-              "right": 1
-            },
-            "service": {
-              "n": 1,
-              "right": 1
-            },
-            "landscaping": {
-              "n": 1,
-              "right": 0
-            },
             "shared_parking_far": {
               "n": 1,
               "right": 0
             },
-            "public_road": {
+            "building": {
               "n": 1,
               "right": 1
             },
-            "neighbour_lot": {
-              "n": 1,
-              "right": 1
+            "own_parking": {
+              "n": 52,
+              "right": 52
+            },
+            "entrance": {
+              "n": 3,
+              "right": 2
+            },
+            "service": {
+              "n": 8,
+              "right": 4
+            },
+            "public_road": {
+              "n": 11,
+              "right": 11
             },
             "neighbour_building": {
               "n": 1,
               "right": 1
-            },
-            "residential": {
-              "n": 1,
-              "right": 1
-            },
-            "open_land": {
-              "n": 1,
-              "right": 1
             }
           },
-          "hard": [],
+          "hard": [
+            "missed entrance"
+          ],
           "random": {
             "in": 0,
             "caught": 0,
@@ -568,62 +528,40 @@
           }
         },
         "default": {
-          "in": 6,
-          "caught": 4,
-          "out": 6,
+          "in": 56,
+          "caught": 55,
+          "out": 13,
           "included": 0,
           "wrong_near_edge": 1,
           "kinds": {
-            "building": {
-              "n": 1,
-              "right": 1
-            },
-            "walkway": {
-              "n": 1,
-              "right": 0
-            },
-            "own_parking": {
-              "n": 1,
-              "right": 1
-            },
-            "drive_through": {
-              "n": 1,
-              "right": 1
-            },
-            "entrance": {
-              "n": 1,
-              "right": 1
-            },
-            "landscaping": {
-              "n": 1,
-              "right": 0
-            },
             "shared_parking_far": {
               "n": 1,
               "right": 1
             },
-            "public_road": {
+            "building": {
               "n": 1,
               "right": 1
             },
-            "neighbour_lot": {
-              "n": 1,
-              "right": 1
+            "own_parking": {
+              "n": 52,
+              "right": 52
+            },
+            "entrance": {
+              "n": 3,
+              "right": 2
+            },
+            "public_road": {
+              "n": 11,
+              "right": 11
             },
             "neighbour_building": {
               "n": 1,
               "right": 1
-            },
-            "residential": {
-              "n": 1,
-              "right": 1
-            },
-            "open_land": {
-              "n": 1,
-              "right": 1
             }
           },
-          "hard": [],
+          "hard": [
+            "missed entrance"
+          ],
           "random": {
             "in": 0,
             "caught": 0,
@@ -648,62 +586,55 @@
       "reference_area_m2": 3176,
       "iou": 0.435,
       "area_ratio": 1.15,
-      "ms": 15.0,
+      "ms": 14.1,
       "views": {
         "arrival": {
-          "in": 6,
-          "caught": 5,
-          "out": 6,
-          "included": 0,
-          "wrong_near_edge": 0,
+          "in": 30,
+          "caught": 26,
+          "out": 58,
+          "included": 2,
+          "wrong_near_edge": 3,
           "kinds": {
+            "open_land": {
+              "n": 1,
+              "right": 1
+            },
             "building": {
               "n": 1,
               "right": 1
             },
             "own_parking": {
-              "n": 1,
-              "right": 1
-            },
-            "drive_through": {
-              "n": 1,
-              "right": 1
+              "n": 26,
+              "right": 23
             },
             "entrance": {
-              "n": 2,
-              "right": 1
-            },
-            "shared_parking_near": {
-              "n": 1,
-              "right": 1
+              "n": 3,
+              "right": 2
             },
             "shared_parking_far": {
-              "n": 1,
-              "right": 1
+              "n": 10,
+              "right": 10
             },
             "public_road": {
-              "n": 1,
-              "right": 1
+              "n": 24,
+              "right": 24
             },
             "neighbour_lot": {
-              "n": 1,
-              "right": 1
+              "n": 8,
+              "right": 8
             },
             "neighbour_building": {
-              "n": 1,
-              "right": 1
+              "n": 4,
+              "right": 4
             },
             "residential": {
-              "n": 1,
-              "right": 1
-            },
-            "open_land": {
-              "n": 1,
-              "right": 1
+              "n": 11,
+              "right": 9
             }
           },
           "hard": [
-            "missed entrance"
+            "missed entrance",
+            "took in residential"
           ],
           "random": {
             "in": 0,
@@ -716,67 +647,60 @@
           }
         },
         "centre": {
-          "in": 9,
-          "caught": 6,
-          "out": 5,
-          "included": 0,
-          "wrong_near_edge": 0,
+          "in": 59,
+          "caught": 37,
+          "out": 48,
+          "included": 2,
+          "wrong_near_edge": 4,
           "kinds": {
+            "open_land": {
+              "n": 1,
+              "right": 1
+            },
             "building": {
               "n": 1,
               "right": 1
             },
             "own_parking": {
-              "n": 1,
-              "right": 1
-            },
-            "drive_through": {
-              "n": 1,
-              "right": 1
+              "n": 26,
+              "right": 23
             },
             "entrance": {
-              "n": 2,
-              "right": 1
+              "n": 3,
+              "right": 2
             },
             "landscaping": {
-              "n": 1,
-              "right": 1
-            },
-            "shared_parking_near": {
-              "n": 1,
-              "right": 1
+              "n": 10,
+              "right": 4
             },
             "shared_parking_far": {
-              "n": 1,
+              "n": 10,
               "right": 0
             },
             "centre_road": {
-              "n": 1,
-              "right": 0
+              "n": 9,
+              "right": 7
             },
             "public_road": {
-              "n": 1,
-              "right": 1
+              "n": 24,
+              "right": 24
             },
             "neighbour_lot": {
-              "n": 1,
-              "right": 1
+              "n": 8,
+              "right": 8
             },
             "neighbour_building": {
-              "n": 1,
-              "right": 1
+              "n": 4,
+              "right": 4
             },
             "residential": {
-              "n": 1,
-              "right": 1
-            },
-            "open_land": {
-              "n": 1,
-              "right": 1
+              "n": 11,
+              "right": 9
             }
           },
           "hard": [
-            "missed entrance"
+            "missed entrance",
+            "took in residential"
           ],
           "random": {
             "in": 0,
@@ -789,63 +713,56 @@
           }
         },
         "default": {
-          "in": 7,
-          "caught": 6,
-          "out": 6,
-          "included": 0,
-          "wrong_near_edge": 0,
+          "in": 40,
+          "caught": 30,
+          "out": 58,
+          "included": 2,
+          "wrong_near_edge": 3,
           "kinds": {
+            "open_land": {
+              "n": 1,
+              "right": 1
+            },
             "building": {
               "n": 1,
               "right": 1
             },
             "own_parking": {
-              "n": 1,
-              "right": 1
-            },
-            "drive_through": {
-              "n": 1,
-              "right": 1
+              "n": 26,
+              "right": 23
             },
             "entrance": {
-              "n": 2,
-              "right": 1
+              "n": 3,
+              "right": 2
             },
             "landscaping": {
-              "n": 1,
-              "right": 1
-            },
-            "shared_parking_near": {
-              "n": 1,
-              "right": 1
+              "n": 10,
+              "right": 4
             },
             "shared_parking_far": {
-              "n": 1,
-              "right": 1
+              "n": 10,
+              "right": 10
             },
             "public_road": {
-              "n": 1,
-              "right": 1
+              "n": 24,
+              "right": 24
             },
             "neighbour_lot": {
-              "n": 1,
-              "right": 1
+              "n": 8,
+              "right": 8
             },
             "neighbour_building": {
-              "n": 1,
-              "right": 1
+              "n": 4,
+              "right": 4
             },
             "residential": {
-              "n": 1,
-              "right": 1
-            },
-            "open_land": {
-              "n": 1,
-              "right": 1
+              "n": 11,
+              "right": 9
             }
           },
           "hard": [
-            "missed entrance"
+            "missed entrance",
+            "took in residential"
           ],
           "random": {
             "in": 0,
@@ -873,7 +790,7 @@
       "reference_area_m2": 20550,
       "iou": 0.163,
       "area_ratio": 0.35,
-      "ms": 21.7,
+      "ms": 21.9,
       "views": {
         "arrival": {
           "in": 15,
@@ -1041,7 +958,7 @@
       "reference_area_m2": 16050,
       "iou": 0.412,
       "area_ratio": 0.47,
-      "ms": 49.8,
+      "ms": 46.5,
       "views": {
         "arrival": {
           "in": 15,
@@ -1220,7 +1137,7 @@
       "reference_area_m2": 20785,
       "iou": 0.172,
       "area_ratio": 0.24,
-      "ms": 80.7
+      "ms": 81.3
     },
     {
       "id": "big-box-retail",
@@ -1237,7 +1154,7 @@
       "reference_area_m2": 42883,
       "iou": 0.468,
       "area_ratio": 0.7,
-      "ms": 58.5,
+      "ms": 59.4,
       "views": {
         "arrival": {
           "in": 28,
@@ -1434,7 +1351,7 @@
       "reference_area_m2": 5608,
       "iou": 0.493,
       "area_ratio": 0.66,
-      "ms": 30.5,
+      "ms": 30.8,
       "views": {
         "arrival": {
           "in": 31,
@@ -1634,7 +1551,7 @@
       "reference_area_m2": 55412,
       "iou": 0.106,
       "area_ratio": 0.11,
-      "ms": 120.2,
+      "ms": 123.3,
       "views": {
         "arrival": {
           "in": 57,
@@ -1793,7 +1710,7 @@
       "reference_area_m2": 5450,
       "iou": 0.182,
       "area_ratio": 0.18,
-      "ms": 13.2,
+      "ms": 13.9,
       "views": {
         "arrival": {
           "in": 11,
@@ -1968,7 +1885,7 @@
       "reference_area_m2": 7898,
       "iou": 0.176,
       "area_ratio": 0.19,
-      "ms": 15.2,
+      "ms": 14.8,
       "views": {
         "arrival": {
           "in": 64,
