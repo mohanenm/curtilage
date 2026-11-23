@@ -32,6 +32,16 @@ Each result carries `provenance`: gem version, data source and release, every op
 - One explanation line was added (`add_lot`, with its areas): before, adding the lot changed the polygon without a line saying so.
 - Step names are documented; new ones may appear in minor versions, so readers should treat unknown names as plain notes.
 
+## 6.4 Layered zones
+
+Approach ⊇ premises ⊇ store zone and pickup zone, all derived from the premises, so the nesting holds by construction (checked on every held-out site at precisions 7 and 5).
+
+- **Off by default** (`approach_m:`, `pickup_m:` nil): they add features to every site's GeoJSON, which would surprise existing readers. The CLI flags take an optional distance (`--approach` alone is 150 m).
+- **Approach:** the existing rounded buffer, simplified only by dropping corners that keep every premises corner inside: still a superset, at most 16 corners for geofence limits.
+- **Pickup has no data to stand on.** The brief asked for designated pickup or curbside parking where OSM maps it. Geofabrik's free shapefiles reduce parking to areas and driveways to `service`; our Overture read keeps only parking polygons; entrances aren't in either. So the zone is always estimated: the largest piece of mapped parking within `pickup_m` of the building's rectangle, kept inside the premises with the store zone's margin. No guess without mapped parking. Mapped pickup bays would need a richer extract (full `.osm.pbf`) and are left for later.
+- **Validation:** zones get the shape checks (`Validation.shape_errors`), not the premises size limits (a 150 m approach zone is far over the premises area cap).
+- Held-out set: approach on all 159 valid sites; pickup on 103 (65%), median about 1,480 m².
+
 ## 8.2 A stable CLI contract
 
 (Pulled ahead of Phase 8 because the provenance and NDJSON schema go together.)

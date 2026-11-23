@@ -148,7 +148,7 @@ def run(opts, pins, **extra)
   catalogue = opts[:catalogue] && Curtilage::Catalogue.from_dir(opts[:catalogue])
   Curtilage.generate_many(pins, catalogue: catalogue, **opts.slice(:parquet, :source, :cache_dir),
                                 lookup: opts.slice(:duckdb, :extension_directory), data: { log: LOG },
-                                **opts.slice(:preset, :buildings, :store_zone), **extra)
+                                **opts.slice(:preset, :buildings, :store_zone, :approach_m, :pickup_m), **extra)
 end
 
 def data_flags(o, opts)
@@ -168,6 +168,14 @@ def style_flags(o, opts)
   o.on("--buildings FLAVOUR", Curtilage::Generator::BUILDING_SOURCES.map(&:to_s),
        "osm (default), osm_filled or ml") { |v| opts[:buildings] = v.to_sym }
   o.on("--[no-]store", "Include the store zone (default: yes)") { |v| opts[:store_zone] = v }
+  o.on("--approach [METRES]", Float, "Add an approach zone: the premises grown by METRES " \
+                                     "(default #{Curtilage::Generator::DEFAULT_APPROACH_M})") do |v|
+    opts[:approach_m] = v || Curtilage::Generator::DEFAULT_APPROACH_M
+  end
+  o.on("--pickup [METRES]", Float, "Add an estimated pickup zone: mapped parking within METRES of the building " \
+                                   "(default #{Curtilage::Generator::DEFAULT_PICKUP_M})") do |v|
+    opts[:pickup_m] = v || Curtilage::Generator::DEFAULT_PICKUP_M
+  end
 end
 
 # Refuses an output path that's a symbolic link (it could point anywhere),

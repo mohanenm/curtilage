@@ -101,6 +101,8 @@ module Curtilage
       scope: :site,                  # :site, or :centre (the whole shopping centre when on a shared lot)
       validation: {},                # limits for Validation.check, e.g. { max_area_error_m2: 300_000 }
       precision: 7,                  # decimal places in output coordinates (7: about 1 cm)
+      approach_m: nil,               # also an approach zone: the premises grown this much (nil: none)
+      pickup_m: nil,                 # also a pickup zone: mapped parking this close to the building (nil: none)
     }.freeze
 
     BUILDING_SOURCES = %i[osm osm_filled ml].freeze
@@ -115,13 +117,14 @@ module Curtilage
       building_max_distance_m: DISTANCE, pin_clearance_m: DISTANCE, building_clearance_m: DISTANCE,
       grow_m: DISTANCE, road_offset_m: DISTANCE, neighbour_gap_m: DISTANCE, house_street_m: DISTANCE,
       parking_reach_m: DISTANCE, parking_max_extent_m: DISTANCE, building_margin_m: DISTANCE,
+      approach_m: DISTANCE, pickup_m: DISTANCE,
       large_building_m2: AREA, large_building_note_m2: AREA, neighbour_min_area_m2: AREA,
       neighbour_strip_min_area_m2: AREA, house_max_m2: AREA, small_building_m2: AREA,
       shared_lot_buildings: [1, 1_000, true], max_vertices: [4, 50, true], max_store_vertices: [3, 200, true],
       precision: [5, 15, true]
     }.freeze
     # Options where nil means "work it out" (by road class; halfway).
-    NIL_ALLOWED = %i[road_offset_m neighbour_gap_m].freeze
+    NIL_ALLOWED = %i[road_offset_m neighbour_gap_m approach_m pickup_m].freeze
 
     module_function
 
@@ -208,8 +211,8 @@ module Curtilage
 
     def finish(method, pin, shape, log, opts)
       xy, target, features = shape
-      result = Result.new(method_name: method, pin: pin, explanation: log.notes, flags: log.flags,
-                          steps: log.steps || [],
+      log.steps ||= []
+      result = Result.new(method_name: method, pin: pin, explanation: log.notes, flags: log.flags, steps: log.steps,
                           building: target&.id, features: features,
                           provenance: { gem_version: VERSION, features_sha256: features.sha256, options: opts })
       unless xy
@@ -224,6 +227,7 @@ module Curtilage
       end
       result.validation = Validation.check(pin, result.ring, **opts[:validation])
       result.details = details(target, premises, features, pin, log, precision: opts[:precision])
+      add_zones(result, [premises, target, features], opts, log)
       result
     end
 
@@ -248,11 +252,6 @@ module Curtilage
 
     def inside?(xy, point)
       Geometry.contains?(xy, point) || Geometry.distance_to_edges(xy, point) < 0.01
-    end
-
-    def ring_of(xy, pin, precision)
-      ring = Geometry.lnglat(xy, pin, precision)
-      ring << ring.first
     end
 
     def failure_reason(result)

@@ -82,18 +82,29 @@ module Curtilage
     # limits in DEFAULTS, e.g. max_area_error_m2: 300_000 for big lots.
     def check(pin, ring, **options)
       opts = limits(options)
-      return Result.new(["missing"], [], {}) if ring.nil? || ring.empty?
-      return Result.new(["invalid_coordinates"], [], {}) unless Geometry.valid_coordinates?(ring)
+      errors = shape_errors(pin, ring)
+      return Result.new(errors, [], {}) if errors.intersect?(%w[missing invalid_coordinates too_few_points])
 
-      errors = Geometry.closed?(ring) ? [] : ["unclosed"]
       open = Geometry.open_ring(ring)
-      return Result.new(errors + ["too_few_points"], [], {}) if open.uniq.size < 3
-
       xy = Geometry.project(open, pin)
       metrics = measure(xy).merge(points: open.size)
       errors << "swapped" if swapped?(open, pin, xy, opts)
-      errors << "self_intersecting" if Geometry.self_intersects?(xy)
       Result.new(errors + metric_errors(metrics, opts), metric_warnings(metrics, opts), metrics)
+    end
+
+    # What makes any ring unusable, whatever its size: missing, bad
+    # coordinates, unclosed, too few points, crossing itself. Zones other
+    # than the premises (Generator zones) get only this check.
+    def shape_errors(pin, ring)
+      return ["missing"] if ring.nil? || ring.empty?
+      return ["invalid_coordinates"] unless Geometry.valid_coordinates?(ring)
+
+      errors = Geometry.closed?(ring) ? [] : ["unclosed"]
+      open = Geometry.open_ring(ring)
+      return errors + ["too_few_points"] if open.uniq.size < 3
+
+      errors << "self_intersecting" if Geometry.self_intersects?(Geometry.project(open, pin))
+      errors
     end
 
     def metric_errors(metrics, opts)

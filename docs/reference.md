@@ -41,6 +41,7 @@ Premises from features you already have (from `Curtilage::Lookup.features` or `C
 | `problem` | Why they aren't usable, in words (e.g. `"no premises: no building within 30 m of the pin (it may be missing from OpenStreetMap: try buildings: :osm_filled)"`), or `nil` when `ok?`. |
 | `ring` | The premises: `[[lng, lat], ...]`, closed, convex, at most `max_vertices` corners. `nil` if nothing could be made. |
 | `store_ring` | The store zone: the building's own outline, always inside `ring`. `nil` with `store_zone: false`. |
+| `approach_ring`, `pickup_ring` | The [zones](#zones), when asked for (`approach_m:`, `pickup_m:`); `nil` otherwise. |
 | `flags` | Reasons a person should look first (below). |
 | `explanation` | Each step, in plain words. |
 | `steps` | The same steps as records, one per line of `explanation` and in the same order, for tools to show or audit (below). |
@@ -55,7 +56,7 @@ Premises from features you already have (from `Curtilage::Lookup.features` or `C
 | `provenance` | What the result was made from, to reproduce or audit it (below). |
 | `features` | The map data it was made from (`Curtilage::Features`, in metres around the pin), or `nil` unless `keep_features: true`. |
 | `to_geojson(include_store: false, properties: {})` | A GeoJSON Feature (premises) with everything above in its properties, including the attribution to show; with `include_store: true`, a FeatureCollection of premises and store zone (`properties.role`). `properties:` are merged into each feature's properties (your own id, say). |
-| `to_wkt`, `store_wkt` | The premises and store zone as well-known text (`POLYGON ((lng lat, ...))`), for databases and spreadsheets. |
+| `to_wkt`, `store_wkt`, `approach_wkt`, `pickup_wkt` | The premises and store zone as well-known text (`POLYGON ((lng lat, ...))`), for databases and spreadsheets. |
 | `buffered(metres)` | The premises grown (positive) or shrunk (negative) evenly, as a closed ring: a geofence with a margin. Corners are rounded when growing. `nil` if there are no premises or they shrink away. |
 
 `provenance`:
@@ -122,6 +123,8 @@ All distances in metres, areas in square metres. These are `Curtilage::Generator
 | `max_vertices` | `10` | The premises are simplified to at most this many corners (never cutting the building). |
 | `max_store_vertices` | `20` | The store outline is simplified to at most this many corners. |
 | `validation` | `{}` | Limits for the validation every polygon goes through (below), e.g. `{ max_area_error_m2: 300_000 }` for a big-box store's lot. |
+| `approach_m` | `nil` | Also make an approach zone: the premises grown by this much, for "customer is near" (see [Zones](#zones)). `Generator::DEFAULT_APPROACH_M` is 150. |
+| `pickup_m` | `nil` | Also make an estimated pickup zone: mapped parking within this much of the building ([Zones](#zones)). `Generator::DEFAULT_PICKUP_M` is 25. |
 | `precision` | `7` | Decimal places in output coordinates (7 is about 1 cm). Validation checks the rounded polygon. |
 
 #### Validation limits
@@ -137,6 +140,15 @@ All distances in metres, areas in square metres. These are `Curtilage::Generator
 | `max_vertices` | `50` | Error (`too_many_vertices`) above this many corners. |
 | `off_centre_m` | `200` | Warn (`off_centre`) if the polygon's centre is further than this from the pin. |
 | `swap_far_m`, `swap_near_m` | `10000`, `1000` | Error (`swapped`) when the polygon is further than `swap_far_m` from the pin but within `swap_near_m` of it with longitude and latitude swapped. |
+
+### Zones
+
+For arrival detection, two optional zones nest with the premises and store zone: approach ⊇ premises ⊇ store zone and pickup zone. Every zone is checked as a shape (closed, valid coordinates, not crossing itself) and dropped with a step if it fails; only the premises get the size limits.
+
+- **Approach** (`approach_m:`): the premises grown by that many metres with rounded corners, then simplified to at most 16 corners by dropping only corners that keep every premises corner inside. "The customer is near." It may cross roads; the premises never do.
+- **Pickup** (`pickup_m:`): the largest piece of mapped parking within that many metres of the building's rectangle, kept inside the premises. Neither OpenStreetMap extracts (Geofabrik's free shapefiles) nor Overture carry pickup or curbside spots or entrances, so it's always estimated (`estimated: true` on its GeoJSON feature): the parking right by the store, not marked bays. `nil` (with a step saying so) when no mapped parking is that close.
+
+In GeoJSON they're extra features with `properties.role` `approach` and `pickup`; in NDJSON, geometries in `properties.approach` and `properties.pickup`; in CSV, `approach_wkt` and `pickup_wkt`; in KML, placemarks; the preview draws them.
 
 ### Steps
 
@@ -163,6 +175,8 @@ All distances in metres, areas in square metres. These are `Curtilage::Generator
 | `whole_centre` | The whole shopping centre (`scope: :centre`). | |
 | `widen`, `simplify` | The premises widened to hold the building, or simplified. | `max_vertices` for `simplify` |
 | `trim_store` | The store outline trimmed to fit inside the premises. | |
+| `approach_zone` | The approach zone made (or dropped). | `approach_m` |
+| `pickup_zone` | The pickup zone estimated from a parking lot, or none found. | `pickup_m` |
 
 New step names may be added in minor versions; treat an unknown one as a plain note.
 
@@ -219,9 +233,9 @@ Writing results: `Formats.write(results, format, ids: nil, store: true)` returns
 
 | Format | What |
 |---|---|
-| `:geojson` | One FeatureCollection: for each pin, its premises and (unless `store: false`) its store zone, with `properties.id`, `properties.role` and everything `to_geojson` carries. |
-| `:ndjson` | One line per pin: a GeoJSON Feature of its premises (`geometry` is `null` when none could be made) with everything `to_geojson` carries in its properties, and the store zone's geometry in `properties.store` (absent with `store: false`). The schema is [`docs/schema/site-v1.json`](schema/site-v1.json) (it ships in the gem); version 1 only gains optional properties, and anything that would break a reader gets a new schema version. |
-| `:csv` | One row per pin. Columns: `id`, `lng`, `lat`, `ok`, `problem`, `method`, `flags` and `errors` (`;`-separated), `building`, `building_area_m2`, `parking_area_m2`, `parking_spaces_estimate`, `frontage_m`, `premises_area_m2`, `premises_wkt`, `store_wkt`, `attribution` (`; `-separated), then `gem_version`, `data_source`, `data_release` (the Overture release or the Geofabrik extract dates, `;`-separated) and `features_sha256` from `provenance` (the options are only in GeoJSON), then `confidence`. Cells a spreadsheet would run as a formula (starting with `=`, `+`, `-`, `@`, `|` or `%`, or their full-width forms, even after spaces) get a leading `'`; plain numbers don't. |
+| `:geojson` | One FeatureCollection: for each pin, its premises, (unless `store: false`) its store zone, and any [zones](#zones) asked for, with `properties.id`, `properties.role` and everything `to_geojson` carries. |
+| `:ndjson` | One line per pin: a GeoJSON Feature of its premises (`geometry` is `null` when none could be made) with everything `to_geojson` carries in its properties, the store zone's geometry in `properties.store` (absent with `store: false`), and any [zones](#zones) in `properties.approach` and `properties.pickup`. The schema is [`docs/schema/site-v1.json`](schema/site-v1.json) (it ships in the gem); version 1 only gains optional properties, and anything that would break a reader gets a new schema version. |
+| `:csv` | One row per pin. Columns: `id`, `lng`, `lat`, `ok`, `problem`, `method`, `flags` and `errors` (`;`-separated), `building`, `building_area_m2`, `parking_area_m2`, `parking_spaces_estimate`, `frontage_m`, `premises_area_m2`, `premises_wkt`, `store_wkt`, `attribution` (`; `-separated), then `gem_version`, `data_source`, `data_release` (the Overture release or the Geofabrik extract dates, `;`-separated) and `features_sha256` from `provenance` (the options are only in GeoJSON), then `confidence`, `approach_wkt` and `pickup_wkt` (empty unless asked for). Cells a spreadsheet would run as a formula (starting with `=`, `+`, `-`, `@`, `|` or `%`, or their full-width forms, even after spaces) get a leading `'`; plain numbers don't. |
 | `:kml` | A placemark per polygon (premises and store zone), with the confidence, flags, attribution, gem version and data release in its description, and every source credited in the document's description, for Google Earth. |
 
 `Formats.format_of(path)` names the format a file extension stands for.
@@ -287,6 +301,7 @@ curtilage doctor
   - Output: printed as GeoJSON, or `--out FILE` in the format its extension names (`.geojson`/`.json`, `.ndjson`/`.jsonl`, `.csv`, `.kml`). `--format geojson|ndjson|csv|kml` overrides. The file is written whole (to a temporary name, then renamed) and replaces any file there; a symbolic link at that path is refused.
   - Data: `--source auto|geofabrik|overture` (default auto), `--cache-dir DIR`, `--catalogue DIR`, `--parquet FILE`.
   - Style: `--preset whole_lot|tight|centre`, `--buildings osm|osm_filled|ml`, `--[no-]store`.
+  - Zones: `--approach [METRES]` (default 150) and `--pickup [METRES]` (default 25) add the [zones](#zones).
   - DuckDB: `--duckdb PATH`, `--extension-directory DIR`.
   - `--min-confidence N` (0 to 1) leaves out results whose confidence is below N, and says how many on standard error; the exit code is then 1, as some sites weren't written.
   - Logs: `--quiet` keeps only warnings and errors; `--log-format json` writes each log line as `{"level": "info"|"warning"|"error", "message": "..."}`.

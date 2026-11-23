@@ -30,7 +30,8 @@ module Curtilage
       ids ||= (1..results.size).map(&:to_s)
       cards = results.zip(ids).each_with_index.map { |(result, id), i| card(result, id, i, buffer_m) }
       credits = results.flat_map { |r| r.attribution || Result::OSM_ATTRIBUTION }.uniq
-      page(title, cards, toolbar(results), credits, buffer_m)
+      zones = %w[approach pickup].select { |z| results.any? { |r| r.public_send("#{z}_ring") } }
+      page(title, cards, toolbar(results), credits, [buffer_m, zones])
     end
 
     # ok, flagged (ok, with flags) or invalid.
@@ -98,9 +99,9 @@ module Curtilage
     def shapes(result, buffer_m)
       parts = result.features ? map_shapes(result.features, result.building) : []
       grown = buffer_m && result.ring && result.buffered(buffer_m)
-      parts << path(grown, result.pin, "buffer") if grown
-      parts << path(result.ring, result.pin, "premises") if result.ring
-      parts << path(result.store_ring, result.pin, "store") if result.store_ring
+      rings = { "buffer" => grown, "approach" => result.approach_ring, "premises" => result.ring,
+                "pickup" => result.pickup_ring, "store" => result.store_ring }
+      rings.each { |css, ring| parts << path(ring, result.pin, css) if ring }
       parts.concat(access_marks(result))
       parts << %(<circle r="2.2" class="pin"><title>pin</title></circle>) << scale_bar
     end
@@ -182,25 +183,28 @@ module Curtilage
         "script-src 'sha256-#{Digest::SHA256.base64digest(SCRIPT)}'; img-src data:; base-uri 'none'; form-action 'none'"
     end
 
-    def page(title, cards, toolbar, credits, buffer_m)
+    # extras: [buffer_m, zones drawn on some card], for the legend.
+    def page(title, cards, toolbar, credits, extras)
       <<~HTML
         <!doctype html><html lang="en"><head><meta charset="utf-8">
         <meta http-equiv="Content-Security-Policy" content="#{csp}">
         <meta name="viewport" content="width=device-width, initial-scale=1">
         <title>#{h(title)}</title><style>#{STYLE}</style></head><body>
         <h1>#{h(title)}</h1>#{toolbar}
-        <p class="legend">#{legend(buffer_m)}</p>
+        <p class="legend">#{legend(*extras)}</p>
         <p class="muted">Each map is #{VIEW_M * 2} m across, north up, drawn from the map data only (no imagery).
         Hover over a flag for what it means, or a road for its name. Map data: #{h(credits.join("; "))}.</p>
         <main>#{cards.join}</main><script>#{SCRIPT}</script></body></html>
       HTML
     end
 
-    def legend(buffer_m)
+    def legend(buffer_m, zones = [])
       keys = [%w[premises premises], ["store", "store zone"], ["site", "the site's building"],
               ["building", "other buildings"], %w[parking parking], ["road", "public road"],
               ["service", "service road or driveway"], %w[rail railway], ["access", "driveway entrance"]]
       keys << ["buffer", "premises + #{format("%g", buffer_m)} m"] if buffer_m
+      keys << ["approach", "approach zone"] if zones.include?("approach")
+      keys << ["pickup", "pickup zone (estimated)"] if zones.include?("pickup")
       keys.map { |css, text| %(<span><i class="k-#{css}"></i>#{h(text)}</span>) }.join(" ")
     end
 
@@ -269,6 +273,8 @@ module Curtilage
       .premises { fill: var(--premises); fill-opacity: .12; stroke: var(--premises); stroke-width: 2; }
       .buffer { fill: none; stroke: var(--premises); stroke-width: 1.2; stroke-dasharray: 4 3; }
       .store { fill: none; stroke: var(--store); stroke-width: 1.5; } .pin { fill: var(--fg); }
+      .approach { fill: none; stroke: var(--premises); stroke-width: 1; stroke-dasharray: 1 3; }
+      .pickup { fill: var(--access); fill-opacity: .25; stroke: var(--access); stroke-width: 1; }
       .access { fill: var(--access); stroke: var(--card); stroke-width: 1; }
       .scale path { fill: none; stroke: var(--fg); stroke-width: 1.2; }
       .scale text { fill: var(--fg); font-size: 9px; dominant-baseline: middle; }
@@ -288,6 +294,7 @@ module Curtilage
       .k-rail { height: 0 !important; border-top: 2px dashed var(--fg); }
       .k-access { width: 9px !important; height: 9px !important; border-radius: 50%; background: var(--access); }
       .k-buffer { border: 1px dashed var(--premises); }
+      .k-approach { border: 1px dotted var(--premises); } .k-pickup { background: var(--access); opacity: .4; }
     CSS
   end
 end

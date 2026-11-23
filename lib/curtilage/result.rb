@@ -16,7 +16,8 @@ module Curtilage
   # reproduced; it holds no timestamps, so the same inputs give the same
   # output byte for byte.
   Result = Struct.new(:method_name, :pin, :ring, :store_ring, :explanation, :flags, :validation, :building,
-                      :details, :attribution, :features, :provenance, :steps, keyword_init: true) do
+                      :details, :attribution, :features, :provenance, :steps, :approach_ring, :pickup_ring,
+                      keyword_init: true) do
     def ok?
       !ring.nil? && validation.ok?
     end
@@ -41,8 +42,9 @@ module Curtilage
       include_store ? { type: "FeatureCollection", features: list } : list.first
     end
 
-    # [premises Feature, store Feature] (the store's geometry is nil without
-    # a store zone).
+    # [premises Feature, store Feature, then any zones asked for] (the
+    # store's geometry is nil without a store zone). properties.role tells
+    # them apart: premises, store, approach or pickup.
     def geojson_features(attribution: self.attribution || Result::OSM_ATTRIBUTION, properties: {})
       premises = {
         type: "Feature",
@@ -56,7 +58,16 @@ module Curtilage
       }
       store = { type: "Feature", geometry: Result.polygon(store_ring),
                 properties: properties.merge(role: "store", building: building, attribution: attribution) }
-      [premises, store]
+      [premises, store] + zone_features(properties.merge(attribution: attribution))
+    end
+
+    # The approach and pickup zones, when asked for and made. The pickup
+    # zone is always estimated (no source maps pickup spots).
+    def zone_features(properties)
+      zones = { "approach" => [approach_ring, {}], "pickup" => [pickup_ring, { estimated: true }] }
+      zones.filter_map do |role, (ring, extra)|
+        ring && { type: "Feature", geometry: Result.polygon(ring), properties: properties.merge(role: role, **extra) }
+      end
     end
 
     # Puts a step, and its line of the explanation, before the others (the
@@ -75,6 +86,8 @@ module Curtilage
     # Well-known text, for databases and spreadsheets.
     def to_wkt = Result.wkt(ring)
     def store_wkt = Result.wkt(store_ring)
+    def approach_wkt = Result.wkt(approach_ring)
+    def pickup_wkt = Result.wkt(pickup_ring)
 
     # The premises grown (positive metres) or shrunk (negative) evenly, for a
     # geofence with a margin: [[lng, lat], ...] closed. Corners are rounded

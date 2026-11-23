@@ -220,6 +220,14 @@
         "store": {
           "$ref": "#/$defs/polygon_or_null",
           "description": "The store zone (the building's outline, inside the premises); absent with --no-store."
+        },
+        "approach": {
+          "$ref": "#/$defs/polygon_or_null",
+          "description": "The approach zone (the premises grown by approach_m, simplified); only with --approach."
+        },
+        "pickup": {
+          "$ref": "#/$defs/polygon_or_null",
+          "description": "The pickup zone, always estimated (mapped parking within pickup_m of the building, inside the premises); only with --pickup, and absent when none was found."
         }
       }
     }

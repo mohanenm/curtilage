@@ -29,7 +29,7 @@ module Curtilage
 
     CSV_COLUMNS = %w[id lng lat ok problem method flags errors building building_area_m2 parking_area_m2
                      parking_spaces_estimate frontage_m premises_area_m2 premises_wkt store_wkt attribution
-                     gem_version data_source data_release features_sha256 confidence].freeze
+                     gem_version data_source data_release features_sha256 confidence approach_wkt pickup_wkt].freeze
 
     module_function
 
@@ -149,12 +149,12 @@ module Curtilage
       end
     end
 
-    # One FeatureCollection: each result's premises (and store zone), with
-    # its id in properties.
+    # One FeatureCollection: each result's premises (and store zone, and
+    # any zones asked for), with its id in properties.
     def geojson(results, ids, store)
       features = results.zip(ids).flat_map do |result, id|
         list = result.geojson_features(properties: { id: id })
-        store ? list : list.first(1)
+        store ? list : list.reject { |f| f[:properties][:role] == "store" }
       end
       { type: "FeatureCollection", features: features }
     end
@@ -165,6 +165,8 @@ module Curtilage
       results.zip(ids).map do |result, id|
         premises, store_zone = result.geojson_features(properties: { id: id })
         premises[:properties][:store] = store_zone[:geometry] if store
+        premises[:properties][:approach] = Result.polygon(result.approach_ring) if result.approach_ring
+        premises[:properties][:pickup] = Result.polygon(result.pickup_ring) if result.pickup_ring
         "#{JSON.generate(premises)}\n"
       end.join
     end
@@ -180,7 +182,8 @@ module Curtilage
        result.validation.errors.join(";"), result.building, d.dig(:building, :area_m2), d[:parking_area_m2],
        d[:parking_spaces_estimate],
        d[:frontage_m], result.validation.metrics[:area_m2]&.round, result.to_wkt, result.store_wkt,
-       credits(result).join("; "), *provenance_columns(result), result.confidence]
+       credits(result).join("; "), *provenance_columns(result), result.confidence, result.approach_wkt,
+       result.pickup_wkt]
     end
 
     # gem_version, data_source, data_release, features_sha256 (the full
@@ -200,7 +203,9 @@ module Curtilage
     def kml(results, ids, store)
       marks = results.zip(ids).flat_map do |result, id|
         [placemark("#{id} premises", result.ring, kml_description(result), "premises"),
-         (placemark("#{id} store", result.store_ring, nil, "store") if store)].compact
+         (placemark("#{id} store", result.store_ring, nil, "store") if store),
+         placemark("#{id} approach", result.approach_ring, nil, "approach"),
+         placemark("#{id} pickup (estimated)", result.pickup_ring, nil, "pickup")].compact
       end
       <<~KML
         <?xml version="1.0" encoding="UTF-8"?>
@@ -209,6 +214,8 @@ module Curtilage
         <description>#{xml("Map data: #{results.flat_map { |r| credits(r) }.uniq.join("; ")}")}</description>
         <Style id="premises"><LineStyle><color>ff4a9a1a</color><width>2</width></LineStyle><PolyStyle><color>334a9a1a</color></PolyStyle></Style>
         <Style id="store"><LineStyle><color>ff111111</color><width>2</width></LineStyle><PolyStyle><fill>0</fill></PolyStyle></Style>
+        <Style id="approach"><LineStyle><color>ffc06515</color><width>1</width></LineStyle><PolyStyle><fill>0</fill></PolyStyle></Style>
+        <Style id="pickup"><LineStyle><color>ff0080ff</color><width>2</width></LineStyle><PolyStyle><color>440080ff</color></PolyStyle></Style>
         #{marks.join("\n")}
         </Document></kml>
       KML
