@@ -24,8 +24,56 @@ USAGE = <<~TEXT
              "tennessee", or a Geofabrik path such as "europe/germany/bayern").
   doctor     Check that DuckDB and its extensions are ready.
 
-  Run "curtilage COMMAND --help" for a command's options.
+  Run "curtilage COMMAND --help" for a command's options. Results go to
+  standard output, everything else to standard error.
+
+  Exit codes: 0 ok, 1 some sites have no usable premises, 2 bad input or
+  usage, 3 DuckDB missing, 4 map data unavailable, 70 unexpected error.
 TEXT
+
+# Everything but results goes to standard error, so standard output can be
+# piped. Anything with puts can take it as a log (builds write progress).
+class CliLog
+  def initialize
+    @quiet = false
+    @json = false
+  end
+
+  def configure(opts)
+    @quiet = opts[:quiet]
+    @json = opts[:log_format] == "json"
+  end
+
+  # Progress and summaries (hidden by --quiet); a line starting "warning:"
+  # is a warning, which --quiet keeps.
+  def puts(message)
+    warning = message.to_s.start_with?("warning:")
+    write(warning ? "warning" : "info", message) if warning || !@quiet
+  end
+
+  def error(message) = write("error", message)
+
+  private
+
+  def write(level, message)
+    warn(@json ? JSON.generate(level: level, message: message.to_s) : message)
+  end
+end
+
+LOG = CliLog.new
+
+def log_flags(parser, opts)
+  parser.on("--quiet", "Only warnings and errors on standard error") { opts[:quiet] = true }
+  parser.on("--log-format FORMAT", %w[text json], "text (default) or json: one object per line") do |v|
+    opts[:log_format] = v
+  end
+end
+
+def parse(parser, args, opts)
+  parser.parse!(args)
+  LOG.configure(opts)
+  opts
+end
 
 def duckdb_flags(parser, opts)
   parser.on("--duckdb PATH", "DuckDB CLI (default: $CURTILAGE_DUCKDB or duckdb on PATH)") { |v| opts[:duckdb] = v }
@@ -36,14 +84,15 @@ end
 
 def generate_options(args, command)
   opts = { pins: [] }
-  OptionParser.new do |o|
-    o.banner = "Usage: curtilage #{command} (--pin LNG,LAT ... | --in FILE) [--out FILE] [options]"
+  parser = OptionParser.new do |o|
+    o.banner = "Usage: curtilage #{command} (--pin LNG,LAT ... | --in FILE|-) [--out FILE] [options]"
     io_flags(o, opts, command)
     data_flags(o, opts)
     style_flags(o, opts)
     duckdb_flags(o, opts)
-  end.parse!(args)
-  opts
+    log_flags(o, opts)
+  end
+  parse(parser, args, opts)
 end
 
 def io_flags(o, opts, command)
@@ -70,15 +119,17 @@ def io_flags(o, opts, command)
 end
 
 # [pins, ids] from --pin and --in.
-def read_sites(opts, command)
+def read_sites(opts)
   sites = opts[:pins].map.with_index(1) { |pin, i| { id: i.to_s, pin: Curtilage::Formats.pin_from_text(pin) } }
   sites += read_input(opts) if opts[:in]
-  abort "curtilage #{command}: give --pin LNG,LAT or --in FILE" if sites.empty?
+  raise ArgumentError, "give --pin LNG,LAT or --in FILE" if sites.empty?
+
   bad = sites.find { |s| !Curtilage::Formats.pin?(s[:pin]) }
-  abort "curtilage #{command}: #{bad[:id]}: a pin is LNG,LAT (longitude first)" if bad
+  raise ArgumentError, "#{bad[:id]}: a pin is LNG,LAT (longitude first)" if bad
+
   [sites.map { |s| s[:pin] }, sites.map { |s| s[:id] }]
-rescue ArgumentError, SystemCallError => e
-  abort "curtilage #{command}: #{e.message}"
+rescue SystemCallError => e
+  raise ArgumentError, e.message
 end
 
 def read_input(opts)
@@ -91,10 +142,8 @@ end
 def run(opts, pins, **extra)
   catalogue = opts[:catalogue] && Curtilage::Catalogue.from_dir(opts[:catalogue])
   Curtilage.generate_many(pins, catalogue: catalogue, **opts.slice(:parquet, :source, :cache_dir),
-                                lookup: opts.slice(:duckdb, :extension_directory),
+                                lookup: opts.slice(:duckdb, :extension_directory), data: { log: LOG },
                                 **opts.slice(:preset, :buildings, :store_zone), **extra)
-rescue Curtilage::Error, ArgumentError => e
-  abort "curtilage: #{e.message}"
 end
 
 def data_flags(o, opts)
@@ -118,34 +167,34 @@ end
 
 # Refuses an output path that's a symbolic link (it could point anywhere),
 # before any work is done.
-def check_out(path, command)
-  abort "curtilage #{command}: #{path} is a symbolic link; refusing to write through it" if path && File.symlink?(path)
+def check_out(path)
+  raise ArgumentError, "#{path} is a symbolic link; refusing to write through it" if path && File.symlink?(path)
 end
 
 # Writes next to the target and renames, so a reader never sees half a file
 # and an interrupted run leaves the old one in place.
-def write_out(path, text, command)
-  check_out(path, command)
+def write_out(path, text)
+  check_out(path)
   part = File.join(File.dirname(File.expand_path(path)), ".#{File.basename(path)}.#{Process.pid}.part")
   File.write(part, text)
   File.rename(part, path)
 rescue SystemCallError => e
   FileUtils.rm_f(part) if part
-  abort "curtilage #{command}: can't write #{path}: #{e.message}"
+  raise ArgumentError, "can't write #{path}: #{e.message}"
 end
 
 def generate(args)
   opts = generate_options(args, "generate")
   format = opts[:format] || Curtilage::Formats.format_of(opts[:out]) || :geojson
-  check_out(opts[:out], "generate")
-  pins, ids = read_sites(opts, "generate")
+  check_out(opts[:out])
+  pins, ids = read_sites(opts)
   results = run(opts, pins)
   text = Curtilage::Formats.write(results, format, ids: ids, store: opts.fetch(:store_zone, true))
   if opts[:out]
-    write_out(opts[:out], text, "generate")
-    warn "#{results.count(&:ok?)} of #{results.size} ok; wrote #{opts[:out]}"
+    write_out(opts[:out], text)
+    LOG.puts "#{results.count(&:ok?)} of #{results.size} ok; wrote #{opts[:out]}"
   else
-    puts text
+    $stdout.write(text.end_with?("\n") ? text : "#{text}\n")
   end
   exit(results.all?(&:ok?) ? 0 : 1)
 end
@@ -153,16 +202,17 @@ end
 def preview(args)
   opts = generate_options(args, "preview")
   out = opts[:out] || "curtilage-preview.html"
-  check_out(out, "preview")
-  pins, ids = read_sites(opts, "preview")
+  check_out(out)
+  pins, ids = read_sites(opts)
   results = run(opts, pins, keep_features: true)
-  write_out(out, Curtilage::Preview.html(results, ids: ids, buffer_m: opts[:buffer]), "preview")
-  puts "#{results.count(&:ok?)} of #{results.size} ok; open #{File.expand_path(out)}"
+  write_out(out, Curtilage::Preview.html(results, ids: ids, buffer_m: opts[:buffer]))
+  LOG.puts "#{results.count(&:ok?)} of #{results.size} ok; open #{File.expand_path(out)}"
+  exit(results.all?(&:ok?) ? 0 : 1)
 end
 
 def build_options(args)
   opts = { out: "." }
-  OptionParser.new do |o|
+  parser = OptionParser.new do |o|
     o.banner = "Usage: curtilage build REGION [options]"
     o.on("--out DIR", "Where to write REGION.parquet and REGION.json (default: .)") { |v| opts[:out] = v }
     o.on("--work DIR", "Download folder (default: a temporary one)") { |v| opts[:work] = v }
@@ -172,23 +222,22 @@ def build_options(args)
       opts[:ml] = v
     end
     duckdb_flags(o, opts)
-  end.parse!(args)
-  opts
+    log_flags(o, opts)
+  end
+  parse(parser, args, opts)
 end
 
 def build(args)
   opts = build_options(args)
-  region = args.shift or abort "curtilage build: give a REGION, e.g. tennessee"
+  region = args.shift or raise ArgumentError, "give a REGION, e.g. tennessee"
 
   # Without --work, a fresh private folder (a fixed name in a shared /tmp
   # could be someone else's), removed afterwards unless downloads are kept.
   work = opts[:work] || Dir.mktmpdir("curtilage-build")
   puts Curtilage::Build.run(region, out_dir: opts[:out], work_dir: work, date: opts[:date],
-                                    ml_footprints: opts[:ml], keep_downloads: opts[:keep],
+                                    ml_footprints: opts[:ml], keep_downloads: opts[:keep], log: LOG,
                                     **opts.slice(:duckdb, :extension_directory))
-  warn "downloads kept in #{work}" if opts[:keep] && !opts[:work]
-rescue Curtilage::Error, ArgumentError => e
-  abort "curtilage build: #{e.message}"
+  LOG.puts "downloads kept in #{work}" if opts[:keep] && !opts[:work]
 ensure
   FileUtils.rm_rf(work) if work && !opts[:work] && !opts[:keep]
 end
@@ -209,11 +258,32 @@ def doctor(args)
   exit(report["ok"] ? 0 : 1)
 end
 
-case ARGV.shift
-when "generate" then generate(ARGV)
-when "preview" then preview(ARGV)
-when "build" then build(ARGV)
-when "doctor" then doctor(ARGV)
-when "-h", "--help", "help", nil then puts USAGE
-else abort USAGE
+COMMANDS = %w[generate preview build doctor].freeze
+
+def exit_code(error)
+  case error
+  when Curtilage::DependencyError then 3
+  when Curtilage::Error then 4
+  else 2
+  end
+end
+
+command = ARGV.shift
+begin
+  case command
+  when *COMMANDS then send(command, ARGV)
+  when "-h", "--help", "help", nil then puts USAGE
+  else
+    warn USAGE
+    exit 2
+  end
+rescue OptionParser::ParseError, ArgumentError, Curtilage::Error => e
+  LOG.error("curtilage #{command}: #{e.message}")
+  exit exit_code(e)
+rescue StandardError => e
+  # A bug, not bad input or missing data: keep exit 1 meaning "some sites
+  # failed" and say where it happened, for a report.
+  LOG.error("curtilage #{command}: unexpected error (please report it): #{e.class}: #{e.message}\n  " \
+            "#{e.backtrace&.first(5)&.join("\n  ")}")
+  exit 70
 end

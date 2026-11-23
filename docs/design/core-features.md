@@ -18,7 +18,7 @@ Each result carries `provenance`: gem version, data source and release, every op
 
 - `--format ndjson`: one GeoJSON Feature per line (GeoJSONSeq without the record separator), so GDAL, QGIS, tippecanoe and DuckDB read it directly and any language can parse it line by line. The store zone is a geometry in `properties.store`. Schema: `docs/schema/site-v1.json`.
 - NDJSON in: each line `{"id","lng","lat"}`, `{"id","pin":[lng,lat]}` or a GeoJSON Point Feature; `--in -` reads standard input.
-- Exit codes: 0 ok, 1 some sites failed, 2 bad input or usage, 3 missing dependency (DuckDB or extensions), 4 data unavailable (downloads, Overture, offline mode). Errors carry their class (`Curtilage::DependencyError`, `Curtilage::DataUnavailable`) so the CLI never matches on message text.
+- Exit codes: 0 ok, 1 some sites failed, 2 bad input or usage, 3 missing dependency (DuckDB or extensions), 4 data unavailable (downloads, Overture, offline mode), 70 an unexpected error. The CLI maps by class, never by message: `ArgumentError` is 2, `Curtilage::DependencyError` 3, any other `Curtilage::Error` 4. A crash gets 70 rather than Ruby's default 1, so 1 always means "output written, some sites failed". A separate `DataUnavailable` class was left out: every other gem error already is one.
 - Logs go to standard error only; `--quiet` keeps errors only and `--log-format json` writes one JSON object per line.
 
 ### Decision: making results independent of input order

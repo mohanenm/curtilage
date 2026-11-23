@@ -148,9 +148,11 @@ class PreviewTest < Minitest::Test
       out, = run.call("generate", "--format", "kml")
 
       assert_includes out, "<kml"
-      _, _, status = run.call("preview", "--out", File.join(dir, "page.html"))
+      out, err, status = run.call("preview", "--out", File.join(dir, "page.html"))
 
-      assert_predicate status, :success?
+      assert_equal 1, status.exitstatus # written, but the site has no premises
+      assert_empty out
+      assert_includes err, "0 of 1 ok"
       assert_includes File.read(File.join(dir, "page.html")), "shop-1"
     end
   end

@@ -2,10 +2,15 @@
 
 ## [Unreleased]
 
+### Breaking
+
+- Command-line exit codes: bad input and usage errors exit 2 (they exited 1, which now only means some sites failed), a missing DuckDB exits 3 and unavailable map data 4. `preview` exits 1 when some sites have no usable premises (it always exited 0), and prints its summary to standard error instead of standard output.
+
 ### Added
 
 - Every result records its provenance (`Result#provenance`, the GeoJSON `provenance` property): gem version, data source and release (the Overture release, or each region's Geofabrik extract dates and ML footprints), every option after defaults, and a SHA256 of the map data used. CSV gains `gem_version`, `data_source`, `data_release` and `features_sha256` columns at the end; KML descriptions name the version and release. Outputs hold no timestamps, so the same inputs give the same output byte for byte.
 - NDJSON in and out: `--format ndjson` writes one GeoJSON Feature per site per line, following a versioned JSON Schema (`docs/schema/site-v1.json`, shipped in the gem); `--in` reads NDJSON pins, and `--in -` reads them from standard input (`--in-format` picks another format).
+- Documented exit codes for `generate`, `preview` and `build`: 0 ok, 1 some sites failed, 2 bad input or usage, 3 DuckDB missing, 4 map data unavailable, 70 unexpected error. `--quiet` and `--log-format json` for what goes to standard error. A missing DuckDB raises `Curtilage::DependencyError`.
 - A `precision:` option sets the decimal places of output coordinates (default 7, as before).
 - `curtilage doctor` checks everything the gem needs outside Ruby with a fix for each problem (DuckDB version, with a warning outside the tested 1.4 and 2.0; extensions; the cache folder), and takes `--network` (are the map-data hosts reachable) and `--json`; it exits 1 when something's missing.
 - A `validation:` option raises or lowers the validation limits for generated polygons (e.g. `{ max_area_error_m2: 300_000 }` for a big-box store's lot, which could only ever get the fallback before). The limits are documented in the reference.

@@ -78,7 +78,7 @@ It holds no timestamps: the same pins, options and data give the same output, by
 
 ### Errors
 
-Every error the gem raises on purpose is a `Curtilage::Error` (or a subclass: `Lookup::Error`, `Overture::Error`, `Build::Error`, `Download::Error`, `Footprints::Error`, `ZipRange::Unsupported`, `ZipRange::Corrupt`), so `rescue Curtilage::Error` catches them all. Mistakes in what you pass (a bad pin, option or file) raise `ArgumentError`. A missing DuckDB binary is a `Curtilage::Error` saying what to install.
+Every error the gem raises on purpose is a `Curtilage::Error` (or a subclass: `Lookup::Error`, `Overture::Error`, `Build::Error`, `Download::Error`, `Footprints::Error`, `ZipRange::Unsupported`, `ZipRange::Corrupt`), so `rescue Curtilage::Error` catches them all. Mistakes in what you pass (a bad pin, option or file) raise `ArgumentError`. A missing DuckDB binary, or extensions that won't load, is a `Curtilage::DependencyError` (a `Curtilage::Error`) saying what to install.
 
 ### Presets
 
@@ -237,12 +237,25 @@ curtilage doctor
   - Data: `--source auto|geofabrik|overture` (default auto), `--cache-dir DIR`, `--catalogue DIR`, `--parquet FILE`.
   - Style: `--preset whole_lot|tight|centre`, `--buildings osm|osm_filled|ml`, `--[no-]store`.
   - DuckDB: `--duckdb PATH`, `--extension-directory DIR`.
-  - Exits 1 if any result isn't usable, so scripts can tell.
+  - Logs: `--quiet` keeps only warnings and errors; `--log-format json` writes each log line as `{"level": "info"|"warning"|"error", "message": "..."}`.
 - `preview`: generates the same way (same options, except `--format`), then writes the page described under [Preview](#preview-curtilagepreview). `--out FILE` (default `curtilage-preview.html`); `--buffer METRES` also draws the premises grown by that much.
 - `build REGION` writes `REGION.parquet` and `REGION.json`. REGION is a US state (`tennessee`, `new-york`) or a Geofabrik path (`europe/germany/bayern`). Options: `--out DIR` (default `.`), `--work DIR` (default: a private temporary folder, removed afterwards), `--date YYMMDD`, `--keep-downloads`, `--ml-footprints microsoft`, `--duckdb`, `--extension-directory`.
 - `doctor` checks everything the gem needs outside Ruby, with a fix for each problem: the DuckDB binary (its path and version; a warning, not a failure, outside the tested 1.4 LTS and 2.0), its `spatial` and `httpfs` extensions (with versions), and the cache folder's permissions when one is configured. `--verify DIR` also checks every built file in a catalogue or cache folder against the SHA256 its build recorded; `--network` checks that Geofabrik and Overture's catalogue answer (no locations are sent); `--json` prints the report for scripts. It exits 0 when ready, 1 if not. It prints the DuckDB version and the path of the binary that runs: `CURTILAGE_DUCKDB` runs whatever it names, so it's trusted configuration.
 
 Run `curtilage COMMAND --help` for the same list.
+
+Standard output carries only results (`generate` without `--out`, and the file path `build` wrote); progress, summaries, warnings and errors go to standard error, so output can be piped. Exit codes, for `generate`, `preview` and `build`:
+
+| Code | Meaning |
+|---|---|
+| 0 | Done; every site has usable premises. |
+| 1 | Done, but some sites have no usable premises (`ok` is false); the output was still written. |
+| 2 | Bad input or usage: an unknown option or command, a bad pin, an unreadable input file, an output path that can't be written. Nothing was generated. |
+| 3 | A dependency is missing: DuckDB isn't found, or its extensions won't load. `curtilage doctor` says what to fix. |
+| 4 | Map data unavailable: a download, Overture read or build failed, offline mode forbids what's needed, or a built file can't be read. |
+| 70 | An unexpected error (a bug: please report it with the message). |
+
+`doctor` keeps its own codes: 0 ready, 1 not.
 
 ### Docker
 
