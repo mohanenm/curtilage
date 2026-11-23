@@ -219,6 +219,10 @@ def style_flags(o, opts)
   o.on("--candidates N", Integer, "Also give up to N other premises for ambiguous sites (1 to 5)") do |v|
     opts[:candidates] = v
   end
+  zone_flags(o, opts)
+end
+
+def zone_flags(o, opts)
   o.on("--approach [METRES]", Float, "Add an approach zone: the premises grown by METRES " \
                                      "(default #{Curtilage::Generator::DEFAULT_APPROACH_M})") do |v|
     opts[:approach_m] = v || Curtilage::Generator::DEFAULT_APPROACH_M
