@@ -12,6 +12,16 @@ Each result carries `provenance`: gem version, data source and release, every op
 - **`precision:`** (default 7, about 1 cm) rounds coordinates before validation, so the polygon that was checked is the one written.
 - **Order.** The rules used to depend on the order features arrived in (neighbour cuts were applied in input order), and DuckDB doesn't promise row order. See the decision below.
 
+## 6.2 Confidence score
+
+`Result#confidence`, 0 to 1, with `confidence_factors` listing every factor. Each unmet factor takes its weight off 1 (floor 0). A penalty sum rather than a normalised average, so one serious problem (a fallback, 0.30) counts fully whatever else is fine, and an invalid result (weight 1.0) is always 0.
+
+- **Factors** come only from what the result already knows (flags, details, validation), so the score explains itself and adds no new rules.
+- **No data age.** "Data fresh" was suggested, but scoring by today's date makes the same inputs score differently over time, which breaks 6.1. The release is in `provenance` for anyone who wants to age-filter.
+- **Weights are judgement**, set before measuring. They may only be calibrated on the public benchmark (no tuning on private data), and its reference polygons aren't drawn yet.
+- **First measurement** (private held-out set, aggregate only, weights not tuned to it): the 17 lowest-confidence sites (bottom 10%) hold all 5 invalid results and have mean IoU 0.25 against 0.49 for the rest; 10 of the 31 sites under IoU 0.3 land there. Among valid results the ranking is weak (Spearman 0.14 against IoU), and IoU against hand-drawn polygons, which are tighter than the goal, is itself a weak measure. So: good at surfacing the clearly bad, not yet at ordering the rest. Calibrate on the benchmark and on review outcomes (accept / nudge / redraw).
+- **`--min-confidence N`** leaves results below N out of the output (exit 1, count on stderr), giving a file of results to save unattended while the rest go to review. The preview sorts by confidence instead of filtering, as it's for review.
+
 ## 8.2 A stable CLI contract
 
 (Pulled ahead of Phase 8 because the provenance and NDJSON schema go together.)

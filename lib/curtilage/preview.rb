@@ -60,7 +60,8 @@ module Curtilage
        ["ok", "Ok, no flags (#{count.call("ok")})"]] + flags.map { |f, n| ["flag:#{f}", "Flag #{f} (#{n})"] }
     end
 
-    SORTS = [%w[input Input order], ["look", "Needs a look first"], %w[id Id], ["large", "Largest premises first"],
+    SORTS = [%w[input Input order], ["look", "Needs a look first"], ["confidence", "Lowest confidence first"],
+             %w[id Id], ["large", "Largest premises first"],
              ["small", "Smallest premises first"]].map { |key, *words| [key, words.join(" ")] }.freeze
 
     def select_options(options)
@@ -86,7 +87,8 @@ module Curtilage
     def card_data(result, id, index)
       area = result.ring ? result.validation.metrics[:area_m2].to_f.round : -1
       %(data-index="#{index}" data-id="#{h(id)}" data-state="#{state(result)}" ) +
-        %(data-flags="#{h(result.flags.join(" "))}" data-nflags="#{result.flags.size}" data-area="#{area}")
+        %(data-flags="#{h(result.flags.join(" "))}" data-nflags="#{result.flags.size}" data-area="#{area}" ) +
+        %(data-confidence="#{result.confidence}")
     end
 
     def flag_tags(flags)
@@ -145,7 +147,7 @@ module Curtilage
       d = result.details
       return "" unless d
 
-      items = []
+      items = ["confidence #{result.confidence}"]
       items << "building #{d[:building][:area_m2]} m²" if d[:building]
       items << "premises #{result.validation.metrics[:area_m2]&.round} m²" if result.ring
       items << "parking #{d[:parking_area_m2]} m² (about #{d[:parking_spaces_estimate]} spaces)"
@@ -213,6 +215,7 @@ module Curtilage
           input: (a, b) => num(a, "index") - num(b, "index"),
           look: (a, b) => rank[a.dataset.state] - rank[b.dataset.state] || num(b, "nflags") - num(a, "nflags") ||
                           num(a, "index") - num(b, "index"),
+          confidence: (a, b) => num(a, "confidence") - num(b, "confidence") || num(a, "index") - num(b, "index"),
           id: (a, b) => a.dataset.id.localeCompare(b.dataset.id, undefined, { numeric: true }),
           large: (a, b) => num(b, "area") - num(a, "area"),
           small: (a, b) => (num(a, "area") < 0) - (num(b, "area") < 0) || num(a, "area") - num(b, "area"),

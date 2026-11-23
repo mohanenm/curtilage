@@ -72,7 +72,9 @@ class ProvenanceTest < Minitest::Test
                    result.provenance[:data])
       row = Curtilage::Formats.parse_csv(Curtilage::Formats.write([result], :csv))[1]
 
-      assert_equal %W[#{Curtilage::VERSION} geofabrik 2026-11-20], row[-4, 3]
+      cols = %w[gem_version data_source data_release].map { |c| Curtilage::Formats::CSV_COLUMNS.index(c) }
+
+      assert_equal %W[#{Curtilage::VERSION} geofabrik 2026-11-20], row.values_at(*cols)
     end
   end
 

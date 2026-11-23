@@ -46,7 +46,8 @@ module Curtilage
         type: "Feature",
         geometry: Result.polygon(ring),
         properties: properties.merge(
-          role: "premises", ok: ok?, method: method_name, flags: flags, building: building, details: details,
+          role: "premises", ok: ok?, confidence: confidence, confidence_factors: confidence_factors,
+          method: method_name, flags: flags, building: building, details: details,
           errors: validation.errors, warnings: validation.warnings, metrics: validation.metrics,
           explanation: explanation, attribution: attribution, provenance: provenance
         ),
@@ -55,6 +56,11 @@ module Curtilage
                 properties: properties.merge(role: "store", building: building, attribution: attribution) }
       [premises, store]
     end
+
+    # How far to trust the result, 0 to 1 (see Confidence), and the factors
+    # behind it: [{ name:, met:, weight: }, ...].
+    def confidence = Confidence.assess(self)[0]
+    def confidence_factors = Confidence.assess(self)[1]
 
     # Well-known text, for databases and spreadsheets.
     def to_wkt = Result.wkt(ring)

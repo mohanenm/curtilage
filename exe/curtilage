@@ -115,6 +115,11 @@ def io_flags(o, opts, command)
     o.on("--format NAME", Curtilage::Formats::OUTPUTS.map(&:to_s), "geojson (default), ndjson, csv or kml") do |v|
       opts[:format] = v.to_sym
     end
+    o.on("--min-confidence N", Float, "Leave out results with confidence below N (0 to 1)") do |v|
+      raise ArgumentError, "--min-confidence is 0 to 1: #{v}" unless v.between?(0, 1)
+
+      opts[:min_confidence] = v
+    end
   end
 end
 
@@ -189,14 +194,24 @@ def generate(args)
   check_out(opts[:out])
   pins, ids = read_sites(opts)
   results = run(opts, pins)
-  text = Curtilage::Formats.write(results, format, ids: ids, store: opts.fetch(:store_zone, true))
+  kept, ids = confident(results, ids, opts[:min_confidence])
+  text = Curtilage::Formats.write(kept, format, ids: ids, store: opts.fetch(:store_zone, true))
   if opts[:out]
     write_out(opts[:out], text)
     LOG.puts "#{results.count(&:ok?)} of #{results.size} ok; wrote #{opts[:out]}"
   else
-    $stdout.write(text.end_with?("\n") ? text : "#{text}\n")
+    $stdout.write(text.empty? || text.end_with?("\n") ? text : "#{text}\n")
   end
-  exit(results.all?(&:ok?) ? 0 : 1)
+  exit(kept.size == results.size && results.all?(&:ok?) ? 0 : 1)
+end
+
+# [results, ids] at or above the minimum confidence (all of them without one).
+def confident(results, ids, min)
+  return [results, ids] unless min
+
+  kept = results.zip(ids).select { |result, _| result.confidence >= min }
+  LOG.puts "#{results.size - kept.size} result(s) below --min-confidence #{min} left out" if kept.size < results.size
+  [kept.map(&:first), kept.map(&:last)]
 end
 
 def preview(args)

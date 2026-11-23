@@ -29,7 +29,7 @@ module Curtilage
 
     CSV_COLUMNS = %w[id lng lat ok problem method flags errors building building_area_m2 parking_area_m2
                      parking_spaces_estimate frontage_m premises_area_m2 premises_wkt store_wkt attribution
-                     gem_version data_source data_release features_sha256].freeze
+                     gem_version data_source data_release features_sha256 confidence].freeze
 
     module_function
 
@@ -180,7 +180,7 @@ module Curtilage
        result.validation.errors.join(";"), result.building, d.dig(:building, :area_m2), d[:parking_area_m2],
        d[:parking_spaces_estimate],
        d[:frontage_m], result.validation.metrics[:area_m2]&.round, result.to_wkt, result.store_wkt,
-       credits(result).join("; "), *provenance_columns(result)]
+       credits(result).join("; "), *provenance_columns(result), result.confidence]
     end
 
     # gem_version, data_source, data_release, features_sha256 (the full
@@ -225,7 +225,7 @@ module Curtilage
     end
 
     def kml_description(result)
-      parts = [result.problem || "ok"]
+      parts = [result.problem || "ok", "confidence #{result.confidence}"]
       parts << "flags: #{result.flags.join(", ")}" if result.flags.any?
       parts << credits(result).join("; ")
       gem, source, release = provenance_columns(result)
