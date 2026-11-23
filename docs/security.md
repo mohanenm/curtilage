@@ -52,7 +52,8 @@ What curtilage trusts, what it doesn't, who might attack it, and how each attack
 - **Batches**: pins and options are checked before any data is fetched; at most 100,000 pins per call and 8 parallel builds; one site that raises during generation gets an `error` result instead of aborting the batch.
 - **Output**: the preview escapes all text, drops Unicode direction controls from it, and carries a Content-Security-Policy that allows only its own inline style and script (by hash) and no loads at all, so a missed escape can't run script. CSV cells a spreadsheet would run as a formula (a leading `=`, `+`, `-`, `@`, `|` or `%`, full-width forms, after any whitespace) get a leading `'`, in every column; KML escapes all text; GeoJSON is written by a JSON library.
 - **Fuzz tests** (`test/fuzz_test.rb`, plain Ruby, fixed seed): the CSV and GeoJSON readers, map-data parsing, geometry on degenerate input (repeated, lined-up and coincident points), validation, and generation near the poles and the antimeridian. `FUZZ_ITERATIONS=5000` runs a longer pass.
-- **Docker**: the image runs as a non-root user.
+- **Docker**: the base image is pinned by digest; the DuckDB download is checked against a pinned SHA256; a multi-stage build leaves curl and unzip out of the image that runs; it runs as a non-root user, works offline and with a read-only root filesystem. CI builds it on every change and runs `doctor` inside it with no network.
+- **CI and dependencies**: GitHub Actions pinned to commit SHAs with least-privilege permissions; CodeQL for Ruby; `bundler-audit` on the development gems; Dependabot for gems, actions and the base image. The gem itself has no runtime gem dependencies.
 
 ## Extension versions
 
@@ -60,9 +61,8 @@ DuckDB's extensions come from its own repository, signed, and their versions fol
 
 ## Known gaps
 
-Being worked on; this list shrinks as they're fixed.
+None open from this review. Planned: release signing and provenance (see the release plan), and the HTTP server's limits when it exists.
 
-- CI actions aren't pinned to commit SHAs; the Docker image downloads DuckDB without a checksum and isn't pinned to a base-image digest.
 
 ## Out of scope
 

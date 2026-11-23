@@ -230,11 +230,11 @@ Run `curtilage COMMAND --help` for the same list.
 
 ### Docker
 
-The repository's `Dockerfile` packages the gem with the DuckDB CLI (1.4.4, `--build-arg DUCKDB_VERSION=` to change) and its extensions, fetched while building. The image runs `curtilage`:
+The repository's `Dockerfile` packages the gem with the DuckDB CLI (1.4.4, checked against its SHA256; to change the version pass `--build-arg DUCKDB_VERSION=` with `DUCKDB_SHA256_AMD64=` and `DUCKDB_SHA256_ARM64=` for that release) and its extensions, fetched while building, on a base image pinned by digest. The image runs `curtilage`:
 
 ```sh
 docker build -t curtilage .
 docker run --rm -v "$PWD:/work" -v curtilage-cache:/cache curtilage generate --in pins.csv --out premises.csv
 ```
 
-The container's working folder is `/work`: mount yours there and give file names relative to it. On-demand builds go to `/cache` (`CURTILAGE_CACHE_DIR`); mount a volume there to reuse them for a month. It runs as a non-root user.
+The container's working folder is `/work`: mount yours there and give file names relative to it. On-demand builds go to `/cache` (`CURTILAGE_CACHE_DIR`); mount a volume there to reuse them for a month. It runs as a non-root user, has no build tools (curl, unzip) in it, works offline (`-e CURTILAGE_OFFLINE=1`, with prebuilt files or a cache) and with a read-only root filesystem (`--read-only --tmpfs /tmp -v curtilage-cache:/cache`).
