@@ -195,7 +195,7 @@ The current folder is mounted at `/work`, so file names are relative to it. The 
 
 | What goes wrong | Flag | What helps |
 |---|---|---|
-| **The building isn't in OpenStreetMap** (about 3-8% of sites tested): nothing is generated. | (no premises) | `buildings: :osm_or_ml` uses machine-learned footprints only for those sites; on a private test set it rescued 2 of 5. |
+| **The building isn't in OpenStreetMap** (about 3-8% of sites tested): nothing is generated. | (no premises) | Sites read from Overture (the default for scattered pins) fall back to its machine-learned footprints for those sites, flagged `ml_footprint`. Elsewhere, `buildings: :osm_or_ml` with a build made `--ml-footprints microsoft`; on a private test set it rescued 2 of 5. |
 | **Premises fall short of the whole lot.** On the public benchmark's labelled points the default takes in 44% of what should be in, but almost nothing (under 1%) of what should stay out: unmapped forecourts and parking, lots reaching past 60 m from the building, and **entrances** (missed at 8 of 9 labelled sites). | | `entrances: :all` follows mapped driveways to every entrance (12 of 24 labelled entrances, from 5); `parking_max_extent_m` for deep lots; `lot_split: :voronoi` on shared lots. All experimental, off by default. |
 | **A store that's one unit of a large building** (strip malls, urban blocks): the store zone is the whole building, the premises its whole lot. | `store_may_be_unit`, `large_building` | `unit_m: 15` estimates the unit round the pin (flag `unit_estimated`); `preset: :tight`, or `scope: :centre` for the whole centre. |
 | **Shopping centres.** A shared lot is split by nearest building; a centre's internal roads tagged as public streets (ring roads, "Plaza" streets) cut a store off from its car park; a building at an angle to its lot gets an oversized rectangle. | `store_may_be_unit` | `lot_split: :voronoi`, `scope: :centre`, `candidates: 3`. Internal roads mapped as public streets have no fix yet. |
@@ -208,7 +208,7 @@ The current folder is mounted at `/work`, so file names are relative to it. The 
 
 ## Building footprints: OSM, or OSM plus machine-learned
 
-By default all buildings come from OpenStreetMap. Where OSM is missing buildings, you can opt in to [Microsoft's Global ML Building Footprints](https://github.com/microsoft/GlobalMLBuildingFootprints) (CDLA Permissive 2.0): build with `--ml-footprints microsoft` (or `ml_footprints: "microsoft"`), then generate with `buildings: :osm_or_ml` (only where OSM has no building near the pin), `:osm_filled` or `:ml`. With `source: :overture`, Overture's non-OSM buildings play the same role. Results built on one carry the `ml_footprint` flag, and their attribution credits the footprints' source.
+By default all buildings come from OpenStreetMap. Where OSM is missing buildings, you can opt in to [Microsoft's Global ML Building Footprints](https://github.com/microsoft/GlobalMLBuildingFootprints) (CDLA Permissive 2.0): build with `--ml-footprints microsoft` (or `ml_footprints: "microsoft"`), then generate with `buildings: :osm_or_ml` (only where OSM has no building near the pin), `:osm_filled` or `:ml`. With Overture reads (`source: :overture`, and `:auto` for scattered pins), Overture's non-OSM buildings play the same role and are used by default where OSM has no building near the pin (`buildings: :osm_or_ml`; pass `buildings: :osm` to turn that off). Results built on one carry the `ml_footprint` flag, and their attribution credits the footprints' source.
 
 ## Privacy
 

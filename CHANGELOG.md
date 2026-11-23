@@ -18,6 +18,7 @@
 
 ### Changed
 
+- Sites read from Overture (`source: :overture`, and `:auto`'s scattered pins) now default to `buildings: :osm_or_ml`: where OpenStreetMap has no building near the pin, Overture's machine-learned footprints are used (flagged `ml_footprint`). Every site with an OSM building comes out as before. Pass `buildings: :osm` for the old behaviour.
 - Everything that reads premises (store and pickup zones, `details`, `Audit`, `Diff`, `Result#buffered`) works on non-convex shapes. `Diff` compares a hand-drawn non-convex polygon exactly instead of by its convex outline. Convex results are unchanged.
 
 ## [0.4.0] - 2026-11-23

@@ -325,10 +325,20 @@ module Curtilage
     results
   end
 
+  # Overture reads bring its non-OSM (machine-learned) buildings with them,
+  # so unless buildings: is given (directly or by the preset) they're used
+  # where OSM has no building near the pin (:osm_or_ml); every site with an
+  # OSM building comes out exactly as with :osm.
+  def self.overture_options(options)
+    given = options.key?(:buildings) || preset_options(options[:preset]).key?(:buildings)
+    given ? options : options.merge(buildings: :osm_or_ml)
+  end
+
   # The release is settled once up front, so every result names the one
   # it was read from.
   def self.from_overture(pins, lookup, data, options)
     online!("reading Overture Maps (use a catalogue or cached builds)")
+    options = overture_options(options)
     release = Overture.release(data)
     lists = Overture.features_many(pins, **lookup.slice(:duckdb, :extension_directory, :radius_deg), release: release)
     pins.zip(lists).map do |pin, features|
@@ -413,5 +423,5 @@ module Curtilage
 
   private_class_method :fetch_and_generate, :with_parcels, :checked_pins, :check_data, :check_generation_options,
                        :generate_safely, :auto_plan, :build_and_read, :wait_quietly, :from_builds, :merge,
-                       :from_overture, :run_many, :preset_options, :generate_one, :partial_data, :no_data
+                       :from_overture, :overture_options, :run_many, :preset_options, :generate_one, :partial_data, :no_data
 end

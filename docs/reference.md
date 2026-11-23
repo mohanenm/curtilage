@@ -142,7 +142,7 @@ All distances in metres, areas in square metres. These are `Curtilage::Generator
 | Option | Default | What |
 |---|---|---|
 | `store_zone` | `true` | Also return the building's outline as the store zone. |
-| `buildings` | `:osm` | `:osm`, `:osm_or_ml` (OSM alone unless no OSM building is under the pin or within `building_max_distance_m`; then as `:osm_filled`, so only sites missing from OSM change), `:osm_filled` (machine-learned footprints added wherever they don't overlap an OSM building) or `:ml`. The footprints have to be in the data: a build with `--ml-footprints microsoft`, or Overture's non-OSM buildings. |
+| `buildings` | `:osm` (`:osm_or_ml` for Overture reads) | Sites read from Overture (`source: :overture`, and `:auto`'s scattered pins) default to `:osm_or_ml`, since Overture's non-OSM buildings come with the data; pass `buildings: :osm` to turn that off. Choices: `:osm`, `:osm_or_ml` (OSM alone unless no OSM building is under the pin or within `building_max_distance_m`; then as `:osm_filled`, so only sites missing from OSM change), `:osm_filled` (machine-learned footprints added wherever they don't overlap an OSM building) or `:ml`. The footprints have to be in the data: a build with `--ml-footprints microsoft`, or Overture's non-OSM buildings. |
 | `scope` | `:site` | `:site`, or `:centre` for the whole shopping centre when on a shared lot. |
 | `grow_m` | `30` | How far the building's rectangle grows toward its lot before trimming. |
 | `road_offset_m` | `nil` | How far short of road centrelines to stop; `nil` uses half a typical road width by class. |
