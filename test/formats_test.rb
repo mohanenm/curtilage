@@ -113,4 +113,24 @@ class FormatsTest < Minitest::Test
     deep = "#{"[" * 30}#{"]" * 30}"
     assert_raises(ArgumentError) { F.parse_pins(deep, :geojson) }
   end
+
+  def test_formula_guard_covers_every_way_a_spreadsheet_runs_a_cell
+    ["=cmd", "+cmd", "-cmd", "@cmd", "|cmd", "%cmd", " =cmd", "\t=cmd", "\u3000=cmd", "\uFF1Dcmd", "\uFF0Bcmd",
+     "\uFF0Dcmd", "\uFF20cmd", "\uFF5Ccmd", "\uFF05cmd", "\tcmd", "\rcmd"].each do |cell|
+      assert F.csv_field(cell).delete_prefix('"').start_with?("'"), cell.inspect
+    end
+    ["-80.25", "35", "+1.5", "POLYGON ((1 2))", "plain"].each { |cell| refute F.csv_field(cell).start_with?("'"), cell }
+  end
+
+  def test_every_csv_column_is_guarded
+    result = Curtilage.generate(PIN, scene).tap do |r|
+      r.building = "=HYPERLINK(1)"
+      r.attribution = ["@evil"]
+    end
+    row = F.parse_csv(F.write([result], :csv, ids: ["|cmd"]))[1]
+
+    assert_equal "'|cmd", row[F::CSV_COLUMNS.index("id")]
+    assert_equal "'=HYPERLINK(1)", row[F::CSV_COLUMNS.index("building")]
+    assert_equal "'@evil", row[F::CSV_COLUMNS.index("attribution")]
+  end
 end

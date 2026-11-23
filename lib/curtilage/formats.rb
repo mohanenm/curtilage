@@ -178,11 +178,17 @@ module Curtilage
     # What to credit wherever this result is shown.
     def credits(result) = result.attribution || Result::OSM_ATTRIBUTION
 
-    # A field that a spreadsheet would run as a formula (=, +, -, @) gets a
-    # leading quote, unless it's a number.
+    # What a spreadsheet may run as a formula: =, +, -, @, | (DDE) or %, or
+    # their full-width forms, after any leading whitespace; or a leading tab
+    # or carriage return.
+    FORMULA = /\A(?:[\s\u3000]*[=+\-@|%\uFF1D\uFF0B\uFF0D\uFF20\uFF5C\uFF05]|[\t\r])/
+    PLAIN_NUMBER = /\A[+-]?\d+(\.\d+)?\z/
+
+    # Every CSV cell goes through here: one a spreadsheet would run as a
+    # formula gets a leading quote, unless it's a plain number.
     def csv_field(value)
       text = value.to_s
-      text = "'#{text}" if text.match?(/\A[=+\-@\t\r]/) && !text.match?(/\A[+-]?\d+(\.\d+)?\z/)
+      text = "'#{text}" if text.match?(FORMULA) && !text.match?(PLAIN_NUMBER)
       text.match?(/[",\r\n]/) ? "\"#{text.gsub('"', '""')}\"" : text
     end
 

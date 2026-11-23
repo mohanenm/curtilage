@@ -17,6 +17,7 @@
 - Generation options are range-checked (no negative or kilometre-scale distances, whole-number vertex counts), and an Overture `release:` must look like a release name (it goes into a URL path).
 - DuckDB queries have a timeout (600 s for lookups and Overture reads, `CURTILAGE_DUCKDB_TIMEOUT` or `lookup: { timeout: }`; 3600 s for builds), after which DuckDB and anything it started are stopped. Output is read as it arrives and DuckDB is stopped once it passes the cap, instead of reading 200 MB before checking. Lookups and Overture reads cap DuckDB at 1 GB of memory (`lookup: { memory_limit: }`). Error messages no longer quote the failed query, which could include the box around a pin. `doctor` shows the path of the DuckDB binary it runs.
 - The preview page carries a Content-Security-Policy that allows only its own inline style and script, by hash, and no loads, so a missed escape couldn't run script; Unicode direction controls are dropped from the names it shows.
+- CSV output guards more ways a spreadsheet runs a cell as a formula: a leading `|` or `%`, full-width forms, and any of them after leading whitespace, in every column.
 - Text placed into DuckDB SQL (paths, bucket URLs, folders) may not contain line breaks or NUL bytes, `memory_limit` must look like `"400MB"`, and `threads` must be 1 to 64. Tests push crafted values through every path into SQL.
 
 ### Fixed

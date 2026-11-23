@@ -139,7 +139,7 @@ Writing results: `Formats.write(results, format, ids: nil, store: true)` returns
 | Format | What |
 |---|---|
 | `:geojson` | One FeatureCollection: for each pin, its premises and (unless `store: false`) its store zone, with `properties.id`, `properties.role` and everything `to_geojson` carries. |
-| `:csv` | One row per pin. Columns: `id`, `lng`, `lat`, `ok`, `problem`, `method`, `flags` and `errors` (`;`-separated), `building`, `building_area_m2`, `parking_area_m2`, `parking_spaces_estimate`, `frontage_m`, `premises_area_m2`, `premises_wkt`, `store_wkt`, `attribution` (`; `-separated). Cells a spreadsheet would run as a formula get a leading `'`. |
+| `:csv` | One row per pin. Columns: `id`, `lng`, `lat`, `ok`, `problem`, `method`, `flags` and `errors` (`;`-separated), `building`, `building_area_m2`, `parking_area_m2`, `parking_spaces_estimate`, `frontage_m`, `premises_area_m2`, `premises_wkt`, `store_wkt`, `attribution` (`; `-separated). Cells a spreadsheet would run as a formula (starting with `=`, `+`, `-`, `@`, `|` or `%`, or their full-width forms, even after spaces) get a leading `'`; plain numbers don't. |
 | `:kml` | A placemark per polygon (premises and store zone), with the flags and attribution in its description, and every source credited in the document's description, for Google Earth. |
 
 `Formats.format_of(path)` names the format a file extension stands for.
