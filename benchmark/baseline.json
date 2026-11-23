@@ -1,0 +1,319 @@
+{
+  "gem_version": "0.3.0",
+  "commit": "6dc2b96",
+  "overture_release": "2026-11-18.0",
+  "options": {},
+  "run_at": "2026-11-23T17:25:20Z",
+  "summary": {
+    "all": {
+      "sites": 10,
+      "valid": 10,
+      "valid_rate": 1.0,
+      "with_reference": 10,
+      "median_iou": 0.297,
+      "mean_iou": 0.334,
+      "median_area_ratio": 0.41,
+      "fallbacks": 0,
+      "flags": {
+        "large_building": 1,
+        "near_houses": 1,
+        "store_may_be_unit": 3
+      },
+      "total_ms": 456
+    },
+    "categories": {
+      "backs_onto_houses": {
+        "sites": 1,
+        "valid": 1,
+        "valid_rate": 1.0,
+        "with_reference": 1,
+        "median_iou": 0.172,
+        "mean_iou": 0.172,
+        "median_area_ratio": 0.24,
+        "fallbacks": 0,
+        "flags": {},
+        "total_ms": 84
+      },
+      "big_box": {
+        "sites": 1,
+        "valid": 1,
+        "valid_rate": 1.0,
+        "with_reference": 1,
+        "median_iou": 0.468,
+        "mean_iou": 0.468,
+        "median_area_ratio": 0.7,
+        "fallbacks": 0,
+        "flags": {
+          "large_building": 1,
+          "store_may_be_unit": 1
+        },
+        "total_ms": 61
+      },
+      "corner_lot": {
+        "sites": 1,
+        "valid": 1,
+        "valid_rate": 1.0,
+        "with_reference": 1,
+        "median_iou": 0.435,
+        "mean_iou": 0.435,
+        "median_area_ratio": 1.15,
+        "fallbacks": 0,
+        "flags": {},
+        "total_ms": 15
+      },
+      "deep_lot": {
+        "sites": 1,
+        "valid": 1,
+        "valid_rate": 1.0,
+        "with_reference": 1,
+        "median_iou": 0.163,
+        "mean_iou": 0.163,
+        "median_area_ratio": 0.35,
+        "fallbacks": 0,
+        "flags": {
+          "store_may_be_unit": 1
+        },
+        "total_ms": 27
+      },
+      "fuel_station": {
+        "sites": 1,
+        "valid": 1,
+        "valid_rate": 1.0,
+        "with_reference": 1,
+        "median_iou": 0.176,
+        "mean_iou": 0.176,
+        "median_area_ratio": 0.19,
+        "fallbacks": 0,
+        "flags": {},
+        "total_ms": 15
+      },
+      "next_to_railway": {
+        "sites": 1,
+        "valid": 1,
+        "valid_rate": 1.0,
+        "with_reference": 1,
+        "median_iou": 0.412,
+        "mean_iou": 0.412,
+        "median_area_ratio": 0.47,
+        "fallbacks": 0,
+        "flags": {},
+        "total_ms": 43
+      },
+      "shared_lot": {
+        "sites": 1,
+        "valid": 1,
+        "valid_rate": 1.0,
+        "with_reference": 1,
+        "median_iou": 0.493,
+        "mean_iou": 0.493,
+        "median_area_ratio": 0.66,
+        "fallbacks": 0,
+        "flags": {
+          "near_houses": 1
+        },
+        "total_ms": 32
+      },
+      "shopping_centre_unit": {
+        "sites": 1,
+        "valid": 1,
+        "valid_rate": 1.0,
+        "with_reference": 1,
+        "median_iou": 0.106,
+        "mean_iou": 0.106,
+        "median_area_ratio": 0.11,
+        "fallbacks": 0,
+        "flags": {},
+        "total_ms": 140
+      },
+      "standalone": {
+        "sites": 1,
+        "valid": 1,
+        "valid_rate": 1.0,
+        "with_reference": 1,
+        "median_iou": 0.736,
+        "mean_iou": 0.736,
+        "median_area_ratio": 1.13,
+        "fallbacks": 0,
+        "flags": {
+          "store_may_be_unit": 1
+        },
+        "total_ms": 25
+      },
+      "urban_storefront": {
+        "sites": 1,
+        "valid": 1,
+        "valid_rate": 1.0,
+        "with_reference": 1,
+        "median_iou": 0.182,
+        "mean_iou": 0.182,
+        "median_area_ratio": 0.18,
+        "fallbacks": 0,
+        "flags": {},
+        "total_ms": 13
+      }
+    },
+    "placeholders": {
+      "sites": 0,
+      "valid": 0,
+      "valid_rate": null,
+      "with_reference": 0,
+      "median_iou": null,
+      "mean_iou": null,
+      "median_area_ratio": null,
+      "fallbacks": 0,
+      "flags": {},
+      "total_ms": 0
+    }
+  },
+  "sites": [
+    {
+      "id": "standalone-public",
+      "category": "standalone",
+      "placeholder": false,
+      "ok": true,
+      "method": "grow_trim",
+      "fallback": false,
+      "flags": [
+        "store_may_be_unit"
+      ],
+      "area_m2": 11253,
+      "reference_area_m2": 9987,
+      "iou": 0.736,
+      "area_ratio": 1.13,
+      "ms": 25.4
+    },
+    {
+      "id": "corner-commercial",
+      "category": "corner_lot",
+      "placeholder": false,
+      "ok": true,
+      "method": "grow_trim",
+      "fallback": false,
+      "flags": [],
+      "area_m2": 3660,
+      "reference_area_m2": 3176,
+      "iou": 0.435,
+      "area_ratio": 1.15,
+      "ms": 15.2
+    },
+    {
+      "id": "deep-lot-retail",
+      "category": "deep_lot",
+      "placeholder": false,
+      "ok": true,
+      "method": "grow_trim",
+      "fallback": false,
+      "flags": [
+        "store_may_be_unit"
+      ],
+      "area_m2": 7116,
+      "reference_area_m2": 20550,
+      "iou": 0.163,
+      "area_ratio": 0.35,
+      "ms": 27.4
+    },
+    {
+      "id": "railway-government",
+      "category": "next_to_railway",
+      "placeholder": false,
+      "ok": true,
+      "method": "grow_trim",
+      "fallback": false,
+      "flags": [],
+      "area_m2": 7510,
+      "reference_area_m2": 16050,
+      "iou": 0.412,
+      "area_ratio": 0.47,
+      "ms": 42.6
+    },
+    {
+      "id": "backs-onto-houses",
+      "category": "backs_onto_houses",
+      "placeholder": false,
+      "ok": true,
+      "method": "grow_trim",
+      "fallback": false,
+      "flags": [],
+      "area_m2": 4907,
+      "reference_area_m2": 20785,
+      "iou": 0.172,
+      "area_ratio": 0.24,
+      "ms": 84.3
+    },
+    {
+      "id": "big-box-retail",
+      "category": "big_box",
+      "placeholder": false,
+      "ok": true,
+      "method": "grow_trim",
+      "fallback": false,
+      "flags": [
+        "large_building",
+        "store_may_be_unit"
+      ],
+      "area_m2": 29956,
+      "reference_area_m2": 42883,
+      "iou": 0.468,
+      "area_ratio": 0.7,
+      "ms": 61.4
+    },
+    {
+      "id": "shared-lot-restaurant",
+      "category": "shared_lot",
+      "placeholder": false,
+      "ok": true,
+      "method": "grow_trim",
+      "fallback": false,
+      "flags": [
+        "near_houses"
+      ],
+      "area_m2": 3693,
+      "reference_area_m2": 5608,
+      "iou": 0.493,
+      "area_ratio": 0.66,
+      "ms": 31.6
+    },
+    {
+      "id": "centre-unit",
+      "category": "shopping_centre_unit",
+      "placeholder": false,
+      "ok": true,
+      "method": "grow_trim",
+      "fallback": false,
+      "flags": [],
+      "area_m2": 5851,
+      "reference_area_m2": 55412,
+      "iou": 0.106,
+      "area_ratio": 0.11,
+      "ms": 139.9
+    },
+    {
+      "id": "urban-storefront",
+      "category": "urban_storefront",
+      "placeholder": false,
+      "ok": true,
+      "method": "grow_trim",
+      "fallback": false,
+      "flags": [],
+      "area_m2": 989,
+      "reference_area_m2": 5450,
+      "iou": 0.182,
+      "area_ratio": 0.18,
+      "ms": 13.0
+    },
+    {
+      "id": "fuel-station",
+      "category": "fuel_station",
+      "placeholder": false,
+      "ok": true,
+      "method": "grow_trim",
+      "fallback": false,
+      "flags": [],
+      "area_m2": 1492,
+      "reference_area_m2": 7898,
+      "iou": 0.176,
+      "area_ratio": 0.19,
+      "ms": 15.0
+    }
+  ]
+}
