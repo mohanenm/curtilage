@@ -232,12 +232,14 @@ Pins never leave the machine as coordinates: they aren't put in any URL or reque
 | `docs/reference.md` | Every option, setting, flag and command |
 | `sql/build_from_shapefiles.sql` | DuckDB query: shapefiles to a features Parquet file |
 | `test/` | Tests, using made-up coordinates only |
+| `benchmark/` | The public benchmark: sites, hand-drawn references, the runner ([how to run it](benchmark/README.md)) |
 
 ## Development
 
 ```sh
 bin/setup
 bundle exec rake        # tests and RuboCop
+bundle exec rake benchmark   # the public benchmark (see benchmark/README.md)
 ```
 
 The gem itself is plain Ruby with no runtime gem dependencies. Getting data needs the [DuckDB](https://duckdb.org/) CLI (1.4 LTS or 2.0); its `spatial` and `httpfs` extensions install themselves on first use. Point `CURTILAGE_DUCKDB` and `CURTILAGE_EXTENSIONS` at them if they aren't in the default places (`curtilage doctor` checks). `unzip` is only needed if a server can't serve byte ranges.

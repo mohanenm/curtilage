@@ -7,6 +7,7 @@
 - CSV output has an `attribution` column, and KML credits every source in the document's description.
 - A "Data licence" section in the README and the reference: what the ODbL asks of results (attribution, derivative databases, produced works), with links.
 - A "Privacy" section in the README: what each data source and mode reveals, and to which host.
+- A public benchmark in the repository (not the gem): `rake benchmark` scores results against hand-drawn references, overall and per category, on a pinned Overture release, and `rake benchmark:compare` diffs two runs. It ships as a skeleton with placeholder sites.
 
 ### Security
 
