@@ -125,7 +125,8 @@ end
 
 def output_flags(o, opts)
   o.on("--out FILE", "Write here instead of printing; the format follows the extension") { |v| opts[:out] = v }
-  o.on("--format NAME", Curtilage::Formats::OUTPUTS.map(&:to_s), "geojson (default), ndjson, csv or kml") do |v|
+  o.on("--format NAME", Curtilage::Formats::OUTPUTS.map(&:to_s),
+       "geojson (default), ndjson, csv, kml, or with --out: geoparquet, gpkg, fgb") do |v|
     opts[:format] = v.to_sym
   end
   o.on("--min-confidence N", Float, "Leave out results with confidence below N (0 to 1)") do |v|
@@ -277,7 +278,8 @@ end
 def open_batch(opts, format, ids)
   raise ArgumentError, "--resume needs unique site ids" if opts[:resume] && ids.uniq.size != ids.size
 
-  Curtilage::Batch.new(format: format, out: opts[:out], store: opts.fetch(:store_zone, true), resume: opts[:resume])
+  Curtilage::Batch.new(format: format, out: opts[:out], store: opts.fetch(:store_zone, true), resume: opts[:resume],
+                       duckdb: opts.slice(:duckdb, :extension_directory))
 end
 
 def run_batch(opts, sites, todo, fixes, batch)

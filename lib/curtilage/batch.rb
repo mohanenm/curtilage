@@ -7,23 +7,28 @@ module Curtilage
   # CSV are streamed chunk by chunk, so memory stays flat, into OUT.part
   # (renamed to OUT at the end, so readers never see half a file), which
   # --resume picks up after a crash or Ctrl-C. GeoJSON and KML are single
-  # documents, so they're written whole at the end.
+  # documents, so they're written whole at the end. GeoParquet, GeoPackage
+  # and FlatGeobuf stream NDJSON into OUT.part and are converted by DuckDB
+  # at the end (GisFormats).
   class Batch
     CHUNK = 500
     STREAMED = %i[ndjson csv].freeze
+    CONVERTED = GisFormats::FORMATS
 
     attr_reader :done
 
-    # out: a path, or nil for io. resume: carry on from OUT.part.
-    def initialize(format:, out: nil, store: true, resume: false, output: $stdout)
-      @format = format.to_sym
+    # out: a path, or nil for io. resume: carry on from OUT.part. duckdb:
+    # { duckdb:, extension_directory: } for the converted formats.
+    def initialize(format:, out: nil, store: true, resume: false, output: $stdout, duckdb: {})
+      @target = format.to_sym
+      @format = CONVERTED.include?(@target) ? :ndjson : @target
       @out = out
-      @store = store
+      @store = CONVERTED.include?(@target) || store
       @io = output
+      @duckdb = duckdb
       @done = Set.new
       @buffer = [[], []]
-      raise ArgumentError, "--resume needs --out FILE.ndjson or FILE.csv" if resume && !(out && streamed?)
-
+      check(out, resume)
       if out && streamed?
         open_part(resume)
       elsif streamed? && @format == :csv
@@ -32,6 +37,13 @@ module Curtilage
     end
 
     def streamed? = STREAMED.include?(@format)
+
+    def check(out, resume)
+      raise ArgumentError, "#{@target} needs --out FILE" if CONVERTED.include?(@target) && !out
+      return unless resume && !(out && streamed?)
+
+      raise ArgumentError, "--resume needs --out FILE.ndjson or FILE.csv (or a GIS format)"
+    end
 
     # The .part file next to out; its fixed name is what lets a later run
     # resume it.
@@ -50,6 +62,8 @@ module Curtilage
     def finish
       if @file
         @file.close
+        return convert if CONVERTED.include?(@target)
+
         File.rename(part, @out)
       elsif !streamed?
         text = Formats.write(@buffer[0], @format, ids: @buffer[1], store: @store)
@@ -60,6 +74,11 @@ module Curtilage
     end
 
     private
+
+    def convert
+      GisFormats.convert(part, @out, @target, **@duckdb)
+      File.delete(part)
+    end
 
     def open_part(resume)
       if resume && File.file?(part)

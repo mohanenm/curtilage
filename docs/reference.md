@@ -314,6 +314,10 @@ Reading pins:
 
 Writing results: `Formats.write(results, format, ids: nil, store: true)` returns text.
 
+#### GIS formats
+
+GeoParquet (`.parquet`, GeoParquet 1.0 metadata), GeoPackage (`.gpkg`) and FlatGeobuf (`.fgb`) are binary files, written by the command line (`--out FILE`) or `Curtilage::Batch.new(format: :gpkg, out: path, duckdb: {})` then `add` and `finish`. The run streams NDJSON into `OUT.part` (so `--resume` works) and DuckDB converts it at the end, beside the target, then renames it into place. One row a site, in EPSG:4326 ([lng, lat]): `id`, `ok`, `method`, `flags` (`;`-separated), `confidence`, `building`, `area_m2`, `attribution`, `gem_version`, `data_source`, `features_sha256`, `provenance` (the full record as JSON), `store_wkt`, and the premises as `geometry` (null without premises). FlatGeobuf, meant for web maps, holds only the sites with premises: its spatial index can't take an empty geometry. Needs DuckDB's `spatial` extension (GDAL is built into it).
+
 | Format | What |
 |---|---|
 | `:geojson` | One FeatureCollection: for each pin, its premises, (unless `store: false`) its store zone, and any [zones](#zones) asked for, with `properties.id`, `properties.role` and everything `to_geojson` carries. |
@@ -386,7 +390,7 @@ curtilage doctor
 
 - `generate`: premises and store zones for one or more pins.
   - Pins: `--pin LNG,LAT` (repeat for several; ids 1, 2, ...) and/or `--in FILE` (CSV, GeoJSON or NDJSON; see [Files](#files-curtilageformats)). `--in -` reads standard input, as NDJSON unless `--in-format csv|geojson|ndjson` says otherwise; `--in-format` also overrides a file's extension.
-  - Output: printed as GeoJSON, or `--out FILE` in the format its extension names (`.geojson`/`.json`, `.ndjson`/`.jsonl`, `.csv`, `.kml`). `--format geojson|ndjson|csv|kml` overrides. The file is written whole (to a temporary name, then renamed) and replaces any file there; a symbolic link at that path is refused.
+  - Output: printed as GeoJSON, or `--out FILE` in the format its extension names (`.geojson`/`.json`, `.ndjson`/`.jsonl`, `.csv`, `.kml`, `.parquet`, `.gpkg`, `.fgb`). `--format geojson|ndjson|csv|kml|geoparquet|gpkg|fgb` overrides; the last three need `--out` ([GIS formats](#gis-formats)). The file is written whole (to a temporary name, then renamed) and replaces any file there; a symbolic link at that path is refused.
   - Data: `--source auto|geofabrik|overture` (default auto), `--cache-dir DIR`, `--catalogue DIR`, `--parquet FILE`.
   - Style: `--preset whole_lot|tight|centre` or a profile name with `--profiles FILE`, `--buildings osm|osm_or_ml|osm_filled|ml`, `--[no-]store`, `--entrances near|all` (`entrances:`).
   - Geofences: `--simplify N` keeps at most N corners per premises, never dropping the pin or store zone (`Result#simplified`). Every GeoJSON/NDJSON premises carries `enclosing_circle` and `fit_circle`; CSV has `circle_*` and `fit_*` columns.

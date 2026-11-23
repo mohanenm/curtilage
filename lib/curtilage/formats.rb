@@ -17,7 +17,7 @@ module Curtilage
   # fields, doubled quotes, commas and newlines inside quotes).
   module Formats
     INPUTS = %i[csv geojson ndjson].freeze
-    OUTPUTS = %i[geojson ndjson csv kml].freeze
+    OUTPUTS = %i[geojson ndjson csv kml geoparquet gpkg fgb].freeze
     LNG_COLUMNS = %w[lng lon long longitude].freeze
     LAT_COLUMNS = %w[lat latitude].freeze
     ID_COLUMNS = %w[id site_id name].freeze
@@ -45,6 +45,7 @@ module Curtilage
       when ".geojson", ".json" then :geojson
       when ".ndjson", ".jsonl" then :ndjson
       when ".kml" then :kml
+      else GisFormats.format_of(path)
       end
     end
 
@@ -236,6 +237,7 @@ module Curtilage
       when :ndjson then ndjson(results, ids, store)
       when :csv then csv(results, ids)
       when :kml then kml(results, ids, store)
+      when *GisFormats::FORMATS then raise ArgumentError, "#{format} needs a file: give --out (Batch writes it)"
       else raise ArgumentError, "unknown output format #{format.inspect} (have: #{OUTPUTS.join(", ")})"
       end
     end

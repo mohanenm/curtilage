@@ -120,6 +120,7 @@ end
 - **GeoJSON** (`.geojson`): one FeatureCollection, the premises and store zone of each pin, with the id in each feature's properties.
 - **NDJSON** (`.ndjson`, or `--format ndjson`): one GeoJSON Feature per site per line, with a [versioned schema](docs/schema/site-v1.json). For scripts in any language, and for GDAL, QGIS or DuckDB.
 - **KML** (`.kml`): for Google Earth, with the attribution in its description.
+- **GeoParquet** (`.parquet`), **GeoPackage** (`.gpkg`) and **FlatGeobuf** (`.fgb`), with `--out`: for analytics, QGIS and web maps. Written through DuckDB, one row a site with the premises as the geometry, the store zone as WKT, and the flags, confidence, attribution and provenance as columns. FlatGeobuf holds only the sites with premises.
 
 From Ruby, `Curtilage::Formats` does the same ([reference](docs/reference.md#files-curtilageformats)).
 
