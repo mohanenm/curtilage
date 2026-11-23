@@ -185,7 +185,7 @@ end
 
 def run(opts, pins, **extra)
   catalogue = opts[:catalogue] && Curtilage::Catalogue.from_dir(opts[:catalogue])
-  Curtilage.generate_many(pins, catalogue: catalogue, **opts.slice(:parquet, :source, :cache_dir),
+  Curtilage.generate_many(pins, catalogue: catalogue, **opts.slice(:parquet, :source, :cache_dir, :parcels),
                                 lookup: opts.slice(:duckdb, :extension_directory), data: { log: LOG },
                                 **style(opts), **extra)
 end
@@ -198,6 +198,9 @@ def data_flags(o, opts)
   o.on("--cache-dir DIR", "Keep on-demand builds here and reuse them for a month") { |v| opts[:cache_dir] = v }
   o.on("--catalogue DIR", "Use regions built ahead of time (curtilage build)") { |v| opts[:catalogue] = v }
   o.on("--parquet FILE", "Use one built region file") { |v| opts[:parquet] = v }
+  o.on("--parcels FILE", "Clip premises to your property lines (GeoJSON, or GeoParquet path or URL)") do |v|
+    opts[:parcels] = v
+  end
 end
 
 def style_flags(o, opts)

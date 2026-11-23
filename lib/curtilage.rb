@@ -20,12 +20,14 @@ require_relative "curtilage/generator_steps"
 require_relative "curtilage/generator_zones"
 require_relative "curtilage/generator_pin"
 require_relative "curtilage/generator_entrances"
+require_relative "curtilage/generator_parcels"
 require_relative "curtilage/candidates"
 require_relative "curtilage/profiles"
 require_relative "curtilage/corrections"
 require_relative "curtilage/diff"
 require_relative "curtilage/batch"
 require_relative "curtilage/lookup"
+require_relative "curtilage/parcels"
 require_relative "curtilage/download"
 require_relative "curtilage/zip_range"
 require_relative "curtilage/footprints"
@@ -54,6 +56,7 @@ module Curtilage
     pin_moved: "The pin wasn't on a building and was moved onto the nearest one (snap_m:): check it's the right one.",
     fallback: "The main method failed validation; the building rectangle was used.",
     ml_footprint: "Built on a machine-learned footprint, not an OSM building.",
+    beyond_parcel: "The site's parking runs past the building's parcel (parcels supplied): check the property line.",
     no_data: "No map data covers the pin.",
     partial_data: "Part of the area around the pin is in a region that isn't built.",
     error: "Generating this site raised an error (see its explanation); the rest of the batch went on.",
@@ -155,17 +158,30 @@ module Curtilage
   # corrections: { pin index => ring (or { ring:, store_ring: }) } uses
   # those polygons instead of generating (see Corrections); their pins
   # fetch no data.
-  def self.generate_many(pins, keep_features: false, max_pins: MAX_PINS_PER_CALL, corrections: {}, **options)
+  #
+  # parcels: property lines you supply (a GeoJSON file, or GeoParquet local
+  # or at a URL): the premises are clipped to the building's parcel (see
+  # Parcels). Nothing is fetched unless you point it at a URL.
+  def self.generate_many(pins, keep_features: false, max_pins: MAX_PINS_PER_CALL, corrections: {}, parcels: nil,
+                         **options)
     pins = checked_pins(pins, max_pins)
     fixed = Corrections.checked(corrections, pins.size)
     rest = pins.each_index.reject { |i| fixed.key?(i) }
-    generated = rest.empty? ? [] : fetch_and_generate(pins.values_at(*rest), **options)
+    todo = pins.values_at(*rest)
+    generated = rest.empty? ? [] : fetch_and_generate(todo, **with_parcels(todo, parcels, options))
     manual = fixed.map do |i, c|
       Corrections.result(pins[i], c[:ring], store_ring: c[:store_ring], validation: options.fetch(:validation, {}))
     end
     results = merge(pins.size, [rest, generated], [fixed.keys, manual])
     results.each { |r| [r, *r.candidates].each { |c| c.features = nil } } unless keep_features
     results
+  end
+
+  # The options, with the parcels near the pins if given.
+  def self.with_parcels(pins, parcels, options)
+    return options unless parcels
+
+    options.merge(parcel_index: Parcels.near(parcels, pins, options.fetch(:lookup, {})))
   end
 
   # Every pin checked before any data is fetched, so a bad one fails the
@@ -189,7 +205,7 @@ module Curtilage
       raise ArgumentError, "candidates must be a whole number from 1 to #{Candidates::MAX}: #{count.inspect}"
     end
 
-    opts = preset_options(options[:preset]).merge(options.except(:preset, :candidates))
+    opts = preset_options(options[:preset]).merge(options.except(:preset, :candidates, :parcel_index))
     method = opts.delete(:method)
     raise ArgumentError, "unknown method #{method.inspect}" if method && !Generator::METHODS.include?(method)
 
@@ -199,7 +215,9 @@ module Curtilage
   # One site's result, never an exception: a site whose generation raises
   # gets an error result (flag :error) and the rest of the batch goes on.
   def self.generate_safely(pin, features, options)
-    generate(pin, features, **options)
+    parcels = options[:parcel_index]&.fetch(pin, nil)
+    features += parcels if parcels && features.is_a?(Array)
+    generate(pin, features, **options.except(:parcel_index))
   rescue StandardError => e
     Result.new(method_name: nil, pin: pin, flags: [:error], building: nil,
                explanation: [], steps: [],
@@ -376,7 +394,7 @@ module Curtilage
     result.prepend_step("no map data covers this pin", step: "data", flag: :no_data)
   end
 
-  private_class_method :fetch_and_generate, :checked_pins, :check_data, :check_generation_options, :generate_safely,
-                       :auto_plan, :build_and_read, :wait_quietly, :from_builds, :merge, :from_overture, :run_many,
+  private_class_method :fetch_and_generate, :with_parcels, :checked_pins, :check_data, :check_generation_options,
+                       :generate_safely, :auto_plan, :build_and_read, :wait_quietly, :from_builds, :merge, :from_overture, :run_many,
                        :preset_options, :generate_one, :partial_data, :no_data
 end

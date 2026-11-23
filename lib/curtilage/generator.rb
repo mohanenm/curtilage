@@ -333,7 +333,8 @@ module Curtilage
 
     def take_lot(poly, lots, site)
       poly = add_parking(poly, lots, site) unless lots.empty?
-      site.opts[:entrances] == :all ? add_all_entrances(poly, site) : poly
+      poly = add_all_entrances(poly, site) if site.opts[:entrances] == :all
+      site.features.parcels.empty? ? poly : clip_to_parcel(poly, lots, site)
     end
 
     def neighbours(features, target, opts)

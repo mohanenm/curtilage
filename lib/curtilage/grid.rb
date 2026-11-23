@@ -121,6 +121,14 @@ module Curtilage
         self
       end
 
+      # Keeps only the cells inside one of the rings.
+      def keep_inside(rings)
+        cells = Array.new(@on.size, false)
+        rings.each { |xy| paint(xy, cells: cells) }
+        @on.each_index { |i| @on[i] &&= cells[i] }
+        self
+      end
+
       # The convex outline of the shape (from each row's first and last cell),
       # in metres; [] when empty.
       def hull
