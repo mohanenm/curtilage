@@ -28,7 +28,7 @@ module Curtilage
     # A number written as text: plain decimal, optionally with an exponent.
     # Ruby's Float() also takes hex ("0x1A") and underscores ("1_0"), which
     # in a pin list are mistakes, not numbers.
-    DECIMAL = /\A[+-]?(?:\d+(?:\.\d*)?|\.\d+)(?:[eE][+-]?\d+)?\z/
+    DECIMAL = /\A[+-]?(?:\d+(?:\.\d*)?|\.\d+)(?:[eE]([+-]?\d+))?\z/
 
     module_function
 
@@ -47,11 +47,20 @@ module Curtilage
     def coordinate(value, pin)
       number = case value
                when Numeric then value.to_f
-               when String then value.strip.match?(DECIMAL) ? Float(value.strip) : nil
+               when String then decimal(value.strip)
                end
       raise ArgumentError, "a pin is two numbers: #{pin.inspect}" unless number&.finite?
 
       number
+    end
+
+    # A plain decimal string as a float, or nil. Exponents past 300 are
+    # refused before converting: no coordinate needs one, and Float() warns.
+    def decimal(text)
+      match = DECIMAL.match(text)
+      return nil unless match && match[1].to_i.abs <= 300
+
+      Float(text)
     end
 
     # The limits with options applied; unknown keys and values that aren't

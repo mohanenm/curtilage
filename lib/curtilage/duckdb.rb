@@ -27,9 +27,7 @@ module Curtilage
     # output and prints a notice on stderr. Older versions ignore it.
     def capture(duckdb, sql, *args, timeout: Curtilage.config.duckdb_timeout, max_output: nil)
       Open3.popen3({ "DUCKDB_AGENT_MODE" => "0" }, duckdb, *args, pgroup: true) do |stdin, stdout, stderr, wait|
-        feed = Thread.new { feed(stdin, sql) }
-        out = Thread.new { read_capped(stdout, max_output, wait.pid) }
-        err = Thread.new { read_capped(stderr, MAX_ERROR_BYTES, wait.pid) }
+        feed, out, err = pipe_threads([stdin, stdout, stderr], sql, max_output, wait.pid)
         finished = begin
           wait.join(timeout)
         rescue Exception # rubocop:disable Lint/RescueException
@@ -51,6 +49,14 @@ module Curtilage
                    "`curtilage doctor` checks."
     end
 
+    # Threads that write the SQL and read both outputs; their values carry
+    # any error, so they don't report it themselves.
+    def pipe_threads(pipes, sql, max_output, pid)
+      stdin, stdout, stderr = pipes
+      [Thread.new { feed(stdin, sql) }, Thread.new { read_capped(stdout, max_output, pid) },
+       Thread.new { read_capped(stderr, MAX_ERROR_BYTES, pid) }].each { |t| t.report_on_exception = false }
+    end
+
     def feed(stdin, sql)
       stdin.write(sql)
     rescue Errno::EPIPE, IOError
@@ -60,6 +66,8 @@ module Curtilage
     end
 
     # All of stream, or :too_large once it passes cap (stopping the process).
+    # A stream closed under it (the run was abandoned: interrupted, timed
+    # out) ends the read quietly.
     def read_capped(stream, cap, pid)
       data = String.new
       while (chunk = stream.read(65_536))
@@ -69,6 +77,8 @@ module Curtilage
         signal("TERM", pid)
         return :too_large
       end
+      data
+    rescue IOError
       data
     end
 
@@ -112,12 +122,15 @@ module Curtilage
       "SET extension_directory = #{folder};"
     end
 
-    # The CLI's version line ("v2.0.1 (Cyanoptera) 8d78114e90"), or nil;
-    # asked once per binary.
+    # The CLI's version line ("v2.0.1 (Cyanoptera) 8d78114e90"), or nil if
+    # it can't be run (the run that needs it reports that); asked once per
+    # binary.
     def version(duckdb)
       (@versions ||= {}).fetch(duckdb) do
         out, _, status = capture(duckdb, "", "--version")
         @versions[duckdb] = status.success? ? out.strip : nil
+      rescue Error
+        nil
       end
     end
 
