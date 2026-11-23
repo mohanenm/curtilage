@@ -53,6 +53,20 @@ class CatalogueTest < Minitest::Test
     end
   end
 
+  def test_results_carry_the_build_attribution
+    Dir.mktmpdir do |dir|
+      credits = ["© OpenStreetMap contributors", "Microsoft Global ML Building Footprints (CDLA Permissive 2.0)"]
+      File.write(File.join(dir, "east.json"),
+                 JSON.generate(format: 1, region: "test/east", parquet: "east.parquet", bbox: [-85, 34, -80, 37],
+                               attribution: credits))
+      cat = Curtilage::Catalogue.from_dir(dir)
+      result = Curtilage.send(:generate_one, [-82.0, 35.0], [], cat.files_for([-82.0, 35.0]), cat, {})
+
+      assert_equal credits, result.attribution
+      assert_equal credits, result.to_geojson[:properties][:attribution]
+    end
+  end
+
   def test_generate_many_flags_pins_with_no_data
     with_catalogue do |cat, _|
       results = Curtilage.generate_many([[-100.0, 35.0]], catalogue: cat)

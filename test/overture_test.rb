@@ -12,6 +12,10 @@ class OvertureTest < Minitest::Test
   def test_buildings_split_osm_from_other_sources
     assert_includes O.columns("building"),
                     "WHEN sources[1].dataset = 'OpenStreetMap' THEN 'building' ELSE 'ml_building'"
+    # The source reaches the results (for attribution), and every
+    # collection's scan has the column, so the UNION lines up.
+    assert_includes O.grouped_scan("building", FILES, [0], [BOX]), "d.source"
+    %w[building segment infrastructure].each { |c| assert_includes O.columns(c), "AS source" }
     assert_includes O.filter("building"), "NOT coalesce(is_underground, false)"
   end
 
@@ -43,5 +47,24 @@ class OvertureTest < Minitest::Test
 
   def test_unknown_source
     assert_raises(ArgumentError) { Curtilage.generate_many([[-80.0, 35.0]], source: :bing) }
+  end
+
+  # Non-OSM buildings are credited by their source, only when the result
+  # could use them, and their names are cleaned like any map text.
+  def test_attribution_names_the_building_sources_used
+    scene = Object.new.extend(SyntheticScene)
+    ml = scene.polygon("ml_building", 9, -10, -7.5, 10, 7.5).merge("source" => "Microsoft ML Buildings")
+    odd = scene.polygon("ml_building", 10, 50, -10, 70, 10).merge("source" => "Odd\u0007 Source\n#{"x" * 200}")
+    pin = SyntheticScene::PIN
+
+    filled = Curtilage.generate(pin, [ml, odd], buildings: :osm_filled)
+    credits = O.attribution(filled.features)
+
+    assert_equal O::ATTRIBUTION, credits.first(2)
+    assert_includes credits, "Building footprints: Microsoft ML Buildings (via Overture Maps)"
+    assert(credits.none? { |c| c.match?(/[[:cntrl:]]/) })
+    assert(credits.all? { |c| c.size <= 125 })
+    assert_equal O::ATTRIBUTION, O.attribution(Curtilage.generate(pin, [ml], buildings: :osm).features)
+    assert_equal O::ATTRIBUTION, O.attribution(nil)
   end
 end
