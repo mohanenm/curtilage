@@ -32,7 +32,7 @@ What curtilage trusts, what it doesn't, who might attack it, and how each attack
 
 **A shared cache on a multi-user machine.** Another user who can write to the cache folder could replace a built region with a crafted one. Keep the cache in a folder only you can write to (see the gaps below).
 
-**A compromised upstream release.** Downloads go only to the listed hosts over HTTPS. Geofabrik publishes no checksums, so a build checks each file's zip CRC, which catches corruption but not deliberate tampering. The DuckDB binary and its extensions come from DuckDB: install DuckDB from a source you trust.
+**A compromised upstream release.** Downloads go only to the listed hosts over HTTPS. Geofabrik publishes no checksums, so a build checks each file's zip CRC, which catches corruption but not deliberate tampering, and records every downloaded file's size and SHA256 in the region's metadata: a later build of the same dated extract warns if anything changed. The DuckDB binary and its extensions come from DuckDB: install DuckDB from a source you trust.
 
 **Hostile configuration** (environment variables, `setup_sql:`, the DuckDB path). Configuration is trusted by design: whoever sets it already controls what runs. It's documented here so nobody fills it from untrusted input.
 
@@ -56,7 +56,7 @@ What curtilage trusts, what it doesn't, who might attack it, and how each attack
 
 Being worked on; this list shrinks as they're fixed.
 
-- The cache folder is created with default permissions and isn't checked for other writers; cached files have no recorded checksums; downloaded files' SHA256 isn't recorded.
+- The cache folder is created with default permissions and isn't checked for other writers; cached files have no recorded checksums.
 - There's no offline mode that guarantees no network use.
 - A site that raises during generation aborts its whole batch; there's no cap on pins per call.
 - CI actions aren't pinned to commit SHAs; the Docker image downloads DuckDB without a checksum and isn't pinned to a base-image digest.

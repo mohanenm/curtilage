@@ -82,4 +82,27 @@ class BuildTest < Minitest::Test
       end
     end
   end
+
+  def test_sources_record_each_layer_file_and_spot_upstream_changes
+    Dir.mktmpdir do |dir|
+      File.write(File.join(dir, "gis_osm_roads_free_1.shp"), "roads")
+      File.write(File.join(dir, "gis_osm_roads_free_1.dbf"), "attributes")
+      File.write(File.join(dir, "notes.txt"), "not a layer")
+      source = B.source_record("north-america/us/delaware", "261121", dir)
+
+      assert_equal "delaware-261121-free.shp.zip", source["file"]
+      assert_equal %w[gis_osm_roads_free_1.dbf gis_osm_roads_free_1.shp], source["members"].keys
+      assert_equal Digest::SHA256.hexdigest("roads"), source["members"]["gis_osm_roads_free_1.shp"]["sha256"]
+      previous = JSON.parse(JSON.generate(sources: [source]))
+
+      assert_empty B.upstream_changes(previous, [source])
+      altered = JSON.parse(JSON.generate(source))
+      altered["members"]["gis_osm_roads_free_1.shp"]["sha256"] = "0" * 64
+
+      assert_equal ["delaware-261121-free.shp.zip"], B.upstream_changes(previous, [altered])
+      assert_empty B.upstream_changes(nil, [altered])
+      other_day = altered.merge("file" => "delaware-261122-free.shp.zip")
+      assert_empty B.upstream_changes(previous, [other_day])
+    end
+  end
 end

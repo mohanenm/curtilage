@@ -21,6 +21,7 @@
 - `--out` files are written atomically, and a symbolic link at the target is refused before any work starts.
 - Fuzz tests for the CSV and GeoJSON readers, map-data parsing, geometry on degenerate input, validation, and generation near the poles and the antimeridian (`FUZZ_ITERATIONS` for longer runs). They found no crash; sites on the antimeridian get no polygon (now a known limitation).
 - Zip extraction caps what the layers may inflate to (20 GB in all, 200 times per member), and a whole zip downloaded when a server can't serve ranges gets the same name and size checks before `unzip`, which now drops folder paths.
+- Builds record the size and SHA256 of every file they download in the region's metadata, and warn when a rebuild finds Geofabrik's file for the same date has changed.
 - Text placed into DuckDB SQL (paths, bucket URLs, folders) may not contain line breaks or NUL bytes, `memory_limit` must look like `"400MB"`, and `threads` must be 1 to 64. Tests push crafted values through every path into SQL.
 
 ### Fixed
