@@ -42,6 +42,7 @@ What curtilage trusts, what it doesn't, who might attack it, and how each attack
 
 - **Pins**: every entry point goes through `Validation.pin`: two finite plain decimal numbers, in range.
 - **SQL**: text values go through `DuckDB.quote`, which also refuses line breaks and NUL bytes (the DuckDB CLI treats a line starting with `.` as its own command); numbers through `Float()`/`Integer()`; pins through `Validation.pin`; `memory_limit` must match a size pattern and `threads` must be 1 to 64. `test/sql_safety_test.rb` pushes crafted values through each path into SQL.
+- **DuckDB runs** (`DuckDB.capture`): each in its own process group, stopped with everything it started after a timeout (600 s for lookups, 3600 s for builds); output read as it arrives and DuckDB stopped once it passes the cap; lookups and Overture reads capped at 1 GB of memory; error messages stripped of the query excerpt DuckDB quotes, which can hold the box around a pin.
 - **Commands**: every external program (DuckDB, `curl`, `unzip`, `git` in the benchmark) runs through `Open3`, `system` or `IO.popen` with an argument list, never a shell string.
 - **Downloads** (`Download`): only `ALLOWED_HOSTS`; HTTPS only (`curl --proto =https`); no redirects followed; size capped while streaming; written to a `.part` file and renamed only when complete; transient failures retried three times.
 - **Zip extraction** (`ZipRange`): only plain file names (no folders, so nothing can be written outside the target, and no symlinks are created); at most 1,000 entries; compressed size capped; inflated size must match the header; CRC-32 checked.
@@ -53,7 +54,6 @@ What curtilage trusts, what it doesn't, who might attack it, and how each attack
 
 Being worked on; this list shrinks as they're fixed.
 
-- DuckDB runs have no timeout, and lookups no memory cap; DuckDB's output is read in full before its size is checked. A failed query's error message can quote the query, including the box around a pin.
 - The preview has no Content-Security-Policy; the CSV formula guard misses a leading `|`, `%`, whitespace before a formula character, and full-width forms.
 - `--out` follows a symlink at the target and isn't written atomically.
 - The cache folder is created with default permissions and isn't checked for other writers; cached files have no recorded checksums; downloaded files' SHA256 isn't recorded.

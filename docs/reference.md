@@ -22,7 +22,7 @@ Premises for many pins, in pin order. Pins that share map data share the work.
 | `cache_dir:` | `Curtilage.config.cache_dir` (none) | Keep on-demand builds here and reuse them for a month. Without it, builds go to a temporary folder deleted afterwards. |
 | `catalogue:` | none | A `Curtilage::Catalogue` of regions built ahead of time (overrides `source:`). |
 | `parquet:` | none | One built file, or a list, local or `s3://`, `gs://`, `https://` (overrides `source:`). |
-| `lookup:` | `{}` | `duckdb:`, `extension_directory:` (default: the configuration), `setup_sql:` (e.g. `CREATE SECRET` for a private bucket), `radius_deg:` (how far around each pin to read, default 0.004). |
+| `lookup:` | `{}` | `duckdb:`, `extension_directory:` (default: the configuration), `setup_sql:` (e.g. `CREATE SECRET` for a private bucket), `radius_deg:` (how far around each pin to read, default 0.004), `memory_limit:` (DuckDB's memory cap for lookups and Overture reads, default `"1GB"`), `timeout:` (seconds before a DuckDB query is stopped, default `Curtilage.config.duckdb_timeout`, 600). |
 | `data:` | `{}` | For builds: `max_age_days:` (31), `ml_footprints:` (`"microsoft"`), `parallel_builds:` (1; each build peaks near 600 MB, so raise it to 2-3 only on machines with the memory). For `:auto`: `auto_build_min_pins:` (10). For Overture: `release:` (default: the latest; a release name such as `"2026-11-18.0"`). `log:` where build progress goes (anything with `puts`; default standard error). |
 | `preset:` | none | `:whole_lot`, `:tight` or `:centre` (below). |
 | `method:` | none | `:grow_trim` or `:building` to force one method, no fallback. |
@@ -158,7 +158,7 @@ The surroundings come from `Result#features`, so pass results from `generate_man
 
 - `Curtilage::Audit.check(pin, ring, features, thresholds: {}, **options)`: checks an existing polygon. Returns a report with `verdict` (`:ok`, `:review`, `:invalid`), `reasons` (`crosses_road`, `covers_neighbour`, `differs_from_generated`, validation warnings), `overlap`, `road_m`, `neighbour_m2` and the `generated` result.
 - `Curtilage::Validation.check(pin, ring, **thresholds)`: the checks every polygon goes through.
-- `Curtilage::Build.run(region, out_dir:, work_dir:, **options)`: build a region's files ahead of time (`date:`, `ml_footprints:`, `memory_limit:` `"400MB"` (a size such as `"2GB"`), `threads:` `1` (1 to 64), `keep_downloads:`). Downloads retry network hiccups (3 tries) and use `curl` when available. Each build records its region's outline from Geofabrik's index.
+- `Curtilage::Build.run(region, out_dir:, work_dir:, **options)`: build a region's files ahead of time (`date:`, `ml_footprints:`, `memory_limit:` `"400MB"` (a size such as `"2GB"`), `threads:` `1` (1 to 64), `timeout:` `3600` seconds for the build query, `keep_downloads:`). Downloads retry network hiccups (3 tries) and use `curl` when available. Each build records its region's outline from Geofabrik's index.
 - `Curtilage::Catalogue.from_dir(dir, base_url: nil)`: the regions built into a folder; `base_url:` when the Parquet files live in a bucket. It uses each region's recorded outline to decide which files cover a pin, and `coverage(pin)` says whether that's `:full`, `:partial` or `:none`.
 - `Curtilage::Lookup.features(parquet:, pin:)` / `features_many(parquet:, pins:)`: the map features around pins, from built files.
 - `Curtilage::Overture.features_many(pins)`: the map features around pins, from Overture Maps.
@@ -177,6 +177,7 @@ Set once instead of passing on every call. Defaults come from the environment.
 | `extension_directory` | `CURTILAGE_EXTENSIONS` | DuckDB's own |
 | `cache_dir` | `CURTILAGE_CACHE_DIR` | none (temporary folders) |
 | `source` | `CURTILAGE_SOURCE` | `auto` |
+| `duckdb_timeout` | `CURTILAGE_DUCKDB_TIMEOUT` | `600` seconds per lookup or Overture query; DuckDB is then stopped, with anything it started |
 | | `CURTILAGE_CURL` | Downloads use the `curl` command when installed (much faster); `0` forces Ruby's own HTTP client |
 
 ```ruby
@@ -206,7 +207,7 @@ curtilage doctor
   - Exits 1 if any result isn't usable, so scripts can tell.
 - `preview`: generates the same way (same options, except `--format`), then writes the page described under [Preview](#preview-curtilagepreview). `--out FILE` (default `curtilage-preview.html`); `--buffer METRES` also draws the premises grown by that much.
 - `build REGION` writes `REGION.parquet` and `REGION.json`. REGION is a US state (`tennessee`, `new-york`) or a Geofabrik path (`europe/germany/bayern`). Options: `--out DIR` (default `.`), `--work DIR`, `--date YYMMDD`, `--keep-downloads`, `--ml-footprints microsoft`, `--duckdb`, `--extension-directory`.
-- `doctor` checks that DuckDB runs and its extensions load, and says what to install if not.
+- `doctor` checks that DuckDB runs and its extensions load, and says what to install if not. It prints the DuckDB version and the path of the binary that runs: `CURTILAGE_DUCKDB` runs whatever it names, so it's trusted configuration.
 
 Run `curtilage COMMAND --help` for the same list.
 

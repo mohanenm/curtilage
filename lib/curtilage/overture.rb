@@ -164,7 +164,8 @@ module Curtilage
 
     def setup(options, remote:)
       ext = options[:extension_directory]
-      [(DuckDB.extension_sql(ext, options.fetch(:duckdb, "duckdb")) if ext), "INSTALL spatial; LOAD spatial;",
+      [(DuckDB.extension_sql(ext, options.fetch(:duckdb, "duckdb")) if ext),
+       DuckDB.memory_limit(options.fetch(:memory_limit, Lookup::DEFAULT_MEMORY)), "INSTALL spatial; LOAD spatial;",
        # Pins in the same files share one read of each file's metadata.
        (if remote
           # A region-only secret (no keys, so reads stay anonymous): DuckDB 2.0
@@ -179,13 +180,14 @@ module Curtilage
     # Remote reads occasionally stall and DuckDB exits without a message;
     # one retry gets past that.
     def run(sql, options, attempts: 2)
-      out, err, status = DuckDB.capture(options.fetch(:duckdb, "duckdb"), sql, "-json")
+      out, err, status = DuckDB.capture(options.fetch(:duckdb, "duckdb"), sql, "-json",
+                                        timeout: options.fetch(:timeout, Curtilage.config.duckdb_timeout),
+                                        max_output: MAX_OUTPUT_BYTES)
       unless status.success?
         return run(sql, options, attempts: attempts - 1) if err.strip.empty? && attempts > 1
 
         raise Error, "duckdb failed: #{err.strip.empty? ? "no message (network?)" : err.strip[0, 500]}"
       end
-      raise Error, "duckdb output too large" if out.bytesize > MAX_OUTPUT_BYTES
 
       out.strip.empty? ? [] : JSON.parse(out)
     end

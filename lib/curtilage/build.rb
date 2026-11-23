@@ -33,7 +33,7 @@ module Curtilage
     SQL_FILE = File.expand_path("../../sql/build_from_shapefiles.sql", __dir__)
 
     OPTIONS = {
-      date: nil, memory_limit: "400MB", threads: 1,
+      date: nil, memory_limit: "400MB", threads: 1, timeout: 3600,
       ml_footprints: nil, keep_downloads: false, name: nil, outline: nil, log: $stderr
     }.freeze
 
@@ -58,7 +58,7 @@ module Curtilage
       ml, ml_bbox = ml_files(dirs, work_dir, opts)
       out = File.join(out_dir, "#{output_name(path, opts[:name])}.parquet")
       opts[:log].puts "building #{out}"
-      run_duckdb(sql(dirs, "#{out}.tmp", opts, ml_files: ml, ml_bbox: ml_bbox), opts[:duckdb])
+      run_duckdb(sql(dirs, "#{out}.tmp", opts, ml_files: ml, ml_bbox: ml_bbox), opts[:duckdb], timeout: opts[:timeout])
       File.rename("#{out}.tmp", out)
       write_metadata(out, path, fetched.map(&:last), opts)
       out
@@ -223,8 +223,8 @@ module Curtilage
       count
     end
 
-    def run_duckdb(sql, duckdb, *)
-      out, err, status = DuckDB.capture(duckdb, sql, *)
+    def run_duckdb(sql, duckdb, *, timeout: OPTIONS[:timeout])
+      out, err, status = DuckDB.capture(duckdb, sql, *, timeout: timeout)
       raise Error, "duckdb failed: #{err.strip[0, 500]}" unless status.success? && err.strip.empty?
 
       out

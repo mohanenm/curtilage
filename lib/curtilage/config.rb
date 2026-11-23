@@ -8,21 +8,32 @@
 #   CURTILAGE_CACHE_DIR   where on-demand builds are kept (default: a
 #                         temporary folder, deleted after each run)
 #   CURTILAGE_SOURCE      auto (default), geofabrik or overture
+#   CURTILAGE_DUCKDB_TIMEOUT  seconds a lookup or Overture query may take
+#                         before DuckDB is stopped (default 600)
 #
 #   Curtilage.configure do |c|
 #     c.cache_dir = "/var/cache/curtilage"
 #     c.source = :overture
 #   end
 module Curtilage
-  Config = Struct.new(:duckdb, :extension_directory, :cache_dir, :source, keyword_init: true)
+  Config = Struct.new(:duckdb, :extension_directory, :cache_dir, :source, :duckdb_timeout, keyword_init: true)
 
   def self.config
     @config ||= Config.new(
       duckdb: ENV.fetch("CURTILAGE_DUCKDB", "duckdb"),
       extension_directory: ENV.fetch("CURTILAGE_EXTENSIONS", nil),
       cache_dir: ENV.fetch("CURTILAGE_CACHE_DIR", nil),
-      source: ENV.fetch("CURTILAGE_SOURCE", "auto").to_sym
+      source: ENV.fetch("CURTILAGE_SOURCE", "auto").to_sym,
+      duckdb_timeout: seconds(ENV.fetch("CURTILAGE_DUCKDB_TIMEOUT", "600"))
     )
+  end
+
+  def self.seconds(value)
+    number = Float(value, exception: false)
+    raise ArgumentError, "CURTILAGE_DUCKDB_TIMEOUT must be a number of seconds: #{value.inspect}" \
+      unless number&.positive? && number.finite?
+
+    number
   end
 
   def self.configure

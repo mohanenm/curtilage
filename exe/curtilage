@@ -159,7 +159,7 @@ def check_duckdb(settings)
   version, err, status = Curtilage::DuckDB.capture(settings[:duckdb], "", "--version")
   abort "DuckDB (#{settings[:duckdb]}) failed to run: #{err.strip[0, 300]}" unless status.success?
 
-  puts "DuckDB: #{version.strip}"
+  puts "DuckDB: #{version.strip} (#{Curtilage::DuckDB.resolve(settings[:duckdb]) || settings[:duckdb]})"
 rescue Curtilage::Error => e
   abort e.message
 end
