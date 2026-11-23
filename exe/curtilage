@@ -206,7 +206,7 @@ def style_flags(o, opts)
   end
   o.on("--profiles FILE", "Your own named styles (JSON or YAML) for --preset") { |v| opts[:profiles] = v }
   o.on("--buildings FLAVOUR", Curtilage::Generator::BUILDING_SOURCES.map(&:to_s),
-       "osm (default), osm_filled or ml") { |v| opts[:buildings] = v.to_sym }
+       "osm (default), osm_or_ml, osm_filled or ml") { |v| opts[:buildings] = v.to_sym }
   o.on("--[no-]store", "Include the store zone (default: yes)") { |v| opts[:store_zone] = v }
   o.on("--entrances WHICH", Curtilage::Generator::ENTRANCES.map(&:to_s),
        "near (default) or all: follow driveways to every entrance (experimental; premises not convex)") do |v|

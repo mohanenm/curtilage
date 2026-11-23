@@ -98,7 +98,7 @@ module Curtilage
       max_vertices: 10,              # the premises are simplified to at most this many corners
       store_zone: true,              # also return the building's outline as the store zone
       max_store_vertices: 20,        # the store outline is simplified to at most this many corners
-      buildings: :osm,               # :osm, :osm_filled (ML footprints where OSM has none) or :ml
+      buildings: :osm,               # :osm, :osm_or_ml (ML only when no OSM building is in reach), :osm_filled or :ml
       scope: :site,                  # :site, or :centre (the whole shopping centre when on a shared lot)
       validation: {},                # limits for Validation.check, e.g. { max_area_error_m2: 300_000 }
       precision: 7,                  # decimal places in output coordinates (7: about 1 cm)
@@ -109,7 +109,7 @@ module Curtilage
       lot_split: :square,            # shared lots: :square (cut square to the building) or :voronoi (nearest building)
     }.freeze
 
-    BUILDING_SOURCES = %i[osm osm_filled ml].freeze
+    BUILDING_SOURCES = %i[osm osm_or_ml osm_filled ml].freeze
     LOT_SPLITS = %i[square voronoi].freeze
     SCOPES = %i[site centre].freeze
 
@@ -160,7 +160,7 @@ module Curtilage
       pin = Validation.pin(pin)
       opts = checked_options(options)
       features = Features.new(pin, features) unless features.is_a?(Features)
-      features = choose_buildings(features, opts[:buildings])
+      features = choose_buildings(features, opts[:buildings], opts)
       log = Log.new([], [])
       log.note("dropped #{features.dropped} unusable OSM features", step: "drop_features") if features.dropped.positive?
       quality = pin_quality(features, opts)
@@ -210,16 +210,27 @@ module Curtilage
 
     # The building flavour: OSM only (default), OSM filled in with ML
     # footprints that don't overlap any OSM building, or ML footprints only.
-    def choose_buildings(features, source)
+    #
+    # :osm_or_ml uses OSM alone unless no OSM building is under the pin or
+    # within building_max_distance_m of it; then it fills in like
+    # :osm_filled, so a site missing from OSM can still get premises (flagged
+    # ml_footprint) while every other site is exactly as with :osm.
+    def choose_buildings(features, source, opts = DEFAULTS)
       case source
       when :osm then features
       when :ml then features.with_buildings(features.ml_buildings)
+      when :osm_or_ml then osm_in_reach?(features, opts) ? features : choose_buildings(features, :osm_filled)
       else
         extra = features.ml_buildings.reject do |m|
           features.buildings.any? { |b| b.near?(m) && Geometry.overlap?(b.hull, m.hull) }
         end
         features.with_buildings(features.buildings + extra)
       end
+    end
+
+    def osm_in_reach?(features, opts)
+      features.buildings.any? { |b| Geometry.contains?(b.xy, [0.0, 0.0]) } ||
+        !nearest_in_reach(features, opts, opts[:building_max_distance_m]).nil?
     end
 
     def finish(method, pin, shape, log, opts)
@@ -394,7 +405,7 @@ module Curtilage
     def missing_hint(opts)
       return "" unless opts[:buildings] == :osm
 
-      " (it may be missing from OpenStreetMap: try buildings: :osm_filled)"
+      " (it may be missing from OpenStreetMap: try buildings: :osm_or_ml)"
     end
 
     # A tiny structure (a canopy or kiosk roof) right by the pin loses to a

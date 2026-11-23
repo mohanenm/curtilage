@@ -50,7 +50,7 @@ class ResultTest < Minitest::Test
 
     assert_nil result.details
     assert_equal "no premises: no building within 30 m of the pin " \
-                 "(it may be missing from OpenStreetMap: try buildings: :osm_filled)", result.problem
+                 "(it may be missing from OpenStreetMap: try buildings: :osm_or_ml)", result.problem
     assert_nil Curtilage.generate(PIN, scene).problem
   end
 

@@ -31,7 +31,7 @@ module Curtilage
     def other_buildings(result, features, options)
       opts = Generator.checked_options(Curtilage.send(:preset_options, options[:preset])
                                                 .merge(options.except(:preset, :method)))
-      own = Generator.choose_buildings(features, opts[:buildings])
+      own = Generator.choose_buildings(features, opts[:buildings], opts)
       reach = own.buildings.filter_map do |b|
         distance = Geometry.distance_to_edges(b.xy, Generator::ORIGIN)
         [distance, b] if b.id != result.building && distance <= opts[:building_max_distance_m] &&

@@ -354,6 +354,21 @@ class GeneratorTest < Minitest::Test
     refute_includes result.flags, :ml_footprint
   end
 
+  # osm_or_ml: ML footprints only when OSM has no building in reach, so
+  # every other site comes out exactly as with :osm.
+  def test_osm_or_ml_falls_back_only_when_osm_has_nothing
+    only_ml = [ml(-1, -10, -7.5, 10, 7.5), road(4, "secondary", [[-200, -40], [200, -40]])]
+    rescued = Curtilage.generate(PIN, only_ml, buildings: :osm_or_ml)
+
+    assert_predicate rescued, :ok?
+    assert_includes rescued.flags, :ml_footprint
+
+    # An ML shed beside an OSM building would be a neighbour with :osm_filled.
+    with_osm = scene + [ml(-2, -30, -6, -24, 6)]
+
+    assert_equal Curtilage.generate(PIN, with_osm).ring, Curtilage.generate(PIN, with_osm, buildings: :osm_or_ml).ring
+  end
+
   def test_misspelt_options_are_refused
     error = assert_raises(ArgumentError) { Curtilage.generate(PIN, scene, parking_reach: 30) }
     assert_match(/unknown option\(s\): parking_reach/, error.message)
