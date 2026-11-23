@@ -1,0 +1,621 @@
+{
+ "type": "FeatureCollection",
+ "features": [
+  {
+   "type": "Feature",
+   "properties": {
+    "kind": "building",
+    "source": "hand"
+   },
+   "geometry": {
+    "type": "Point",
+    "coordinates": [
+     -75.2597809,
+     38.5468564
+    ]
+   }
+  },
+  {
+   "type": "Feature",
+   "properties": {
+    "kind": "own_parking",
+    "source": "hand"
+   },
+   "geometry": {
+    "type": "Point",
+    "coordinates": [
+     -75.2601725,
+     38.5468313
+    ]
+   }
+  },
+  {
+   "type": "Feature",
+   "properties": {
+    "kind": "own_parking",
+    "source": "hand"
+   },
+   "geometry": {
+    "type": "Point",
+    "coordinates": [
+     -75.2598774,
+     38.5465334
+    ]
+   }
+  },
+  {
+   "type": "Feature",
+   "properties": {
+    "kind": "own_parking",
+    "source": "hand"
+   },
+   "geometry": {
+    "type": "Point",
+    "coordinates": [
+     -75.2603763,
+     38.5466886
+    ]
+   }
+  },
+  {
+   "type": "Feature",
+   "properties": {
+    "kind": "own_parking",
+    "source": "hand"
+   },
+   "geometry": {
+    "type": "Point",
+    "coordinates": [
+     -75.2600223,
+     38.5463865
+    ]
+   }
+  },
+  {
+   "type": "Feature",
+   "properties": {
+    "kind": "entrance",
+    "source": "hand"
+   },
+   "geometry": {
+    "type": "Point",
+    "coordinates": [
+     -75.2607465,
+     38.5462523
+    ]
+   }
+  },
+  {
+   "type": "Feature",
+   "properties": {
+    "kind": "entrance",
+    "source": "hand"
+   },
+   "geometry": {
+    "type": "Point",
+    "coordinates": [
+     -75.2604675,
+     38.5463907
+    ]
+   }
+  },
+  {
+   "type": "Feature",
+   "properties": {
+    "kind": "service",
+    "source": "hand"
+   },
+   "geometry": {
+    "type": "Point",
+    "coordinates": [
+     -75.259797,
+     38.5471166
+    ]
+   }
+  },
+  {
+   "type": "Feature",
+   "properties": {
+    "kind": "service",
+    "source": "hand"
+   },
+   "geometry": {
+    "type": "Point",
+    "coordinates": [
+     -75.2596092,
+     38.5469362
+    ]
+   }
+  },
+  {
+   "type": "Feature",
+   "properties": {
+    "kind": "service",
+    "source": "hand"
+   },
+   "geometry": {
+    "type": "Point",
+    "coordinates": [
+     -75.2594,
+     38.5466802
+    ]
+   }
+  },
+  {
+   "type": "Feature",
+   "properties": {
+    "kind": "service",
+    "source": "hand"
+   },
+   "geometry": {
+    "type": "Point",
+    "coordinates": [
+     -75.2591372,
+     38.5463656
+    ]
+   }
+  },
+  {
+   "type": "Feature",
+   "properties": {
+    "kind": "service",
+    "source": "hand"
+   },
+   "geometry": {
+    "type": "Point",
+    "coordinates": [
+     -75.2588904,
+     38.5461432
+    ]
+   }
+  },
+  {
+   "type": "Feature",
+   "properties": {
+    "kind": "service",
+    "source": "hand"
+   },
+   "geometry": {
+    "type": "Point",
+    "coordinates": [
+     -75.2592659,
+     38.5464788
+    ]
+   }
+  },
+  {
+   "type": "Feature",
+   "properties": {
+    "kind": "landscaping",
+    "source": "hand"
+   },
+   "geometry": {
+    "type": "Point",
+    "coordinates": [
+     -75.2594268,
+     38.5465334
+    ]
+   }
+  },
+  {
+   "type": "Feature",
+   "properties": {
+    "kind": "shared_parking_near",
+    "source": "hand"
+   },
+   "geometry": {
+    "type": "Point",
+    "coordinates": [
+     -75.2604783,
+     38.5466844
+    ]
+   }
+  },
+  {
+   "type": "Feature",
+   "properties": {
+    "kind": "shared_parking_near",
+    "source": "hand"
+   },
+   "geometry": {
+    "type": "Point",
+    "coordinates": [
+     -75.2606821,
+     38.5466341
+    ]
+   }
+  },
+  {
+   "type": "Feature",
+   "properties": {
+    "kind": "shared_parking_near",
+    "source": "hand"
+   },
+   "geometry": {
+    "type": "Point",
+    "coordinates": [
+     -75.2598184,
+     38.5462187
+    ]
+   }
+  },
+  {
+   "type": "Feature",
+   "properties": {
+    "kind": "shared_parking_near",
+    "source": "hand"
+   },
+   "geometry": {
+    "type": "Point",
+    "coordinates": [
+     -75.2595073,
+     38.5460089
+    ]
+   }
+  },
+  {
+   "type": "Feature",
+   "properties": {
+    "kind": "shared_parking_near",
+    "source": "hand"
+   },
+   "geometry": {
+    "type": "Point",
+    "coordinates": [
+     -75.2593732,
+     38.5458453
+    ]
+   }
+  },
+  {
+   "type": "Feature",
+   "properties": {
+    "kind": "shared_parking_near",
+    "source": "hand"
+   },
+   "geometry": {
+    "type": "Point",
+    "coordinates": [
+     -75.2594376,
+     38.5456943
+    ]
+   }
+  },
+  {
+   "type": "Feature",
+   "properties": {
+    "kind": "shared_parking_near",
+    "source": "hand"
+   },
+   "geometry": {
+    "type": "Point",
+    "coordinates": [
+     -75.2597594,
+     38.5460047
+    ]
+   }
+  },
+  {
+   "type": "Feature",
+   "properties": {
+    "kind": "shared_parking_near",
+    "source": "hand"
+   },
+   "geometry": {
+    "type": "Point",
+    "coordinates": [
+     -75.2599525,
+     38.5461264
+    ]
+   }
+  },
+  {
+   "type": "Feature",
+   "properties": {
+    "kind": "sidewalk",
+    "source": "hand"
+   },
+   "geometry": {
+    "type": "Point",
+    "coordinates": [
+     -75.2612561,
+     38.5467264
+    ]
+   }
+  },
+  {
+   "type": "Feature",
+   "properties": {
+    "kind": "sidewalk",
+    "source": "hand"
+   },
+   "geometry": {
+    "type": "Point",
+    "coordinates": [
+     -75.2611113,
+     38.5465711
+    ]
+   }
+  },
+  {
+   "type": "Feature",
+   "properties": {
+    "kind": "sidewalk",
+    "source": "hand"
+   },
+   "geometry": {
+    "type": "Point",
+    "coordinates": [
+     -75.2609128,
+     38.546332
+    ]
+   }
+  },
+  {
+   "type": "Feature",
+   "properties": {
+    "kind": "sidewalk",
+    "source": "hand"
+   },
+   "geometry": {
+    "type": "Point",
+    "coordinates": [
+     -75.2605802,
+     38.5459502
+    ]
+   }
+  },
+  {
+   "type": "Feature",
+   "properties": {
+    "kind": "sidewalk",
+    "source": "hand"
+   },
+   "geometry": {
+    "type": "Point",
+    "coordinates": [
+     -75.2604246,
+     38.5457866
+    ]
+   }
+  },
+  {
+   "type": "Feature",
+   "properties": {
+    "kind": "sidewalk",
+    "source": "hand"
+   },
+   "geometry": {
+    "type": "Point",
+    "coordinates": [
+     -75.2602261,
+     38.5455516
+    ]
+   }
+  },
+  {
+   "type": "Feature",
+   "properties": {
+    "kind": "public_road",
+    "source": "hand"
+   },
+   "geometry": {
+    "type": "Point",
+    "coordinates": [
+     -75.2613527,
+     38.5466844
+    ]
+   }
+  },
+  {
+   "type": "Feature",
+   "properties": {
+    "kind": "public_road",
+    "source": "hand"
+   },
+   "geometry": {
+    "type": "Point",
+    "coordinates": [
+     -75.2611381,
+     38.5464788
+    ]
+   }
+  },
+  {
+   "type": "Feature",
+   "properties": {
+    "kind": "public_road",
+    "source": "hand"
+   },
+   "geometry": {
+    "type": "Point",
+    "coordinates": [
+     -75.2609611,
+     38.5462649
+    ]
+   }
+  },
+  {
+   "type": "Feature",
+   "properties": {
+    "kind": "public_road",
+    "source": "hand"
+   },
+   "geometry": {
+    "type": "Point",
+    "coordinates": [
+     -75.2606446,
+     38.5458873
+    ]
+   }
+  },
+  {
+   "type": "Feature",
+   "properties": {
+    "kind": "public_road",
+    "source": "hand"
+   },
+   "geometry": {
+    "type": "Point",
+    "coordinates": [
+     -75.2604568,
+     38.5456775
+    ]
+   }
+  },
+  {
+   "type": "Feature",
+   "properties": {
+    "kind": "public_road",
+    "source": "hand"
+   },
+   "geometry": {
+    "type": "Point",
+    "coordinates": [
+     -75.2607036,
+     38.5455936
+    ]
+   }
+  },
+  {
+   "type": "Feature",
+   "properties": {
+    "kind": "public_road",
+    "source": "hand"
+   },
+   "geometry": {
+    "type": "Point",
+    "coordinates": [
+     -75.260886,
+     38.5458201
+    ]
+   }
+  },
+  {
+   "type": "Feature",
+   "properties": {
+    "kind": "public_road",
+    "source": "hand"
+   },
+   "geometry": {
+    "type": "Point",
+    "coordinates": [
+     -75.2610093,
+     38.5460215
+    ]
+   }
+  },
+  {
+   "type": "Feature",
+   "properties": {
+    "kind": "public_road",
+    "source": "hand"
+   },
+   "geometry": {
+    "type": "Point",
+    "coordinates": [
+     -75.261122,
+     38.5461642
+    ]
+   }
+  },
+  {
+   "type": "Feature",
+   "properties": {
+    "kind": "public_road",
+    "source": "hand"
+   },
+   "geometry": {
+    "type": "Point",
+    "coordinates": [
+     -75.2612507,
+     38.5462942
+    ]
+   }
+  },
+  {
+   "type": "Feature",
+   "properties": {
+    "kind": "public_road",
+    "source": "hand"
+   },
+   "geometry": {
+    "type": "Point",
+    "coordinates": [
+     -75.2613902,
+     38.5465124
+    ]
+   }
+  },
+  {
+   "type": "Feature",
+   "properties": {
+    "kind": "neighbour_building",
+    "source": "hand"
+   },
+   "geometry": {
+    "type": "Point",
+    "coordinates": [
+     -75.2605534,
+     38.5469362
+    ]
+   }
+  },
+  {
+   "type": "Feature",
+   "properties": {
+    "kind": "neighbour_building",
+    "source": "hand"
+   },
+   "geometry": {
+    "type": "Point",
+    "coordinates": [
+     -75.260902,
+     38.5468229
+    ]
+   }
+  },
+  {
+   "type": "Feature",
+   "properties": {
+    "kind": "neighbour_building",
+    "source": "hand"
+   },
+   "geometry": {
+    "type": "Point",
+    "coordinates": [
+     -75.2593786,
+     38.5463865
+    ]
+   }
+  },
+  {
+   "type": "Feature",
+   "properties": {
+    "kind": "neighbour_building",
+    "source": "hand"
+   },
+   "geometry": {
+    "type": "Point",
+    "coordinates": [
+     -75.2592337,
+     38.5461977
+    ]
+   }
+  },
+  {
+   "type": "Feature",
+   "properties": {
+    "kind": "neighbour_building",
+    "source": "hand"
+   },
+   "geometry": {
+    "type": "Point",
+    "coordinates": [
+     -75.2589977,
+     38.5459754
+    ]
+   }
+  }
+ ]
+}
