@@ -423,5 +423,6 @@ module Curtilage
 
   private_class_method :fetch_and_generate, :with_parcels, :checked_pins, :check_data, :check_generation_options,
                        :generate_safely, :auto_plan, :build_and_read, :wait_quietly, :from_builds, :merge,
-                       :from_overture, :overture_options, :run_many, :preset_options, :generate_one, :partial_data, :no_data
+                       :from_overture, :overture_options, :run_many, :preset_options, :generate_one, :partial_data,
+                       :no_data
 end
