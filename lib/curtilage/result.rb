@@ -120,15 +120,23 @@ module Curtilage
     # The premises grown (positive metres) or shrunk (negative) evenly, for a
     # geofence with a margin: [[lng, lat], ...] closed. Corners are rounded
     # when growing. nil if there are no premises or they shrink away.
+    # Non-convex premises (entrances: :all) are buffered on a Grid, to within
+    # a cell (half a metre to two), keeping the part round the pin.
     def buffered(metres)
       return nil unless ring
 
       xy = Geometry.counter_clockwise(Geometry.open_ring(Geometry.project(ring, pin)))
-      grown = metres.negative? ? Geometry.clip_inside(xy, xy, -metres) : Geometry.round_buffer(xy, metres)
-      return nil if grown.size < 3 || Geometry.area(grown) < 1
+      grown = buffered_xy(xy, metres)
+      return nil if grown.nil? || grown.size < 3 || Geometry.area(grown) < 1
 
       out = Geometry.lnglat(Geometry.clean(grown), pin, provenance&.dig(:options, :precision) || 7)
       out << out.first
+    end
+
+    def buffered_xy(xy, metres)
+      return Geometry.buffer_any(xy, metres, [0.0, 0.0]) unless Geometry.convex?(xy)
+
+      metres.negative? ? Geometry.clip_inside(xy, xy, -metres) : Geometry.round_buffer(xy, metres)
     end
 
     def self.wkt(ring)

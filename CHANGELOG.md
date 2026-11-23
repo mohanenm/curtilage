@@ -2,6 +2,15 @@
 
 ## [Unreleased]
 
+### Added
+
+- `entrances: :all` (experimental, off by default): follows the mapped service roads from the lot to every entrance on a public road and adds a corridor along each, up to the kerb. The premises are then usually not convex. On the public benchmark's labels it takes in 12 of 24 labelled entrances (5 by default) without taking in more of what should stay out.
+- The public benchmark scores labelled points per use case (views), with a labelling page; see `benchmark/LABELS.md`.
+
+### Changed
+
+- Everything that reads premises (store and pickup zones, `details`, `Audit`, `Diff`, `Result#buffered`) works on non-convex shapes. `Diff` compares a hand-drawn non-convex polygon exactly instead of by its convex outline. Convex results are unchanged.
+
 ## [0.4.0] - 2026-11-23
 
 ### Breaking

@@ -20,7 +20,7 @@ module CurtilageBenchmark
   DATA = File.join(ROOT, "data", "benchmark")
   ID = /\A[a-z0-9][a-z0-9-]{0,63}\z/
   # Options read from JSON whose values are names, not strings.
-  SYMBOL_OPTIONS = %w[buildings scope preset method].freeze
+  SYMBOL_OPTIONS = %w[buildings scope preset method entrances].freeze
   G = Curtilage::Geometry
 
   module_function
@@ -41,8 +41,14 @@ module CurtilageBenchmark
       views: [File.join(DIR, "views")], cache: File.join(DATA, "cache"), runs: File.join(DATA, "runs"), private: false }
   end
 
+  # config.json, with any options in CURTILAGE_BENCHMARK_OPTIONS (a JSON
+  # object, e.g. '{"entrances":"all"}') added for trying a change.
   def config
-    JSON.parse(File.read(File.join(DIR, "config.json"), encoding: "utf-8"))
+    config = JSON.parse(File.read(File.join(DIR, "config.json"), encoding: "utf-8"))
+    extra = JSON.parse(ENV.fetch("CURTILAGE_BENCHMARK_OPTIONS", "{}"))
+    raise ArgumentError, "CURTILAGE_BENCHMARK_OPTIONS must be a JSON object" unless extra.is_a?(Hash)
+
+    config.merge("options" => config.fetch("options", {}).merge(extra))
   end
 
   # [{ "id", "category", "notes", "placeholder", "options", "pin" }, ...]
@@ -152,14 +158,12 @@ module CurtilageBenchmark
     metrics = { "reference_area_m2" => G.area(ref).round }
     return metrics.merge("iou" => 0.0) unless generated
 
-    overlap = G.clip_convex(ref, generated)
-    common = overlap.size >= 3 ? G.area(overlap) : 0
+    common = G.overlap_area(ref, generated)
     metrics.merge("iou" => (common / (G.area(generated) + G.area(ref) - common)).round(3),
                   "area_ratio" => (G.area(generated) / G.area(ref)).round(2))
   end
 
-  # Metres around the pin, counter-clockwise, open. The generated premises
-  # are convex, so clipping the (any-shape) reference by them gives the overlap.
+  # Metres around the pin, counter-clockwise, open.
   def local(ring, pin)
     G.counter_clockwise(G.open_ring(G.project(ring, pin)))
   end

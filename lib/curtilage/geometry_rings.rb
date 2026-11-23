@@ -109,22 +109,61 @@ module Curtilage
 
     # Drops the vertices that matter least (smallest triangle with their
     # neighbours) until at most max remain, but only while the ring stays
-    # simple and still holds inner margin metres inside. Works on any simple
-    # ring; may stop above max when no vertex can go.
-    def simplify_around(xy, max, inner, margin)
-      pts = xy.dup
+    # simple and still holds each of the inners (rings) margin metres
+    # inside. Works on any simple ring; may stop above max when no vertex
+    # can go.
+    # The inners must be inside to begin with.
+    def simplify_around(xy, max, inners, margin)
+      pts = counter_clockwise(xy)
       while pts.size > max
         n = pts.size
         order = (0...n).sort_by { |k| area([pts[(k - 1) % n], pts[k], pts[(k + 1) % n]]) }
-        drop = order.find do |k|
-          trial = pts.dup.tap { |t| t.delete_at(k) }
-          !edge_crosses_ring?(trial, (k - 1) % trial.size) && ring_inside?(inner, trial, margin)
-        end
+        drop = order.find { |k| droppable?(pts, k, inners, margin) }
         break unless drop
 
-        pts.delete_at(drop)
+        pts = pts.dup.tap { |t| t.delete_at(drop) }
       end
       pts
+    end
+
+    # Dropping corner k changes only the triangle it makes with its
+    # neighbours: a reflex corner adds it (the inners stay inside), a convex
+    # one cuts it off, which must miss each inner by margin. Either way the
+    # new edge mustn't cross the ring.
+    def droppable?(pts, index, inners, margin)
+      n = pts.size
+      a = pts[(index - 1) % n]
+      v = pts[index]
+      b = pts[(index + 1) % n]
+      trial = pts.dup.tap { |t| t.delete_at(index) }
+      return false if edge_crosses_ring?(trial, (index - 1) % trial.size)
+
+      cross(a, v, b).negative? || inners.all? { |ring| clear_of_cut?(ring, [a, v, b], margin) }
+    end
+
+    # Whether a ring that was inside stays margin metres inside once the
+    # triangle [a, v, b] is cut off along a-b.
+    def clear_of_cut?(ring, triangle, margin)
+      a, v, b = triangle
+      ring.none? { |p| in_triangle?(p, a, v, b) } &&
+        ring.each_index.none? { |i| segments_cross?(a, b, ring[i], ring[(i + 1) % ring.size]) } &&
+        ring.all? { |p| segment_distance(p, a, b) >= margin } &&
+        [a, b].all? { |q| distance_to_edges(ring, q) >= margin }
+    end
+
+    # Any simple ring grown (positive metres) or shrunk (negative) evenly, on
+    # a Grid: the outline round the part holding point, straightened to
+    # within a cell, or nil if nothing is left there. An extra cell either
+    # way keeps straightening from undoing the buffer (a grown ring still
+    # holds the input, a shrunk one stays inside it).
+    def buffer_any(xy, metres, point)
+      cell = (Math.sqrt(area(xy) + (metres.abs * metres.abs)) / 200).clamp(0.5, 2.0)
+      grid = Grid.new(bounds(xy), cell, pad: metres.abs + (2 * cell)).paint(xy)
+      grid.buffer(metres.positive? ? metres + cell : metres - cell)
+      return nil unless grid.keep_part?(point)
+
+      ring = douglas_peucker(grid.outline, cell)
+      ring.size >= 3 && !self_intersects?(ring) ? ring : nil
     end
 
     # Whether edge i of the ring crosses any edge not next to it.

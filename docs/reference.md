@@ -74,7 +74,7 @@ Premises from features you already have (from `Curtilage::Lookup.features` or `C
 | `features` | The map data it was made from (`Curtilage::Features`, in metres around the pin), or `nil` unless `keep_features: true`. |
 | `to_geojson(include_store: false, properties: {})` | A GeoJSON Feature (premises) with everything above in its properties, including the attribution to show; with `include_store: true`, a FeatureCollection of premises and store zone (`properties.role`). `properties:` are merged into each feature's properties (your own id, say). |
 | `to_wkt`, `store_wkt`, `approach_wkt`, `pickup_wkt`, `staging_wkt` | The premises and store zone as well-known text (`POLYGON ((lng lat, ...))`), for databases and spreadsheets. |
-| `buffered(metres)` | The premises grown (positive) or shrunk (negative) evenly, as a closed ring: a geofence with a margin. Corners are rounded when growing. `nil` if there are no premises or they shrink away. |
+| `buffered(metres)` | The premises grown (positive) or shrunk (negative) evenly, as a closed ring: a geofence with a margin. Corners are rounded when growing. `nil` if there are no premises or they shrink away. Non-convex premises (`entrances: :all`) are buffered on a half-metre to two-metre grid, keeping the part round the pin. |
 
 `provenance`:
 
@@ -159,6 +159,7 @@ All distances in metres, areas in square metres. These are `Curtilage::Generator
 | `validation` | `{}` | Limits for the validation every polygon goes through (below), e.g. `{ max_area_error_m2: 300_000 }` for a big-box store's lot. |
 | `snap_m` | `nil` | Move a pin that isn't on any building 1 m inside the nearest one within this distance (real buildings before kiosks), then generate from there. Flags `pin_moved`; `pin_quality` keeps where it was given. Useful for geocoded pins that land on the street, which otherwise pull the premises toward the road (they always hold the pin). |
 | `approach_m` | `nil` | Also make an approach zone: the premises grown by this much, for "customer is near" (see [Zones](#zones)). `Generator::DEFAULT_APPROACH_M` is 150. |
+| `entrances` | `:near` | `:near` takes in a driveway only where it leaves the lot close by. `:all` follows the mapped service roads from the lot to every place they meet a public road (up to 250 m along them, and at most 30 m alongside a street, so a frontage road isn't followed down the block) and adds a corridor 8 m wide along each, up to the kerb, kept off public roads, railways and neighbouring buildings. The premises are then usually **not convex**: a lot with corridors. They're simplified to `max_vertices` plus four corners per entrance (at most 50); if that can't be done they fall back to the convex outline, with a step saying so. Slower (about 0.3 s a site against 0.06 s). Experimental: off by default while it's judged on the benchmark. |
 | `pickup_m` | `nil` | Also make an estimated pickup zone: mapped parking within this much of the building ([Zones](#zones)). `Generator::DEFAULT_PICKUP_M` is 25. |
 | `precision` | `7` | Decimal places in output coordinates (7 is about 1 cm). Validation checks the rounded polygon. |
 
@@ -228,6 +229,7 @@ In GeoJSON they're extra features with `properties.role` `approach`, `pickup` an
 | `split_neighbour` | Cut short of, or halfway to, a neighbouring building. | `neighbour_gap_m` or `halfway` |
 | `keep_neighbour` | A neighbour touching the building couldn't be split off. | |
 | `take_driveway` | A driveway to the street was taken in. | `ENTRANCE_REACH_M` |
+| `take_entrance` | Corridors along driveways to further entrances were added (`entrances: :all`). | `entrances` |
 | `add_lot` | The claimed lot was added to the premises. | `parking_max_extent_m` |
 | `keep_off_neighbour` | Kept 1 m off a neighbour the lot reached. | |
 | `whole_centre` | The whole shopping centre (`scope: :centre`). | |

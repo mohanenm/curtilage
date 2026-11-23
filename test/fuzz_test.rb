@@ -21,8 +21,8 @@ class FuzzTest < Minitest::Test
 
   # Runs the block ITERATIONS times; a case that hangs or raises something
   # unexpected fails with the case number, so it can be replayed.
-  def cases
-    ITERATIONS.times do |i|
+  def cases(count = ITERATIONS)
+    count.times do |i|
       Timeout.timeout(5) { yield i }
     rescue Timeout::Error
       flunk "case #{i} (seed #{SEED}) took over 5 s"
@@ -88,6 +88,48 @@ class FuzzTest < Minitest::Test
       assert_operator features.dropped, :>=, 0
       Curtilage.generate(PIN, features)
     end
+  end
+
+  # entrances: :all builds non-convex premises on a Grid: whatever the scene,
+  # a result keeps every guarantee (closed simple ring round the pin, store
+  # zone inside, valid when ok?). Slower than the others, so a fifth of the
+  # cases.
+  def test_all_entrances_keep_the_guarantees
+    cases(ITERATIONS / 5) do
+      raw = random_scene
+      result = Curtilage.generate(PIN, raw, entrances: :all, pickup_m: 25)
+      next unless result.ring
+
+      ring = G.open_ring(G.project(result.ring, PIN))
+
+      assert G.closed?(result.ring)
+      refute G.self_intersects?(ring)
+      assert G.contains?(ring, [0.0, 0.0]) || G.distance_to_edges(ring, [0.0, 0.0]) < 0.01
+      [result.store_ring, result.pickup_ring].compact.each do |zone|
+        assert G.ring_inside?(G.open_ring(G.project(zone, PIN)), ring, 0.01)
+      end
+      assert_empty result.validation.errors if result.ok?
+    end
+  end
+
+  def random_box(id, kind, reach)
+    x = @rng.rand(-reach..reach)
+    y = @rng.rand(-reach..reach)
+    polygon(kind, id, x, y, x + @rng.rand(5.0..40.0), y + @rng.rand(5.0..40.0))
+  end
+
+  def random_line(id, highway, reach)
+    road(id, highway, Array.new(@rng.rand(2..5)) { [@rng.rand(-reach..reach), @rng.rand(-reach..reach)] })
+  end
+
+  def random_scene
+    [polygon("building", 1, -10, -7.5, 10, 7.5)] +
+      Array.new(@rng.rand(0..4)) { |i| random_box(10 + i, "building", 120.0) } +
+      Array.new(@rng.rand(0..3)) { |i| random_box(20 + i, "parking", 80.0) } +
+      Array.new(@rng.rand(0..3)) do |i|
+        random_line(30 + i, %w[secondary residential trunk].sample(random: @rng), 200.0)
+      end +
+      Array.new(@rng.rand(1..5)) { |i| random_line(40 + i, "service", 150.0) }
   end
 
   # Points in metres: often repeated, lined up or all in one place.

@@ -61,8 +61,7 @@ module Curtilage
       features.parking.sum do |lot|
         next 0 unless Geometry.bounds_near?(lot.bounds, area)
 
-        part = Geometry.clip_convex(lot.xy, premises)
-        part.size >= 3 ? Geometry.area(part) : 0
+        Geometry.overlap_area(lot.xy, premises)
       end
     end
 

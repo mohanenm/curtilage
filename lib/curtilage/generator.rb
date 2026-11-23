@@ -105,6 +105,7 @@ module Curtilage
       approach_m: nil,               # also an approach zone: the premises grown this much (nil: none)
       pickup_m: nil,                 # also a pickup zone: mapped parking this close to the building (nil: none)
       snap_m: nil,                   # move a pin that's off any building onto the nearest within this (nil: don't)
+      entrances: :near,              # :near, or :all (follow driveways to every entrance; premises not convex)
     }.freeze
 
     BUILDING_SOURCES = %i[osm osm_filled ml].freeze
@@ -188,6 +189,8 @@ module Curtilage
       raise ArgumentError, "unknown buildings: #{opts[:buildings].inspect} (have: #{BUILDING_SOURCES.join(", ")})" \
         unless BUILDING_SOURCES.include?(opts[:buildings])
       raise ArgumentError, "store_zone must be true or false" unless [true, false].include?(opts[:store_zone])
+      raise ArgumentError, "unknown entrances: #{opts[:entrances].inspect} (have: #{ENTRANCES.join(", ")})" \
+        unless ENTRANCES.include?(opts[:entrances])
     end
 
     def check_range(key, value, min, max, whole)
@@ -228,7 +231,8 @@ module Curtilage
       premises = premises_xy(xy, target, opts, log)
       result.ring = ring_of(premises, pin, opts[:precision])
       if target && opts[:store_zone]
-        result.store_ring = ring_of(store_xy(target, premises, opts, log), pin, opts[:precision])
+        store = store_xy(target, premises, opts, log)
+        result.store_ring = ring_of(store, pin, opts[:precision]) if store
       end
       result.validation = Validation.check(pin, result.ring, **opts[:validation])
       result.details = details(target, premises, features, pin, log, precision: opts[:precision])
@@ -241,6 +245,8 @@ module Curtilage
     # in ways that keep it and the pin.
     def premises_xy(xy, target, opts, log)
       xy = Geometry.clean(Geometry.counter_clockwise(xy))
+      return outline_xy(xy, target, opts, log) unless Geometry.convex?(xy)
+
       if target && !target.hull.all? { |p| inside?(xy, p) }
         wider = Geometry.counter_clockwise(Geometry.convex_hull(xy + target.hull))
         log.note("widened the premises to take in the whole building", step: "widen", features: [target.id],
@@ -253,6 +259,29 @@ module Curtilage
       log.note("simplified #{xy.size} vertices to at most #{opts[:max_vertices]}",
                step: "simplify", rule: "max_vertices", area_before_m2: m2(xy), area_after_m2: m2(simple))
       simple
+    end
+
+    # Non-convex premises (entrances: :all) were built round the building
+    # and pin; they're simplified only in ways that keep both inside (with
+    # room for the store zone) and the outline simple, to max_vertices plus
+    # four per entrance taken in (at most Validation's 50). If that can't be
+    # done, the convex outline is used instead.
+    def outline_xy(xy, target, opts, log)
+      budget = outline_budget(opts, log)
+      inner = [pin_square(opts).map { |p| p.map { |v| v.clamp(-0.5, 0.5) } }, *target&.hull&.then { |h| [h] }]
+      margin = store_margin(opts[:precision]) + 0.01
+      simple = Geometry.simplify_around(xy, budget, inner, margin)
+      return simple if simple.size <= budget && !Geometry.self_intersects?(simple) &&
+                       inner.all? { |r| Geometry.ring_inside?(r, simple, margin) }
+
+      log.note("kept the convex outline: the detailed one couldn't be simplified to #{budget} corners",
+               step: "simplify", rule: "max_vertices")
+      premises_xy(Geometry.convex_hull(xy), target, opts, log)
+    end
+
+    def outline_budget(opts, log)
+      extra = log.steps.to_a.any? { |s| s[:step] == "take_entrance" } ? 4 * (log.access || []).size : 0
+      [opts[:max_vertices] + extra, Validation::DEFAULTS[:max_vertices]].min
     end
 
     def inside?(xy, point)
@@ -283,8 +312,12 @@ module Curtilage
       claimed = lots.select { |lot| lot.kind == "building" }
       features = features.with_buildings(features.buildings - claimed) unless claimed.empty?
       poly = trim_at_neighbours(poly, features, target, opts, log)
-      poly = add_parking(poly, lots, Site.new(features, target, opts, log, shared)) unless lots.empty?
-      [poly, target]
+      [take_lot(poly, lots, Site.new(features, target, opts, log, shared)), target]
+    end
+
+    def take_lot(poly, lots, site)
+      poly = add_parking(poly, lots, site) unless lots.empty?
+      site.opts[:entrances] == :all ? add_all_entrances(poly, site) : poly
     end
 
     def neighbours(features, target, opts)

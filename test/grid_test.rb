@@ -74,7 +74,7 @@ class GridTest < Minitest::Test
     stairs = (0..10).flat_map { |k| [[k * 2.0, k * 2.0], [(k * 2.0) + 2, k * 2.0]] }
     ring = [[0.0, -5.0], [30.0, -5.0], [30.0, 22.0]] + stairs.reverse
     inner = [[20, -3], [25, -3], [25, 2], [20, 2]]
-    simple = G.simplify_around(ring, 5, inner, 0.5)
+    simple = G.simplify_around(ring, 5, [inner], 0.5)
 
     assert_operator simple.size, :<=, 5
     refute G.self_intersects?(simple)

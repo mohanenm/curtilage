@@ -146,6 +146,17 @@ module Curtilage
 
     def erase(xy) = paint(xy, value: false)
 
+    # Grows (positive metres) or shrinks (negative) the shape evenly.
+    def buffer(metres)
+      limit = (metres.abs / @cell)**2
+      raise ArgumentError, "buffer(#{metres}) needs pad: #{metres.abs} or more" if metres.abs > @pad + @cell
+
+      @on = if metres.positive? then Distance.squared(@on, @w, @h, true).map { |d| d <= limit }
+            else Distance.squared(@on, @w, @h, false).map { |d| d > limit }
+            end
+      self
+    end
+
     # Grows the shape by metres, then shrinks it back: gaps narrower than
     # twice that fill in, the outline elsewhere stays where it was.
     def close(metres)

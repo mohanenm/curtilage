@@ -53,8 +53,7 @@ module Curtilage
     end
 
     # [IoU, old area, new area] in square metres, or [nil, ...] when either
-    # ring is missing or not a usable shape. Premises are convex; a manual
-    # one that isn't is compared by its convex outline.
+    # ring is missing or not a usable shape. Either may be any shape.
     def overlap(ring_a, ring_b)
       origin = (ring_a || ring_b)&.first
       return [nil, nil, nil] unless origin.is_a?(Array) && Geometry.valid_coordinates?([origin])
@@ -63,8 +62,7 @@ module Curtilage
       areas = [a, b].map { |xy| xy && Geometry.area(xy).round }
       return [nil, *areas] unless a && b
 
-      inter = Geometry.clip_convex(a, Geometry.counter_clockwise(Geometry.convex_hull(b)))
-      shared = inter.size >= 3 ? Geometry.area(inter) : 0
+      shared = Geometry.overlap_area(a, b)
       [shared / (Geometry.area(a) + Geometry.area(b) - shared), *areas]
     end
 
