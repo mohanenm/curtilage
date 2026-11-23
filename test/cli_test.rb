@@ -29,7 +29,8 @@ class CliTest < Minitest::Test
 
   def test_bad_input_and_usage_exit_two
     [%w[generate], %w[generate --pin 95,-80,1], %w[generate --nope], %w[frobnicate], %w[build],
-     %w[generate --in missing.csv], %w[generate --format pdf --pin -80,35]].each do |args|
+     %w[generate --in missing.csv], %w[generate --format pdf --pin -80,35],
+     %w[generate --entrances some --pin -80,35]].each do |args|
       _, err, status = cli(*args)
 
       assert_equal 2, status.exitstatus, "#{args.join(" ")}: #{err}"
@@ -51,6 +52,14 @@ class CliTest < Minitest::Test
 
     assert_equal 4, status.exitstatus
     assert_includes err, "offline mode"
+  end
+
+  def test_entrances_flag_is_accepted
+    with_setup do |_, args|
+      _, err, status = cli("generate", *args, "--entrances", "all", "--format", "ndjson")
+
+      assert_equal 1, status.exitstatus, err # no map data, but no usage error
+    end
   end
 
   def test_results_alone_on_standard_output
