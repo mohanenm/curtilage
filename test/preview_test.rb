@@ -27,11 +27,11 @@ class PreviewTest < Minitest::Test
     policy = html[/<meta http-equiv="Content-Security-Policy" content="([^"]+)"/, 1]
 
     assert_includes policy, "default-src 'none'"
-    style = html[%r{<style>(.*?)</style>}m, 1]
-    script = html[%r{<script>(.*?)</script>}m, 1]
+    style = html[%r{<style\b[^>]*>(.*?)</style\s*>}im, 1]
+    script = html[%r{<script\b[^>]*>(.*?)</script\s*>}im, 1]
     assert_includes policy, "'sha256-#{Digest::SHA256.base64digest(style)}'"
     assert_includes policy, "'sha256-#{Digest::SHA256.base64digest(script)}'"
-    assert_equal 1, html.scan("<script").size
+    assert_equal 1, html.scan(/<script\b/i).size
     refute_match(%r{https?://}, html)
   end
 
@@ -48,7 +48,7 @@ class PreviewTest < Minitest::Test
 
     assert_empty tags - %w[html head meta title style body h1 p label select option span main section h2 svg path
                            title circle g text i details summary ol li script]
-    assert_equal 1, html.scan("<script").size
+    assert_equal 1, html.scan(/<script\b/i).size
     refute_includes html, "\u202E"
     assert_includes html, "&lt;script&gt;alert(1)&lt;/script&gt;"
     assert_includes html, "&quot;&gt;&lt;img src=x onerror=alert(1)&gt;"
