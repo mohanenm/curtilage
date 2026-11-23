@@ -35,7 +35,10 @@ Metrics/PerceivedComplexity:
   Max: 12
 Metrics/ModuleLength:
   Max: 450
+# AutoData (finding, building, caching and checking regions) is one job in
+# one class; 120 lines keeps the warning without forcing an artificial split.
 Metrics/ClassLength:
+  Max: 120
   Exclude: ["test/**/*"]
 
 # Keyword options are the public API's style; count positional ones only.

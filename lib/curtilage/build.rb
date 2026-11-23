@@ -273,7 +273,7 @@ module Curtilage
         opts[:log].puts "warning: #{name} differs from the copy the last build of this region used " \
                         "(republished upstream, or altered in transit): check before trusting either build"
       end
-      AutoData.write_atomically(file, JSON.pretty_generate(metadata(parquet, path, dates, rows, opts)))
+      Curtilage.write_atomically(file, JSON.pretty_generate(metadata(parquet, path, dates, rows, opts)))
     end
 
     def metadata(parquet, path, dates, rows, opts)

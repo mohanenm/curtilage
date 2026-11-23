@@ -85,6 +85,10 @@ module Curtilage
   # already cached); fewer pins are cheaper to read from Overture. Measured:
   # Overture about 5.6 s a pin, a mid-size US state about 60-90 s to build.
   AUTO_BUILD_MIN_PINS = 10
+  # One call's worth: more is likely a mistake, and a bigger batch should be
+  # split so a failure costs less (max_pins: raises it).
+  MAX_PINS_PER_CALL = 100_000
+  DATA_OPTIONS = %i[max_age_days ml_footprints parallel_builds log auto_build_min_pins release].freeze
 
   # Results for many pins, in pin order, looking features up once per group
   # of pins that share data.
@@ -105,14 +109,38 @@ module Curtilage
   # puts; default $stderr), release: (Overture). keep_features: true keeps each
   # result's map data (Result#features, which Preview draws); by default it's
   # dropped to save memory. Other options go to generate.
-  def self.generate_many(pins, keep_features: false, **)
-    results = fetch_and_generate(pins, **)
+  def self.generate_many(pins, keep_features: false, max_pins: MAX_PINS_PER_CALL, **)
+    results = fetch_and_generate(checked_pins(pins, max_pins), **)
     results.each { |r| r.features = nil } unless keep_features
     results
   end
 
+  # Every pin checked before any data is fetched, so a bad one fails the
+  # call at once (naming it) rather than after builds have run.
+  def self.checked_pins(pins, max)
+    raise ArgumentError, "pins must be a list of [lng, lat] pins" unless pins.is_a?(Array)
+    raise ArgumentError, "#{pins.size} pins is more than max_pins (#{max}): split the batch" if pins.size > max
+
+    pins.each_with_index.map do |pin, i|
+      Validation.pin(pin)
+    rescue ArgumentError => e
+      raise ArgumentError, "pin #{i + 1}: #{e.message}"
+    end
+  end
+
+  def self.check_data(data)
+    unknown = data.keys - DATA_OPTIONS
+    raise ArgumentError, "unknown data: option(s): #{unknown.join(", ")} (have: #{DATA_OPTIONS.join(", ")})" \
+      if unknown.any?
+
+    min_pins = data.fetch(:auto_build_min_pins, AUTO_BUILD_MIN_PINS)
+    raise ArgumentError, "auto_build_min_pins must be a whole number from 1: #{min_pins.inspect}" \
+      unless min_pins.is_a?(Integer) && min_pins >= 1
+  end
+
   def self.fetch_and_generate(pins, source: nil, catalogue: nil, parquet: nil, cache_dir: nil, lookup: {}, data: {},
                               **options)
+    check_data(data)
     lookup = duckdb_options(lookup)
     return run_many(pins, catalogue, parquet, lookup, options) if catalogue || parquet
 
@@ -221,6 +249,14 @@ module Curtilage
     outcomes
   end
 
+  # Readers never see a half-written file, even with several processes
+  # sharing a folder: written under a unique name, then renamed into place.
+  def self.write_atomically(file, data)
+    part = "#{file}.#{Process.pid}.#{Thread.current.object_id}.part"
+    File.binwrite(part, data)
+    File.rename(part, file)
+  end
+
   def self.preset_options(preset)
     return {} if preset.nil?
 
@@ -252,6 +288,7 @@ module Curtilage
     result.explanation.unshift("no map data covers this pin")
   end
 
-  private_class_method :fetch_and_generate, :auto_plan, :build_and_read, :wait_quietly, :from_builds, :merge,
-                       :from_overture, :run_many, :preset_options, :generate_one, :partial_data, :no_data
+  private_class_method :fetch_and_generate, :checked_pins, :check_data, :auto_plan, :build_and_read, :wait_quietly,
+                       :from_builds, :merge, :from_overture, :run_many, :preset_options, :generate_one, :partial_data,
+                       :no_data
 end

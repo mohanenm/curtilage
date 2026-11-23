@@ -189,4 +189,17 @@ class AutoDataTest < Minitest::Test
       assert_equal index, File.read(File.join(dir, "geofabrik-index.json"))
     end
   end
+
+  # Batch input is checked before any data is fetched.
+  def test_batch_input_is_checked_up_front
+    error = assert_raises(ArgumentError) { Curtilage.generate_many([[-80.0, 35.0], ["0x1A", 35.0]], source: :overture) }
+    assert_includes error.message, "pin 2:"
+    assert_raises(ArgumentError) { Curtilage.generate_many(Array.new(3) { [-80.0, 35.0] }, max_pins: 2) }
+    assert_raises(ArgumentError) { Curtilage.generate_many("-80,35") }
+    assert_raises(ArgumentError) { Curtilage.generate_many([[-80.0, 35.0]], data: { parallel_build: 2 }) }
+    assert_raises(ArgumentError) { Curtilage.generate_many([[-80.0, 35.0]], data: { auto_build_min_pins: 0 }) }
+    [{ parallel_builds: 9 }, { parallel_builds: "2" }, { max_age_days: -1 }].each do |bad|
+      assert_raises(ArgumentError, bad.inspect) { Curtilage::AutoData.new(**bad, log: StringIO.new) }
+    end
+  end
 end
