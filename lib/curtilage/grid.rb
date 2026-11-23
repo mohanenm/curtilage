@@ -1,0 +1,243 @@
+# frozen_string_literal: true
+
+module Curtilage
+  # A raster of the plane in metres, for shapes that clipping convex
+  # polygons can't make: unions and differences of polygons, gaps closed
+  # between a building and its parking. Painting cells sidesteps the
+  # degenerate cases of exact polygon booleans (shared edges, touching
+  # corners, holes); the outline it traces is within a cell of the exact
+  # one, and the checks made on that outline afterwards are exact.
+  class Grid
+    # Squared distance, in cells, from every cell to the nearest source cell
+    # (Felzenszwalb and Huttenlocher's exact transform, by rows then
+    # columns). cells: flat row-major array of true/false.
+    module Distance
+      FAR = 1e18 # "no source cell"
+
+      module_function
+
+      def squared(cells, width, height, source)
+        grid = cells.map { |v| v == source ? 0.0 : FAR }
+        height.times { |row| grid[row * width, width] = line(grid[row * width, width]) }
+        width.times do |col|
+          column = line(Array.new(height) { |row| grid[(row * width) + col] })
+          column.each_with_index { |d, row| grid[(row * width) + col] = d }
+        end
+        grid
+      end
+
+      # The lower envelope of parabolas rooted at each cell of one line.
+      def line(costs)
+        roots, bounds = envelope(costs)
+        k = 0
+        Array.new(costs.size) do |q|
+          k += 1 while bounds[k + 1] < q
+          ((q - roots[k])**2) + costs[roots[k]]
+        end
+      end
+
+      def envelope(costs)
+        roots = Array.new(costs.size, 0)
+        bounds = Array.new(costs.size + 1, 0.0)
+        bounds[0] = -FAR
+        bounds[1] = FAR
+        k = 0
+        (1...costs.size).each do |q|
+          s = meet(costs, q, roots[k])
+          s = meet(costs, q, roots[k -= 1]) while s <= bounds[k]
+          roots[k += 1] = q
+          bounds[k] = s
+          bounds[k + 1] = FAR
+        end
+        [roots, bounds]
+      end
+
+      # Where the parabolas rooted at q and p cross.
+      def meet(costs, q, p) = ((costs[q] + (q * q)) - (costs[p] + (p * p))) / (2.0 * (q - p))
+    end
+
+    # Tracing the outline of one part with no holes or corner touches.
+    module Trace
+      private
+
+      # The cell's sides that face an empty cell, as [from, to] corners
+      # (integer [col, row]) going counter-clockwise round the shape.
+      def sides(col, row)
+        i = (row * @w) + col
+        out = []
+        out << [[col, row], [col + 1, row]] unless row.positive? && @on[i - @w]
+        out << [[col + 1, row], [col + 1, row + 1]] unless col < @w - 1 && @on[i + 1]
+        out << [[col + 1, row + 1], [col, row + 1]] unless row < @h - 1 && @on[i + @w]
+        out << [[col, row + 1], [col, row]] unless col.positive? && @on[i - 1]
+        out
+      end
+
+      def chain(nexts)
+        start = nexts.keys.min
+        ring = [start]
+        point = nexts[start]
+        until point == start
+          ring << point
+          point = nexts.fetch(point)
+        end
+        ring
+      end
+
+      # Corner points in metres, dropping those on a straight run.
+      def corners_to_metres(ring)
+        n = ring.size
+        kept = ring.each_index.reject { |i| Geometry.cross(ring[(i - 1) % n], ring[i], ring[(i + 1) % n]).zero? }
+        kept.map { |i| [@x0 + (ring[i][0] * @cell), @y0 + (ring[i][1] * @cell)] }
+      end
+
+      # Fills both empty cells of any 2 x 2 block whose full cells touch only
+      # at a corner (the outline would pinch there). True if any changed.
+      def fill_corners
+        changed = false
+        (0...(@h - 1)).each do |row|
+          (0...(@w - 1)).each do |col|
+            a = (row * @w) + col
+            block = [a, a + 1, a + @w, a + @w + 1]
+            next unless [[true, false, false, true], [false, true, true, false]].include?(block.map { |i| @on[i] })
+
+            block.each { |i| @on[i] = true }
+            changed = true
+          end
+        end
+        changed
+      end
+    end
+
+    include Trace
+
+    attr_reader :cell
+
+    # bounds: [min_x, min_y, max_x, max_y] in metres; pad: empty margin in
+    # metres beyond them, at least the radius of any close (two cells are
+    # always added, so outlines never touch the edge).
+    def initialize(bounds, cell, pad: 0)
+      @cell = cell.to_f
+      @pad = pad
+      margin = pad + (2 * @cell)
+      @x0 = bounds[0] - margin
+      @y0 = bounds[1] - margin
+      @w = ((bounds[2] - bounds[0] + (2 * margin)) / @cell).ceil
+      @h = ((bounds[3] - bounds[1] + (2 * margin)) / @cell).ceil
+      @on = Array.new(@w * @h, false)
+    end
+
+    def count = @on.count(true)
+    def area = count * @cell * @cell
+    def on?(point) = @on[index_at(point) || -1] == true
+
+    # Sets (or clears) every cell whose centre is inside the ring.
+    def paint(xy, value: true)
+      return self if xy.size < 3
+
+      ys = xy.map(&:last)
+      rows(ys.min, ys.max).each do |row|
+        y = @y0 + ((row + 0.5) * @cell)
+        crossings(xy, y).each_slice(2) do |a, b|
+          cols(a, b).each { |col| @on[(row * @w) + col] = value } if b
+        end
+      end
+      self
+    end
+
+    def erase(xy) = paint(xy, value: false)
+
+    # Grows the shape by metres, then shrinks it back: gaps narrower than
+    # twice that fill in, the outline elsewhere stays where it was.
+    def close(metres)
+      return self unless metres.positive?
+      raise ArgumentError, "close(#{metres}) needs pad: #{metres} or more" if metres > @pad + @cell
+
+      limit = (metres / @cell)**2
+      grown = Distance.squared(@on, @w, @h, true).map { |d| d <= limit }
+      @on = Distance.squared(grown, @w, @h, false).map { |d| d > limit }
+      self
+    end
+
+    # Keeps only the shape joined (side to side) to the cell at point, with
+    # its holes filled and no cells touching only at a corner, so it has one
+    # simple outline. Returns false (and changes nothing) when that cell is
+    # empty.
+    def keep_part?(point)
+      start = index_at(point)
+      return false unless start && @on[start]
+
+      @on = reach([start]) { |i| @on[i] }
+      loop do
+        @on = reach(border) { |i| !@on[i] }.map(&:!)
+        break unless fill_corners
+      end
+      true
+    end
+
+    # The outline, counter-clockwise, as an open ring of cell corners in
+    # metres with straight runs merged. Call keep_part? first.
+    def outline
+      nexts = {}
+      @on.each_index do |i|
+        sides(i % @w, i / @w).each { |from, to| nexts[from] = to } if @on[i]
+      end
+      nexts.empty? ? [] : corners_to_metres(chain(nexts))
+    end
+
+    private
+
+    def index_at(point)
+      col = ((point[0] - @x0) / @cell).floor
+      row = ((point[1] - @y0) / @cell).floor
+      col.between?(0, @w - 1) && row.between?(0, @h - 1) ? (row * @w) + col : nil
+    end
+
+    def rows(y_min, y_max) = [((y_min - @y0) / @cell).floor, 0].max..[((y_max - @y0) / @cell).ceil, @h - 1].min
+
+    # Columns whose centres lie in [x_a, x_b).
+    def cols(x_a, x_b)
+      first = [((x_a - @x0) / @cell) - 0.5, 0].max.ceil
+      last = [((x_b - @x0) / @cell) - 0.5, @w].min.ceil - 1
+      first..last
+    end
+
+    def crossings(xy, y)
+      xy.each_index.filter_map do |i|
+        x1, y1 = xy[i]
+        x2, y2 = xy[(i + 1) % xy.size]
+        x1 + ((x2 - x1) * (y - y1) / (y2 - y1)) if (y1 > y) != (y2 > y)
+      end.sort
+    end
+
+    # Cells reachable side to side from starts through cells the block
+    # accepts.
+    def reach(starts, &)
+      seen = Array.new(@on.size, false)
+      stack = starts.select(&)
+      stack.each { |i| seen[i] = true }
+      until stack.empty?
+        neighbours(stack.pop).each do |j|
+          next if seen[j] || !yield(j)
+
+          seen[j] = true
+          stack << j
+        end
+      end
+      seen
+    end
+
+    def neighbours(index)
+      out = []
+      out << (index - 1) if (index % @w).positive?
+      out << (index + 1) if index % @w < @w - 1
+      out << (index - @w) if index >= @w
+      out << (index + @w) if index < @on.size - @w
+      out
+    end
+
+    def border
+      (0...@w).flat_map { |col| [col, ((@h - 1) * @w) + col] } +
+        (0...@h).flat_map { |row| [row * @w, (row * @w) + @w - 1] }
+    end
+  end
+end

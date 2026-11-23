@@ -523,33 +523,44 @@ module Curtilage
     # most lot. Falls back to a cut across the line between their nearest
     # points.
     def split_from_neighbour(poly, hull, other, angle, stop: HALFWAY)
-      cuts = 4.times.filter_map { |k| square_cut(poly, hull, other, angle + (k * Math::PI / 2), stop) }
-      return cuts.max_by { |c| c.size >= 3 ? Geometry.area(c) : 0 } unless cuts.empty?
-
-      diagonal_cut(poly, hull, other, stop)
+      origin, normal = neighbour_line(poly, hull, other, angle, stop)
+      normal ? Geometry.clip_half_plane(poly, origin, normal) : poly
     end
 
-    def diagonal_cut(poly, hull, other, stop)
+    # The cut split_from_neighbour makes, as [origin, outward normal] (the
+    # neighbour's side is where (p - origin) . normal > 0), or nil when the
+    # buildings' nearest points coincide.
+    def neighbour_line(poly, hull, other, angle, stop = HALFWAY)
+      lines = 4.times.filter_map { |k| square_line(hull, other, angle + (k * Math::PI / 2), stop) }
+      return diagonal_line(hull, other, stop) if lines.empty?
+
+      lines.max_by do |origin, normal|
+        cut = Geometry.clip_half_plane(poly, origin, normal)
+        cut.size >= 3 ? Geometry.area(cut) : 0
+      end
+    end
+
+    def diagonal_line(hull, other, stop)
       _, p, q = Geometry.closest_points(hull, other)
       normal = [q[0] - p[0], q[1] - p[1]]
       length = Math.hypot(*normal)
-      return poly if length < 1e-6
+      return nil if length < 1e-6
 
       normal = normal.map { |v| v / length }
       at = stop.call(Geometry.dot(p, normal), Geometry.dot(q, normal))
-      Geometry.clip_half_plane(poly, [normal[0] * at, normal[1] * at], normal)
+      [[normal[0] * at, normal[1] * at], normal]
     end
 
     # The cut facing direction (radians) where stop puts it in the gap, or
     # nil when the buildings overlap along that direction.
-    def square_cut(poly, hull, other, direction, stop)
+    def square_line(hull, other, direction, stop)
       normal = [Math.cos(direction), Math.sin(direction)]
       near = hull.map { |p| Geometry.dot(p, normal) }.max
       far = other.map { |p| Geometry.dot(p, normal) }.min
       return nil unless far > near
 
       at = stop.call(near, far)
-      Geometry.clip_half_plane(poly, [normal[0] * at, normal[1] * at], normal)
+      [[normal[0] * at, normal[1] * at], normal]
     end
 
     def side(point, origin, normal)
