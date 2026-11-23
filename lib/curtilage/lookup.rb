@@ -100,17 +100,33 @@ module Curtilage
 
     # wkb::GEOMETRY: DuckDB 1.4 reads the column as a geometry already, 2.0
     # as bytes, and only a cast suits both.
-    #
-    # One scan per pin with constant bounds, so DuckDB can skip every row
-    # group (and file) away from that pin; a join on a pins table can't.
+    COLUMNS = "id, feature, highway, name, ST_AsGeoJSON(wkb::GEOMETRY)::VARCHAR AS geometry"
+
+    # Local files: one scan joined to a table of the pins' boxes, about ten
+    # times faster than a scan per pin (reading a local file whole is cheap).
+    # Remote files: one scan per pin with constant bounds, so DuckDB reads
+    # only the row groups (and files) near each pin, not whole files.
     def query(files, pins, radius)
       list = files.map { |f| quote(f) }.join(", ")
-      scans = pins.each_with_index.map do |pin, i|
+      boxes = pins.map do |pin|
         lng, lat = checked(pin)
-        "SELECT #{i} AS pin_index, id, feature, highway, name, " \
-          "ST_AsGeoJSON(wkb::GEOMETRY)::VARCHAR AS geometry FROM read_parquet([#{list}]) " \
-          "WHERE max_lng >= #{lng - radius} AND min_lng <= #{lng + radius} " \
-          "AND max_lat >= #{lat - radius} AND min_lat <= #{lat + radius}"
+        [lng - radius, lat - radius, lng + radius, lat + radius]
+      end
+      files.any? { |f| f.to_s.match?(REMOTE) } ? scan_per_pin(list, boxes) : joined(list, boxes)
+    end
+
+    def joined(list, boxes)
+      rows = boxes.each_with_index.map { |(x0, y0, x1, y1), i| "(#{i}, #{x0}, #{y0}, #{x1}, #{y1})" }
+      "CREATE TEMP TABLE boxes (pin_index INTEGER, x0 DOUBLE, y0 DOUBLE, x1 DOUBLE, y1 DOUBLE); " \
+        "INSERT INTO boxes VALUES #{rows.join(", ")};\n" \
+        "SELECT b.pin_index, #{COLUMNS} FROM read_parquet([#{list}]) f JOIN boxes b " \
+        "ON f.max_lng >= b.x0 AND f.min_lng <= b.x1 AND f.max_lat >= b.y0 AND f.min_lat <= b.y1;"
+    end
+
+    def scan_per_pin(list, boxes)
+      scans = boxes.each_with_index.map do |(x0, y0, x1, y1), i|
+        "SELECT #{i} AS pin_index, #{COLUMNS} FROM read_parquet([#{list}]) " \
+          "WHERE max_lng >= #{x0} AND min_lng <= #{x1} AND max_lat >= #{y0} AND min_lat <= #{y1}"
       end
       "#{scans.join(" UNION ALL ")};"
     end

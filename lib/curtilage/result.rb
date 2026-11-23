@@ -9,8 +9,15 @@ module Curtilage
   # premises were made. features: the map data it was made from (a Features,
   # in metres around pin), kept for previews and debugging; generate_many
   # drops it unless asked (keep_features: true), and it isn't serialised.
+  # steps: the explanation as records, one per line, for tools to show or
+  # audit (see the reference for the fields).
+  # provenance: what the result was made from and with (gem version, data
+  # source and release, options, a hash of the map data), so it can be
+  # reproduced; it holds no timestamps, so the same inputs give the same
+  # output byte for byte.
   Result = Struct.new(:method_name, :pin, :ring, :store_ring, :explanation, :flags, :validation, :building,
-                      :details, :attribution, :features, keyword_init: true) do
+                      :details, :attribution, :features, :provenance, :steps, :approach_ring, :pickup_ring,
+                      :staging_point, :pin_quality, :candidates, keyword_init: true) do
     def ok?
       !ring.nil? && validation.ok?
     end
@@ -35,26 +42,80 @@ module Curtilage
       include_store ? { type: "FeatureCollection", features: list } : list.first
     end
 
-    # [premises Feature, store Feature] (the store's geometry is nil without
-    # a store zone).
+    # [premises Feature, store Feature, then any zones asked for] (the
+    # store's geometry is nil without a store zone). properties.role tells
+    # them apart: premises, store, approach or pickup.
     def geojson_features(attribution: self.attribution || Result::OSM_ATTRIBUTION, properties: {})
       premises = {
         type: "Feature",
         geometry: Result.polygon(ring),
         properties: properties.merge(
-          role: "premises", ok: ok?, method: method_name, flags: flags, building: building, details: details,
+          role: "premises", ok: ok?, pin_quality: pin_quality, confidence: confidence,
+          confidence_factors: confidence_factors,
+          method: method_name, flags: flags, building: building, details: details,
           errors: validation.errors, warnings: validation.warnings, metrics: validation.metrics,
-          explanation: explanation, attribution: attribution
+          explanation: explanation, steps: steps || [], attribution: attribution, provenance: provenance
         ),
       }
       store = { type: "Feature", geometry: Result.polygon(store_ring),
                 properties: properties.merge(role: "store", building: building, attribution: attribution) }
-      [premises, store]
+      [premises, store] + zone_features(properties.merge(attribution: attribution)) + candidate_features(properties)
     end
+
+    # Each candidate (generate's candidates:) as a Feature of its own, role
+    # candidate, rank 1 for the most confident, with everything a premises
+    # Feature carries.
+    def candidate_features(properties)
+      (candidates || []).each_with_index.map do |c, i|
+        c.geojson_features(properties: properties).first.tap do |f|
+          f[:properties] = f[:properties].merge(role: "candidate", rank: i + 1)
+        end
+      end
+    end
+
+    # The candidates in short, for NDJSON and the like.
+    def candidate_summaries
+      (candidates || []).each_with_index.map do |c, i|
+        { rank: i + 1, geometry: Result.polygon(c.ring), confidence: c.confidence, flags: c.flags,
+          building: c.building, method: c.method_name, explanation: c.explanation }
+      end
+    end
+
+    # The approach and pickup zones and the staging point, when asked for
+    # and made. The pickup zone and staging point are always estimated (no
+    # source maps pickup spots or entrances).
+    def zone_features(properties)
+      zones = { "approach" => [Result.polygon(approach_ring), {}],
+                "pickup" => [Result.polygon(pickup_ring), { estimated: true }],
+                "staging" => [Result.point(staging_point), { estimated: true }] }
+      zones.filter_map do |role, (geometry, extra)|
+        geometry && { type: "Feature", geometry: geometry, properties: properties.merge(role: role, **extra) }
+      end
+    end
+
+    # Where vehicles enter from the street: [{ point: [lng, lat], street:,
+    # street_class:, street_id:, driveway: }, ...] (details[:entrances]).
+    def entrances = details ? details[:entrances] : []
+
+    # Puts a step, and its line of the explanation, before the others (the
+    # data source, a failed first attempt).
+    def prepend_step(text, step:, **fields)
+      explanation.unshift(text)
+      (self.steps ||= []).unshift({ step: step, text: text, **fields }.compact)
+      self
+    end
+
+    # How far to trust the result, 0 to 1 (see Confidence), and the factors
+    # behind it: [{ name:, met:, weight: }, ...].
+    def confidence = Confidence.assess(self)[0]
+    def confidence_factors = Confidence.assess(self)[1]
 
     # Well-known text, for databases and spreadsheets.
     def to_wkt = Result.wkt(ring)
     def store_wkt = Result.wkt(store_ring)
+    def approach_wkt = Result.wkt(approach_ring)
+    def pickup_wkt = Result.wkt(pickup_ring)
+    def staging_wkt = staging_point && "POINT (#{staging_point.join(" ")})"
 
     # The premises grown (positive metres) or shrunk (negative) evenly, for a
     # geofence with a margin: [[lng, lat], ...] closed. Corners are rounded
@@ -66,7 +127,7 @@ module Curtilage
       grown = metres.negative? ? Geometry.clip_inside(xy, xy, -metres) : Geometry.round_buffer(xy, metres)
       return nil if grown.size < 3 || Geometry.area(grown) < 1
 
-      out = Geometry.lnglat(Geometry.clean(grown), pin)
+      out = Geometry.lnglat(Geometry.clean(grown), pin, provenance&.dig(:options, :precision) || 7)
       out << out.first
     end
 
@@ -78,6 +139,10 @@ module Curtilage
 
     def self.polygon(ring)
       ring && { type: "Polygon", coordinates: [ring] }
+    end
+
+    def self.point(lnglat)
+      lnglat && { type: "Point", coordinates: lnglat }
     end
   end
 

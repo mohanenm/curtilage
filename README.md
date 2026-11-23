@@ -1,10 +1,12 @@
 # curtilage
 
+[![Gem Version](https://badge.fury.io/rb/curtilage.svg)](https://badge.fury.io/rb/curtilage)
+
 *Curtilage: the land immediately around a building, such as its yard, drive and lot.*
 
 Generates a site's **premises polygon** (the building plus its customer-facing lot) and a **store zone** (the building's own outline) from free map data, so nobody has to draw them by hand.
 
-**Status:** 0.3, rule-based; the API may change before 1.0. How it's been checked so far, on private sets of real sites that can't be published:
+**Status:** 0.4, rule-based; the API may change before 1.0. On the [public benchmark](benchmark/README.md) (ten public sites in Delaware, with references drawn to the whole customer-facing lot), all ten get a valid polygon and the median overlap (IoU) is 0.30: the premises mostly fall short of the whole lot, which the next round of rule changes targets. Anyone can rerun it (`rake benchmark`). On private sets of real sites that can't be published:
 
 - On 164 sites the rules had never seen, 159 (97%) got a polygon that passed the gem's own validation (pin inside, closed, no self-intersection, plausible size). Nearly all five misses were buildings missing from OpenStreetMap. Passing validation means usable, not necessarily right.
 - Against hand-drawn premises for those sites, the median overlap (IoU) was 0.47. Hand-drawn polygons often hug the building more tightly than the whole lot this gem aims for, so IoU undersells generous but correct results.
@@ -30,7 +32,7 @@ Or from the shell:
 
 ```sh
 curtilage generate --pin -80.0,35.0                     # one pin: GeoJSON to the screen
-curtilage generate --in sites.csv --out premises.csv    # a file of pins in; CSV, GeoJSON or KML out
+curtilage generate --in sites.csv --out premises.csv    # a file of pins in; CSV, GeoJSON, NDJSON or KML out
 curtilage preview --in sites.csv                        # a page with a map of each site, to check by eye
 ```
 
@@ -88,7 +90,9 @@ end
 - Styles: `preset: :whole_lot` (default), `:tight` (building plus a small margin) or `:centre`. `store_zone: false` skips the store zone. Every rule's distance is an option ([reference](docs/reference.md#generation-options)).
 - Built ahead of time, for instant lookups: `curtilage build tennessee`, then `generate_many(pins, catalogue: Curtilage::Catalogue.from_dir("."))`. Files can also live in a bucket (`s3://`, `gs://`, `https://`).
 - Just the building at a pin: `Curtilage.building_at(pin)`.
+- No pin list? `curtilage places --region virginia --category pharmacy` (or `--brand`) lists matching places from Overture Maps as pins to generate from (`Curtilage.places` in Ruby). Each row names its sources and licences.
 - Big sites (a big-box store's lot can pass 100,000 m2, where validation stops by default): raise the limits, e.g. `validation: { max_area_m2: 200_000, max_area_error_m2: 300_000 }` ([reference](docs/reference.md#validation-limits)).
+- Fix the few bad sites once: `--corrections fixed.geojson` (your edited output, matched by id) uses your polygons instead of generating them, marked manual. After a data refresh, `curtilage diff last.ndjson new.ndjson` lists only the sites whose premises changed enough to look at again.
 - Check a polygon someone already drew: `Curtilage::Audit.check(pin, ring, features)` returns `:ok`, `:review` (with reasons) or `:invalid`.
 
 ### What each result holds
@@ -98,18 +102,23 @@ end
 | `ok?` | It passed validation. Never save one that isn't. |
 | `ring` / `store_ring` | The premises and the store zone, `[[lng, lat], ...]` closed. |
 | `flags` | Reasons a person should look first ([below](#flags)). |
+| `pin_quality` | Where the pin was given: `on_building`, `on_road`, `near_building` or `far`, and how far from the nearest building. With `snap_m: 30`, a pin off any building is moved onto the nearest one (flag `pin_moved`). |
+| `confidence` | 0 to 1, from documented rules (fallback used, pin off the building, no mapped parking, ...), to decide which sites to review first ([reference](docs/reference.md#confidence)). |
 | `explanation` | Each step, in plain words. |
 | `details` | The building (id, name, type, area, outline), mapped parking inside the premises and an estimate of spaces, street frontage, and where driveways meet the street. Rough, like the map data. |
+| `candidates` | With `candidates: 3`, other premises an ambiguous site could have (another building near the pin, the whole shopping centre, a tighter shape), each with its own confidence and flags. |
+| `approach_ring`, `pickup_ring` | Optional zones for arrival detection (`approach_m: 150`, `pickup_m: 25`): the premises grown for "customer is near", and the parking right by the store (estimated). Nested with the premises ([reference](docs/reference.md#zones)). |
 | `buffered(15)` | The premises grown 15 m (rounded corners), e.g. for a geofence with a margin; negative shrinks. |
 | `to_geojson`, `to_wkt` | Ready to draw or store. GeoJSON carries everything above and the attribution to show. |
 | `attribution` | What to credit wherever the result is shown ([Data licence](#data-licence)). |
 
 ### Files
 
-`curtilage generate --in FILE --out FILE` reads pins from a CSV (as above) or a GeoJSON file of points, and writes:
+`curtilage generate --in FILE --out FILE` reads pins from a CSV (as above), a GeoJSON file of points or NDJSON (one site per line; `--in -` reads standard input), and writes:
 
 - **CSV** (`.csv`): one row per pin with its id, `ok`, flags, the details, the polygons as WKT and the attribution. Opens in any spreadsheet.
 - **GeoJSON** (`.geojson`): one FeatureCollection, the premises and store zone of each pin, with the id in each feature's properties.
+- **NDJSON** (`.ndjson`, or `--format ndjson`): one GeoJSON Feature per site per line, with a [versioned schema](docs/schema/site-v1.json). For scripts in any language, and for GDAL, QGIS or DuckDB.
 - **KML** (`.kml`): for Google Earth, with the attribution in its description.
 
 From Ruby, `Curtilage::Formats` does the same ([reference](docs/reference.md#files-curtilageformats)).
@@ -125,7 +134,7 @@ From Ruby, `Curtilage::Formats` does the same ([reference](docs/reference.md#fil
 
 Under each map: the flags (hover for what they mean), the building and premises areas, parking and an estimate of spaces, street frontage, the number of entrances, and "How it was made", the step-by-step explanation. Invalid results say why.
 
-At the top, a count of sites that are ok, flagged or unusable, and controls to show only some (sites that need a look, invalid ones, or those with a given flag) and to sort them (input order, needs a look first, id, or premises size).
+At the top, a count of sites that are ok, flagged or unusable, and controls to show only some (sites that need a look, invalid ones, or those with a given flag) and to sort them (input order, needs a look first, lowest confidence first, id, or premises size).
 
 ![The preview page: two of six randomly chosen sites, each drawn with its premises, store zone, parking, roads and driveway entrances](https://raw.githubusercontent.com/mohanenm/curtilage/main/docs/preview.png)
 
@@ -152,6 +161,7 @@ The current folder is mounted at `/work`, so file names are relative to it. The 
 | `large_building` | Building over 5,000 m2: may be shared by several tenants |
 | `small_building` | Building under 50 m2: may be a kiosk or canopy rather than the store |
 | `building_not_under_pin` | No building under the pin; the nearest one within 30 m was used |
+| `pin_moved` | The pin wasn't on a building and was moved onto the nearest one (`snap_m:`): check it's the right one |
 | `store_may_be_unit` | Store zone is a building over 1,500 m2: the store may be one unit of it |
 | `shopping_centre` | `scope: :centre` mapped the whole centre |
 | `fallback` | The main method failed validation; the building rectangle was used |
@@ -162,8 +172,9 @@ The current folder is mounted at `/work`, so file names are relative to it. The 
 
 ### Speed
 
-- Generate: about 100 ms per site (median; a few hundred ms in dense blocks).
-- Prebuilt files: about 85 ms per lookup through the DuckDB CLI; one call serves many pins.
+- Generate: about 10 ms per site for an ordinary building, about 65 ms (median) for the busier commercial sites tested; a few hundred ms in dense blocks.
+- Big batches: 10,000 made-up pins in one state took under 2.5 minutes from a prebuilt file on a laptop (about 70 sites a second), with Ruby under 650 MB however long the batch. `curtilage generate` works in chunks of 500, shows progress on a terminal, streams NDJSON and CSV, and `--resume` carries on an interrupted run.
+- Prebuilt files: about 2 ms a pin in batches (one DuckDB call serves 500 pins); about 85 ms for a single lookup, mostly starting DuckDB.
 - Overture (the default for scattered pins): about 5-10 s per area; pins within a few km of each other share it. A test batch of 51 sites in 17 regions across three continents took 4 minutes from a cold start; the 164 (143 pins read from Geofabrik builds, 21 from Overture) took under 6.
 - Geofabrik builds (the default once 10+ pins share a region): 1-5 minutes per US state the first time (Texas, the largest tested, about 4.5 minutes and under 650 MB of memory), then as above. Downloads use `curl` when it's installed, and `data: { parallel_builds: 2 }` builds two regions at once on machines with the memory.
 
@@ -176,7 +187,9 @@ Rules on open map data go a long way, but some sites need a person. These are th
 - **Sites spread over several buildings** (compounds, campuses). The premises cover the building at the pin only, so they come out too small.
 - **Dense rowhouse blocks.** Cuts toward many close neighbours can leave a thin sliver.
 - **`near_houses` is noisy in dense urban areas,** where almost every site borders homes. It's more meaningful in suburbs.
-- **The polygon is always convex,** so entrance notches and L-shaped lots are approximated.
+- **The polygon is always convex.** Entrance notches are approximated, and an L-shaped site (a building plus a lot to one side) gets a diagonal edge that can cross a neighbour's parking or clip its buildings.
+- **Lots reaching more than 60 m from the building** (deep lots, big parking fields) are cut short (`parking_max_extent_m`), and entrances beyond the claimed lot aren't taken in unless a mapped driveway leads to them.
+- **Shopping centres.** A shared lot is split by nearest building, which is crude; internal streets mapped as service roads don't bound the lot; and a building at an angle to its car park gets an oversized rectangle that can spill into neighbouring lots. Ring roads tagged `unclassified` can cut a store off from its own car park. Check results flagged `store_may_be_unit` or on shared lots, or try `scope: :centre` or `candidates: 3`.
 - **Sites within about 100 m of the antimeridian** (180° longitude: parts of Fiji, Chukotka, the Aleutians) get no polygon: premises can't cross that line, so validation refuses them.
 
 ## Building footprints: OSM, or OSM plus machine-learned
@@ -191,6 +204,7 @@ Pins never leave the machine as coordinates: they aren't put in any URL or reque
 |---|---|---|
 | Geofabrik build (`source: :geofabrik`, or `:auto` where 10+ pins share a region or it's cached) | `download.geofabrik.de` | Which region(s) you build, from the region index and the region's file. Not where in the region. |
 | Overture read (`source: :overture`, or `:auto` for scattered pins) | `stac.overturemaps.org` | Which Overture release you use. Nothing about the pins. |
+| `curtilage places` / `Curtilage.places` | Overture's storage, and Geofabrik for `--region` | The box or region you search, and Geofabrik's region index is downloaded. No pins are involved. |
 | | Overture's storage (Amazon S3, `overturemaps-us-west-2`) | Which files and parts of files are read: roughly where each pin is, to within a few km. |
 | Your own built files (`catalogue:`, `parquet:`) on disk | none | Nothing. |
 | ... in your bucket (`s3://`, `gs://`, `https://`) | your bucket's host | The parts of files read: roughly where each pin is. |
@@ -213,7 +227,7 @@ Pins never leave the machine as coordinates: they aren't put in any URL or reque
 | `lib/curtilage/generator_store.rb` | The store zone |
 | `lib/curtilage/generator_details.rb` | Facts about the site: parking, frontage, entrances |
 | `lib/curtilage/result.rb` | What generation returns: GeoJSON, WKT, buffering |
-| `lib/curtilage/formats.rb` | Pins in from CSV or GeoJSON; results out as GeoJSON, CSV or KML |
+| `lib/curtilage/formats.rb` | Pins in from CSV, GeoJSON or NDJSON; results out as GeoJSON, NDJSON, CSV or KML |
 | `lib/curtilage/preview.rb` | The HTML review page |
 | `lib/curtilage/features.rb` | Parses nearby map features (untrusted) and projects them to metres |
 | `lib/curtilage/geometry.rb` | Plain-Ruby planar geometry |

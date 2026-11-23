@@ -2,14 +2,43 @@
 
 ## [Unreleased]
 
+## [0.4.0] - 2026-11-23
+
+### Breaking
+
+- Command-line exit codes: bad input and usage errors exit 2 (they exited 1, which now only means some sites failed), a missing DuckDB exits 3 and unavailable map data 4. `preview` exits 1 when some sites have no usable premises (it always exited 0), and prints its summary to standard error instead of standard output.
+
 ### Added
 
+- Every result records its provenance (`Result#provenance`, the GeoJSON `provenance` property): gem version, data source and release (the Overture release, or each region's Geofabrik extract dates and ML footprints), every option after defaults, and a SHA256 of the map data used. CSV gains `gem_version`, `data_source`, `data_release` and `features_sha256` columns at the end; KML descriptions name the version and release. Outputs hold no timestamps, so the same inputs give the same output byte for byte.
+- NDJSON in and out: `--format ndjson` writes one GeoJSON Feature per site per line, following a versioned JSON Schema (`docs/schema/site-v1.json`, shipped in the gem); `--in` reads NDJSON pins, and `--in -` reads them from standard input (`--in-format` picks another format).
+- Documented exit codes for `generate`, `preview` and `build`: 0 ok, 1 some sites failed, 2 bad input or usage, 3 DuckDB missing, 4 map data unavailable, 70 unexpected error. `--quiet` and `--log-format json` for what goes to standard error. A missing DuckDB raises `Curtilage::DependencyError`.
+- Every result has a confidence from 0 to 1 (`Result#confidence`) with the factors behind it (`Result#confidence_factors`): rule-based, each unmet factor (fallback used, pin off the building, no mapped parking, no road frontage, homes next door, ...) takes a documented weight off 1. It's in GeoJSON, NDJSON, CSV and KML; `curtilage generate --min-confidence N` leaves out results below N, and the preview can sort by it.
+- Every result's explanation also comes as structured steps (`Result#steps`, `steps` in GeoJSON and NDJSON): step name, the option that set its distance, the map-data ids involved, the distance used, and the premises area before and after. The explanation gains one line where the lot is added, with the areas.
+- Optional zones for arrival detection, nested with the premises: an approach zone (`approach_m:`, `--approach`, the premises grown by 150 m by default) and an estimated pickup zone (`pickup_m:`, `--pickup`, mapped parking within 25 m of the building, inside the premises). In every output format and the preview.
+- Driveway entrances name the street they open onto (`details[:entrances]`, `Result#entrances`: point, street name and class, driveway id), shown in KML and on the preview. With a pickup zone, an estimated staging point (`Result#staging_point`) where a driver might wait.
+- Pin quality on every result (`Result#pin_quality`: on a building, on a road, near a building or far, with the distance to the nearest building), and optional snapping (`snap_m:`, `--snap`): a pin off any building moves onto the nearest one, flagged `pin_moved`, so a geocoded pin on the street no longer pulls the premises toward the road.
+- `curtilage places` and `Curtilage.places`: pins from Overture Maps places by category, brand or place id, in a region or box, as CSV, NDJSON or GeoJSON that `generate` reads. Each place names its sources and licences.
+- `candidates: N` (`--candidates N`): for ambiguous sites, up to N other premises (another building near the pin, the whole shopping centre on a shared lot, the building rectangle when confidence is low), each a full result with its own confidence and flags, most confident first.
+- Your own named profiles from a JSON or YAML file (`Curtilage::Profiles.load`, `--profiles FILE --preset NAME`): sets of generation options, optionally starting from a built-in preset, checked at load.
+- Corrections: `corrections:` (`--corrections FILE`, matched by id; the gem's own output, edited, works) uses your polygons instead of generating, validated and marked manual (`method_name: :manual`, data source `manual`). `Formats.read_results` reads result files back.
+- `curtilage diff OLD NEW` (`Curtilage::Diff`): compares two runs site by site (IoU, area change, ok, flags gained and lost, confidence) and marks sites that changed beyond a threshold for review, exiting 1 when any need it.
+- Big batches from the command line: `curtilage generate` works in chunks of 500 sites, shows progress with an ETA on a terminal (`--progress` to force it), streams NDJSON and CSV so memory stays flat, and `--resume` carries on an interrupted run from where it stopped. Without `--cache-dir`, a region a run builds is shared by every chunk.
+- The public benchmark has hand-drawn references for its ten sites (traced on public-domain USGS imagery) and a committed baseline (`benchmark/baseline.json`).
+- A `precision:` option sets the decimal places of output coordinates (default 7, as before).
 - `curtilage doctor` checks everything the gem needs outside Ruby with a fix for each problem (DuckDB version, with a warning outside the tested 1.4 and 2.0; extensions; the cache folder), and takes `--network` (are the map-data hosts reachable) and `--json`; it exits 1 when something's missing.
 - A `validation:` option raises or lowers the validation limits for generated polygons (e.g. `{ max_area_error_m2: 300_000 }` for a big-box store's lot, which could only ever get the fallback before). The limits are documented in the reference.
 - CSV output has an `attribution` column, and KML credits every source in the document's description.
 - A "Data licence" section in the README and the reference: what the ODbL asks of results (attribution, derivative databases, produced works), with links.
 - A "Privacy" section in the README: what each data source and mode reveals, and to which host.
 - A public benchmark in the repository (not the gem): `rake benchmark` scores results against hand-drawn references, overall and per category, on a pinned Overture release, and `rake benchmark:compare` diffs two runs. It ships as a skeleton with placeholder sites.
+
+### Changed
+
+- Lookups in local built files are about three times faster (7 ms to 2 ms a pin): one scan joined to the pins' boxes instead of a scan per pin. Files in a bucket keep a scan per pin, so only the parts near each pin are read. New builds use smaller row groups (5,000 rows), which speeds up those reads; existing builds work as before.
+- Reading map features is faster (8 ms to 6.6 ms a site): checking polygons for self-intersection sweeps edges in order instead of comparing every pair, with the same answers.
+- Generation is faster with identical results: road trims no longer sample road segments too far from the building to matter. About five times on ordinary buildings (34 ms to 7 ms a site on 500 made-up pins), about 1.4 times on busy commercial sites (median 92 ms to 65 ms on a held-out set).
+- Results no longer depend on the order map data arrives in (DuckDB promises no row order, so a re-run could give a different polygon on about a fifth of sites). Neighbouring buildings are now cut nearest first, and the input is sorted into one order before the rules run. Some polygons change: on a private held-out set, mean IoU against hand-drawn premises went from 0.469 to 0.466 (random input orders used to give 0.464-0.466).
 
 ### Security
 

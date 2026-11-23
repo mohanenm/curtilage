@@ -1,5 +1,8 @@
 # frozen_string_literal: true
 
+require "digest"
+require "json"
+
 module Curtilage
   # The OSM features around a pin, projected to metres around it.
   #
@@ -35,7 +38,29 @@ module Curtilage
     end
     Line = Struct.new(:id, :highway, :name, :xy, keyword_init: true)
 
-    attr_reader :pin, :buildings, :ml_buildings, :parking, :roads, :railways, :dropped
+    attr_reader :pin, :buildings, :ml_buildings, :parking, :roads, :railways, :dropped, :sha256
+
+    # A SHA256 of the input that ignores the order of the features and the
+    # style of their keys, so two results can be shown to come from the same
+    # map data (Result#provenance).
+    def self.fingerprint(features)
+      Digest::SHA256.hexdigest(in_order(features).map(&:first).join("\n"))
+    end
+
+    # [[canonical JSON, feature], ...] sorted by the JSON: one order whatever
+    # order the features came in (DuckDB promises none), so the rules see the
+    # same input every time.
+    def self.in_order(features)
+      Array(features).map { |f| [JSON.generate(canonical(f), allow_nan: true), f] }.sort_by(&:first)
+    end
+
+    def self.canonical(value)
+      case value
+      when Hash then value.to_h { |k, v| [k.to_s, canonical(v)] }.sort.to_h
+      when Array then value.map { |v| canonical(v) }
+      else value
+      end
+    end
 
     def initialize(pin, features)
       @pin = pin
@@ -46,14 +71,31 @@ module Curtilage
       @railways = []
       @dropped = 0
       @seen = {}
-      Array(features).first(MAX_FEATURES).each { |f| add(f) }
-      @dropped += [Array(features).size - MAX_FEATURES, 0].max
+      ordered = self.class.in_order(features)
+      @sha256 = Digest::SHA256.hexdigest(ordered.map(&:first).join("\n"))
+      ordered.first(MAX_FEATURES).each { |pair| add(pair.last) }
+      @dropped += [ordered.size - MAX_FEATURES, 0].max
     end
 
     # Roads that bound a site (Generator::PUBLIC_HIGHWAYS), not service
     # roads or driveways.
     def public_roads
       @public_roads ||= roads.select { |r| Generator::PUBLIC_HIGHWAYS.include?(r.highway) }
+    end
+
+    # A copy centred on another point (metres, in this copy's frame): the
+    # pin moves there and every feature shifts with it. A flat shift, exact
+    # to well under a metre over the tens of metres a pin is snapped.
+    def moved_to(point)
+      dx, dy = point
+      copy = dup
+      copy.instance_variable_set(:@pin, Geometry.lnglat([point], pin, 9).first)
+      copy.instance_variable_set(:@public_roads, nil)
+      %i[@buildings @ml_buildings @parking @roads @railways].each do |name|
+        list = instance_variable_get(name).map { |f| f.class.new(**f.to_h, xy: f.xy.map { |x, y| [x - dx, y - dy] }) }
+        copy.instance_variable_set(name, list)
+      end
+      copy
     end
 
     # A copy whose buildings are the given list (see Generator buildings:).

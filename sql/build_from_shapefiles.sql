@@ -49,4 +49,4 @@ COPY (
   FROM features
   WHERE geom IS NOT NULL AND NOT ST_IsEmpty(geom)  -- a few shapefile records have no geometry
   ORDER BY ST_Hilbert(geom, {'min_x': -180, 'min_y': -90, 'max_x': 180, 'max_y': 90}::BOX_2D)
-) TO (getvariable('out_path')) (FORMAT parquet, COMPRESSION zstd, ROW_GROUP_SIZE 20000);
+) TO (getvariable('out_path')) (FORMAT parquet, COMPRESSION zstd, ROW_GROUP_SIZE 5000);

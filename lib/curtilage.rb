@@ -8,10 +8,20 @@ require_relative "curtilage/geometry"
 require_relative "curtilage/validation"
 require_relative "curtilage/features"
 require_relative "curtilage/result"
+require_relative "curtilage/confidence"
 require_relative "curtilage/generator"
 require_relative "curtilage/generator_lot"
+require_relative "curtilage/generator_roads"
 require_relative "curtilage/generator_store"
 require_relative "curtilage/generator_details"
+require_relative "curtilage/generator_steps"
+require_relative "curtilage/generator_zones"
+require_relative "curtilage/generator_pin"
+require_relative "curtilage/candidates"
+require_relative "curtilage/profiles"
+require_relative "curtilage/corrections"
+require_relative "curtilage/diff"
+require_relative "curtilage/batch"
 require_relative "curtilage/lookup"
 require_relative "curtilage/download"
 require_relative "curtilage/zip_range"
@@ -38,6 +48,7 @@ module Curtilage
     building_not_under_pin: "No building under the pin; the nearest one within 30 m was used.",
     store_may_be_unit: "The store zone is a building over 1,500 m2: the store may be one unit of it.",
     shopping_centre: "The whole shopping centre was mapped (scope: :centre).",
+    pin_moved: "The pin wasn't on a building and was moved onto the nearest one (snap_m:): check it's the right one.",
     fallback: "The main method failed validation; the building rectangle was used.",
     ml_footprint: "Built on a machine-learned footprint, not an OSM building.",
     no_data: "No map data covers the pin.",
@@ -72,14 +83,40 @@ module Curtilage
     premises(pin, **, store_zone: false).details&.fetch(:building)
   end
 
+  # Places from Overture Maps to generate premises for, when you have no
+  # pins: one filter (category:, brand: or ids:, see Overture.places) inside
+  # a region (a US state such as "virginia", or a Geofabrik path, looked up
+  # in Geofabrik's region index and matched to its outline) or a bbox:
+  # [west, south, east, north]. Each place's pin feeds generate_many:
+  #
+  #   places = Curtilage.places(region: "delaware", category: "pharmacy")
+  #   results = Curtilage.generate_many(places.map { |p| p[:pin] })
+  def self.places(region: nil, bbox: nil, **)
+    raise ArgumentError, "give region: or bbox:, not both" unless region.nil? ^ bbox.nil?
+    return Overture.places(bbox: bbox, **) if bbox
+
+    path = Build.region_path(region)
+    area = Regions.download.regions.find { |r| r.path == path } or
+      raise ArgumentError, "no Geofabrik region #{path} (see https://download.geofabrik.de)"
+    Overture.places(bbox: area.bbox, **).select { |place| area.covers?(place[:pin]) }
+  end
+
   # Premises for one pin from features you already have (Lookup.features).
   # With no method or preset, the recommended method with its fallback
   # (Generator.propose).
-  def self.generate(pin, features, method: nil, preset: nil, **options)
+  #
+  # candidates: N (1 to 5) also returns up to N other premises the site
+  # could have, in Result#candidates (see Candidates).
+  def self.generate(pin, features, method: nil, preset: nil, candidates: nil, **options)
     opts = preset_options(preset).merge(options)
     method ||= opts.delete(:method)
     opts.delete(:method)
-    method ? Generator.generate(method, pin, features, **opts) : Generator.propose(pin, features, **opts)
+    result = method ? Generator.generate(method, pin, features, **opts) : Generator.propose(pin, features, **opts)
+    return result unless candidates
+
+    result.tap do |r|
+      r.candidates = Candidates.for(r, pin, features, { method: method, preset: preset, **options }.compact, candidates)
+    end
   end
 
   SOURCES = %i[auto geofabrik overture].freeze
@@ -111,9 +148,20 @@ module Curtilage
   # puts; default $stderr), release: (Overture). keep_features: true keeps each
   # result's map data (Result#features, which Preview draws); by default it's
   # dropped to save memory. Other options go to generate.
-  def self.generate_many(pins, keep_features: false, max_pins: MAX_PINS_PER_CALL, **)
-    results = fetch_and_generate(checked_pins(pins, max_pins), **)
-    results.each { |r| r.features = nil } unless keep_features
+  #
+  # corrections: { pin index => ring (or { ring:, store_ring: }) } uses
+  # those polygons instead of generating (see Corrections); their pins
+  # fetch no data.
+  def self.generate_many(pins, keep_features: false, max_pins: MAX_PINS_PER_CALL, corrections: {}, **options)
+    pins = checked_pins(pins, max_pins)
+    fixed = Corrections.checked(corrections, pins.size)
+    rest = pins.each_index.reject { |i| fixed.key?(i) }
+    generated = rest.empty? ? [] : fetch_and_generate(pins.values_at(*rest), **options)
+    manual = fixed.map do |i, c|
+      Corrections.result(pins[i], c[:ring], store_ring: c[:store_ring], validation: options.fetch(:validation, {}))
+    end
+    results = merge(pins.size, [rest, generated], [fixed.keys, manual])
+    results.each { |r| [r, *r.candidates].each { |c| c.features = nil } } unless keep_features
     results
   end
 
@@ -133,7 +181,12 @@ module Curtilage
   # Options are checked once, before any work, so a mistake in them fails
   # the call instead of turning every site into an error result.
   def self.check_generation_options(options)
-    opts = preset_options(options[:preset]).merge(options.except(:preset))
+    count = options[:candidates]
+    unless count.nil? || (count.is_a?(Integer) && count.between?(1, Candidates::MAX))
+      raise ArgumentError, "candidates must be a whole number from 1 to #{Candidates::MAX}: #{count.inspect}"
+    end
+
+    opts = preset_options(options[:preset]).merge(options.except(:preset, :candidates))
     method = opts.delete(:method)
     raise ArgumentError, "unknown method #{method.inspect}" if method && !Generator::METHODS.include?(method)
 
@@ -146,8 +199,9 @@ module Curtilage
     generate(pin, features, **options)
   rescue StandardError => e
     Result.new(method_name: nil, pin: pin, flags: [:error], building: nil,
-               explanation: ["generating this site failed: #{e.class}: #{e.message[0, 300]}"],
-               validation: Validation::Result.new(["error"], [], {}))
+               explanation: [], steps: [],
+               validation: Validation::Result.new(["error"], [], {}), provenance: { gem_version: VERSION })
+          .prepend_step("generating this site failed: #{e.class}: #{e.message[0, 300]}", step: "error", flag: :error)
   end
 
   def self.check_data(data)
@@ -223,7 +277,7 @@ module Curtilage
     return [] if pins.empty?
 
     run_many(pins, auto.catalogue_for(pins), nil, lookup, options).each do |r|
-      r.explanation.unshift("map data: OpenStreetMap, built from Geofabrik")
+      r.prepend_step("map data: OpenStreetMap, built from Geofabrik", step: "data")
     end
   end
 
@@ -233,13 +287,17 @@ module Curtilage
     results
   end
 
+  # The release is settled once up front, so every result names the one
+  # it was read from.
   def self.from_overture(pins, lookup, data, options)
-    lists = Overture.features_many(pins, **lookup.slice(:duckdb, :extension_directory, :radius_deg),
-                                   **data.slice(:release))
+    online!("reading Overture Maps (use a catalogue or cached builds)")
+    release = Overture.release(data)
+    lists = Overture.features_many(pins, **lookup.slice(:duckdb, :extension_directory, :radius_deg), release: release)
     pins.zip(lists).map do |pin, features|
       generate_safely(pin, features, options).tap do |r|
+        r.provenance[:data] = { source: "overture", release: release }
         r.attribution = Overture.attribution(r.features)
-        r.explanation.unshift("map data: OpenStreetMap, read from Overture Maps")
+        r.prepend_step("map data: OpenStreetMap, read from Overture Maps", step: "data")
       end
     end
   end
@@ -290,6 +348,10 @@ module Curtilage
 
   def self.generate_one(pin, features, files, catalogue, options)
     result = generate_safely(pin, features, options)
+    result.provenance[:data] = if files.empty? then nil
+                               elsif catalogue then catalogue.provenance(files)
+                               else { source: "parquet" }
+                               end
     credits = catalogue&.attribution(files) || []
     result.attribution = credits unless credits.empty?
     if files.empty?
@@ -302,13 +364,13 @@ module Curtilage
 
   def self.partial_data(result)
     result.flags << :partial_data
-    result.explanation.unshift("part of the area around the pin is in a region that isn't built: " \
-                               "buildings or roads there are missing")
+    result.prepend_step("part of the area around the pin is in a region that isn't built: " \
+                        "buildings or roads there are missing", step: "data", flag: :partial_data)
   end
 
   def self.no_data(result)
     result.flags << :no_data
-    result.explanation.unshift("no map data covers this pin")
+    result.prepend_step("no map data covers this pin", step: "data", flag: :no_data)
   end
 
   private_class_method :fetch_and_generate, :checked_pins, :check_data, :check_generation_options, :generate_safely,

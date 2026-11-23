@@ -11,20 +11,75 @@ USAGE = <<~TEXT
   Usage:
     curtilage generate (--pin LNG,LAT ... | --in FILE) [--out FILE] [options]
     curtilage preview (--pin LNG,LAT ... | --in FILE) [--out FILE] [options]
+    curtilage places (--region NAME | --bbox W,S,E,N) (--category NAME | --brand NAME | --place-id ID ...)
+    curtilage diff OLD NEW [--threshold IOU] [--out FILE]
     curtilage build REGION [options]
     curtilage doctor
 
   generate   The premises (and store zone) for one or more pins, as GeoJSON,
-             CSV or KML. Pins from --pin or a CSV/GeoJSON file. Map data is
-             fetched as needed: nothing to set up or host.
+             NDJSON, CSV or KML. Pins from --pin, a CSV/GeoJSON/NDJSON file or
+             standard input. Map data is fetched as needed: nothing to set up
+             or host.
   preview    Generate, then write an HTML page with a map of each site to
              check by eye (it loads nothing from the internet).
+  places     Pins from Overture Maps places (a category or brand in a region),
+             to feed generate when you have no pin list.
+  diff       Compare two runs (GeoJSON or NDJSON) site by site, marking
+             sites whose premises changed enough to review again.
   build      Build a region's map data ahead of time (a US state such as
              "tennessee", or a Geofabrik path such as "europe/germany/bayern").
   doctor     Check that DuckDB and its extensions are ready.
 
-  Run "curtilage COMMAND --help" for a command's options.
+  Run "curtilage COMMAND --help" for a command's options. Results go to
+  standard output, everything else to standard error.
+
+  Exit codes: 0 ok, 1 some sites have no usable premises, 2 bad input or
+  usage, 3 DuckDB missing, 4 map data unavailable, 70 unexpected error.
 TEXT
+
+# Everything but results goes to standard error, so standard output can be
+# piped. Anything with puts can take it as a log (builds write progress).
+class CliLog
+  def initialize
+    @quiet = false
+    @json = false
+  end
+
+  def configure(opts)
+    @quiet = opts[:quiet]
+    @json = opts[:log_format] == "json"
+  end
+
+  # Progress and summaries (hidden by --quiet); a line starting "warning:"
+  # is a warning, which --quiet keeps.
+  def puts(message)
+    warning = message.to_s.start_with?("warning:")
+    write(warning ? "warning" : "info", message) if warning || !@quiet
+  end
+
+  def error(message) = write("error", message)
+
+  private
+
+  def write(level, message)
+    warn(@json ? JSON.generate(level: level, message: message.to_s) : message)
+  end
+end
+
+LOG = CliLog.new
+
+def log_flags(parser, opts)
+  parser.on("--quiet", "Only warnings and errors on standard error") { opts[:quiet] = true }
+  parser.on("--log-format FORMAT", %w[text json], "text (default) or json: one object per line") do |v|
+    opts[:log_format] = v
+  end
+end
+
+def parse(parser, args, opts)
+  parser.parse!(args)
+  LOG.configure(opts)
+  opts
+end
 
 def duckdb_flags(parser, opts)
   parser.on("--duckdb PATH", "DuckDB CLI (default: $CURTILAGE_DUCKDB or duckdb on PATH)") { |v| opts[:duckdb] = v }
@@ -35,53 +90,104 @@ end
 
 def generate_options(args, command)
   opts = { pins: [] }
-  OptionParser.new do |o|
-    o.banner = "Usage: curtilage #{command} (--pin LNG,LAT ... | --in FILE) [--out FILE] [options]"
+  parser = OptionParser.new do |o|
+    o.banner = "Usage: curtilage #{command} (--pin LNG,LAT ... | --in FILE|-) [--out FILE] [options]"
     io_flags(o, opts, command)
     data_flags(o, opts)
     style_flags(o, opts)
     duckdb_flags(o, opts)
-  end.parse!(args)
-  opts
+    log_flags(o, opts)
+  end
+  parse(parser, args, opts)
 end
 
 def io_flags(o, opts, command)
   o.on("--pin LNG,LAT", "A location; repeat for several") { |v| opts[:pins] << v }
-  o.on("--in FILE", "Pins from a CSV (lng and lat columns, optional id) or GeoJSON (Point features)") do |v|
+  o.on("--in FILE", "Pins from a CSV (lng and lat columns, optional id), GeoJSON (Point features) or NDJSON;",
+       "- reads standard input (NDJSON unless --in-format says otherwise)") do |v|
     opts[:in] = v
   end
-  if command == "preview"
-    o.on("--out FILE", "Where to write the page (default: curtilage-preview.html)") { |v| opts[:out] = v }
-    o.on("--buffer METRES", Float, "Also draw the premises grown by this much (a geofence margin)") do |v|
-      opts[:buffer] = v
-    end
-  else
-    o.on("--out FILE", "Write here instead of printing; the format follows the extension") { |v| opts[:out] = v }
-    o.on("--format NAME", Curtilage::Formats::OUTPUTS.map(&:to_s), "geojson (default), csv or kml") do |v|
-      opts[:format] = v.to_sym
-    end
+  o.on("--corrections FILE", "Use these polygons for sites with the same id (GeoJSON or NDJSON) " \
+                             "instead of generating them") { |v| opts[:corrections] = v }
+  o.on("--in-format NAME", Curtilage::Formats::INPUTS.map(&:to_s),
+       "csv, geojson or ndjson (default: from --in's extension)") do |v|
+    opts[:in_format] = v.to_sym
+  end
+  command == "preview" ? page_flags(o, opts) : output_flags(o, opts)
+end
+
+def page_flags(o, opts)
+  o.on("--out FILE", "Where to write the page (default: curtilage-preview.html)") { |v| opts[:out] = v }
+  o.on("--buffer METRES", Float, "Also draw the premises grown by this much (a geofence margin)") do |v|
+    opts[:buffer] = v
   end
 end
 
+def output_flags(o, opts)
+  o.on("--out FILE", "Write here instead of printing; the format follows the extension") { |v| opts[:out] = v }
+  o.on("--format NAME", Curtilage::Formats::OUTPUTS.map(&:to_s), "geojson (default), ndjson, csv or kml") do |v|
+    opts[:format] = v.to_sym
+  end
+  o.on("--min-confidence N", Float, "Leave out results with confidence below N (0 to 1)") do |v|
+    raise ArgumentError, "--min-confidence is 0 to 1: #{v}" unless v.between?(0, 1)
+
+    opts[:min_confidence] = v
+  end
+  o.on("--resume", "Carry on an interrupted run into --out FILE.ndjson or .csv, skipping finished sites") do
+    opts[:resume] = true
+  end
+  o.on("--progress", "Show progress even when standard error isn't a terminal") { opts[:progress] = true }
+end
+
 # [pins, ids] from --pin and --in.
-def read_sites(opts, command)
+def read_sites(opts)
   sites = opts[:pins].map.with_index(1) { |pin, i| { id: i.to_s, pin: Curtilage::Formats.pin_from_text(pin) } }
-  sites += Curtilage::Formats.read_pins(opts[:in]) if opts[:in]
-  abort "curtilage #{command}: give --pin LNG,LAT or --in FILE" if sites.empty?
+  sites += read_input(opts) if opts[:in]
+  raise ArgumentError, "give --pin LNG,LAT or --in FILE" if sites.empty?
+
   bad = sites.find { |s| !Curtilage::Formats.pin?(s[:pin]) }
-  abort "curtilage #{command}: #{bad[:id]}: a pin is LNG,LAT (longitude first)" if bad
+  raise ArgumentError, "#{bad[:id]}: a pin is LNG,LAT (longitude first)" if bad
+
   [sites.map { |s| s[:pin] }, sites.map { |s| s[:id] }]
-rescue ArgumentError, SystemCallError => e
-  abort "curtilage #{command}: #{e.message}"
+rescue SystemCallError => e
+  raise ArgumentError, e.message
+end
+
+def read_input(opts)
+  return Curtilage::Formats.read_pins(opts[:in], format: opts[:in_format]) unless opts[:in] == "-"
+
+  text = $stdin.binmode.read(Curtilage::Formats::MAX_BYTES + 1).to_s
+  Curtilage::Formats.parse_pins(text, opts[:in_format] || :ndjson)
+end
+
+# --preset NAME from --profiles FILE becomes that profile's options.
+def style(opts)
+  style = opts.slice(:preset, :buildings, :store_zone, :approach_m, :pickup_m, :snap_m, :candidates)
+  return style unless opts[:profiles]
+
+  profiles = Curtilage::Profiles.load(opts[:profiles])
+  return style unless profiles.key?(style[:preset])
+
+  profiles[style.delete(:preset)].merge(style)
+end
+
+# { pin index => { ring:, store_ring: } } for the sites --corrections has
+# a premises polygon for, matched by id.
+def corrections(opts, ids)
+  return {} unless opts[:corrections]
+
+  found = Curtilage::Formats.read_results(opts[:corrections]).select { |_, c| c[:ring] }
+  index = ids.each_with_index.to_h
+  unmatched = found.keys.reject { |id| index.key?(id) }
+  LOG.puts "warning: #{unmatched.size} correction(s) match no site id, e.g. #{unmatched.first}" if unmatched.any?
+  found.filter_map { |id, c| [index[id], c.slice(:ring, :store_ring)] if index.key?(id) }.to_h
 end
 
 def run(opts, pins, **extra)
   catalogue = opts[:catalogue] && Curtilage::Catalogue.from_dir(opts[:catalogue])
   Curtilage.generate_many(pins, catalogue: catalogue, **opts.slice(:parquet, :source, :cache_dir),
-                                lookup: opts.slice(:duckdb, :extension_directory),
-                                **opts.slice(:preset, :buildings, :store_zone), **extra)
-rescue Curtilage::Error, ArgumentError => e
-  abort "curtilage: #{e.message}"
+                                lookup: opts.slice(:duckdb, :extension_directory), data: { log: LOG },
+                                **style(opts), **extra)
 end
 
 def data_flags(o, opts)
@@ -95,61 +201,211 @@ def data_flags(o, opts)
 end
 
 def style_flags(o, opts)
-  o.on("--preset NAME", Curtilage::PRESETS.keys.map(&:to_s), "whole_lot (default), tight or centre") do |v|
+  o.on("--preset NAME", "whole_lot (default), tight, centre, or a profile from --profiles") do |v|
     opts[:preset] = v.to_sym
   end
+  o.on("--profiles FILE", "Your own named styles (JSON or YAML) for --preset") { |v| opts[:profiles] = v }
   o.on("--buildings FLAVOUR", Curtilage::Generator::BUILDING_SOURCES.map(&:to_s),
        "osm (default), osm_filled or ml") { |v| opts[:buildings] = v.to_sym }
   o.on("--[no-]store", "Include the store zone (default: yes)") { |v| opts[:store_zone] = v }
+  o.on("--snap [METRES]", Float, "Move pins that aren't on a building onto the nearest one within METRES " \
+                                 "(default #{Curtilage::Generator::DEFAULT_SNAP_M})") do |v|
+    opts[:snap_m] = v || Curtilage::Generator::DEFAULT_SNAP_M
+  end
+  o.on("--candidates N", Integer, "Also give up to N other premises for ambiguous sites (1 to 5)") do |v|
+    opts[:candidates] = v
+  end
+  o.on("--approach [METRES]", Float, "Add an approach zone: the premises grown by METRES " \
+                                     "(default #{Curtilage::Generator::DEFAULT_APPROACH_M})") do |v|
+    opts[:approach_m] = v || Curtilage::Generator::DEFAULT_APPROACH_M
+  end
+  o.on("--pickup [METRES]", Float, "Add an estimated pickup zone: mapped parking within METRES of the building " \
+                                   "(default #{Curtilage::Generator::DEFAULT_PICKUP_M})") do |v|
+    opts[:pickup_m] = v || Curtilage::Generator::DEFAULT_PICKUP_M
+  end
 end
 
 # Refuses an output path that's a symbolic link (it could point anywhere),
 # before any work is done.
-def check_out(path, command)
-  abort "curtilage #{command}: #{path} is a symbolic link; refusing to write through it" if path && File.symlink?(path)
+def check_out(path)
+  raise ArgumentError, "#{path} is a symbolic link; refusing to write through it" if path && File.symlink?(path)
 end
 
 # Writes next to the target and renames, so a reader never sees half a file
 # and an interrupted run leaves the old one in place.
-def write_out(path, text, command)
-  check_out(path, command)
+def write_out(path, text)
+  check_out(path)
   part = File.join(File.dirname(File.expand_path(path)), ".#{File.basename(path)}.#{Process.pid}.part")
   File.write(part, text)
   File.rename(part, path)
 rescue SystemCallError => e
   FileUtils.rm_f(part) if part
-  abort "curtilage #{command}: can't write #{path}: #{e.message}"
+  raise ArgumentError, "can't write #{path}: #{e.message}"
 end
 
+# In chunks of Batch::CHUNK sites: progress shows, NDJSON and CSV stream
+# (memory stays flat) and an interrupted run can --resume.
 def generate(args)
   opts = generate_options(args, "generate")
   format = opts[:format] || Curtilage::Formats.format_of(opts[:out]) || :geojson
-  check_out(opts[:out], "generate")
-  pins, ids = read_sites(opts, "generate")
-  results = run(opts, pins)
-  text = Curtilage::Formats.write(results, format, ids: ids, store: opts.fetch(:store_zone, true))
-  if opts[:out]
-    write_out(opts[:out], text, "generate")
-    warn "#{results.count(&:ok?)} of #{results.size} ok; wrote #{opts[:out]}"
-  else
-    puts text
+  check_out(opts[:out])
+  pins, ids = read_sites(opts)
+  batch = open_batch(opts, format, ids)
+  todo = ids.each_index.reject { |i| batch.done.include?(ids[i]) }
+  totals = run_batch(opts, [pins, ids], todo, corrections(opts, ids), batch)
+  batch.finish { |text| write_out(opts[:out], text) }
+  report(totals, opts)
+  exit(totals[:kept] == totals[:all] && totals[:ok] == totals[:all] ? 0 : 1)
+end
+
+def open_batch(opts, format, ids)
+  raise ArgumentError, "--resume needs unique site ids" if opts[:resume] && ids.uniq.size != ids.size
+
+  Curtilage::Batch.new(format: format, out: opts[:out], store: opts.fetch(:store_zone, true), resume: opts[:resume])
+end
+
+def run_batch(opts, sites, todo, fixes, batch)
+  pins, ids = sites
+  totals = Hash.new(0)
+  progress = Curtilage::Batch::Progress.new(todo.size) if opts[:progress] || ($stderr.tty? && !opts[:quiet])
+  with_run_cache(opts, todo.size) do |cache|
+    todo.each_slice(Curtilage::Batch::CHUNK) do |chunk|
+      local = chunk.each_with_index.filter_map { |g, i| [i, fixes[g]] if fixes[g] }.to_h
+      results = run(opts.merge(cache_dir: cache), pins.values_at(*chunk), corrections: local)
+      batch.add(*confident(results, ids.values_at(*chunk), opts[:min_confidence]))
+      count(totals, results, opts[:min_confidence])
+      progress&.step(chunk.size)
+    end
   end
-  exit(results.all?(&:ok?) ? 0 : 1)
+  progress&.finish
+  totals
+end
+
+def count(totals, results, min)
+  totals[:all] += results.size
+  totals[:ok] += results.count(&:ok?)
+  totals[:kept] += min ? results.count { |r| r.confidence >= min } : results.size
+end
+
+def report(totals, opts)
+  left = totals[:all] - totals[:kept]
+  LOG.puts "#{left} result(s) below --min-confidence #{opts[:min_confidence]} left out" if left.positive?
+  LOG.puts "#{totals[:ok]} of #{totals[:all]} ok; wrote #{opts[:out]}" if opts[:out]
+end
+
+# A Geofabrik region a run builds is reused by every chunk: without
+# --cache-dir, a temporary cache lasts the run.
+def with_run_cache(opts, count)
+  shared = count > Curtilage::Batch::CHUNK && opts[:source] != :overture &&
+           !(opts[:cache_dir] || opts[:catalogue] || opts[:parquet])
+  dir = Dir.mktmpdir("curtilage-run") if shared
+  yield dir || opts[:cache_dir]
+ensure
+  FileUtils.rm_rf(dir) if dir
+end
+
+# Writes text to out, or prints it.
+def deliver(text, out, summary)
+  if out
+    write_out(out, text)
+    LOG.puts "#{summary}; wrote #{out}"
+  else
+    $stdout.write(text.empty? || text.end_with?("\n") ? text : "#{text}\n")
+  end
+end
+
+# [results, ids] at or above the minimum confidence (all of them without one).
+def confident(results, ids, min)
+  return [results, ids] unless min
+
+  kept = results.zip(ids).select { |result, _| result.confidence >= min }
+  [kept.map(&:first), kept.map(&:last)]
 end
 
 def preview(args)
   opts = generate_options(args, "preview")
   out = opts[:out] || "curtilage-preview.html"
-  check_out(out, "preview")
-  pins, ids = read_sites(opts, "preview")
-  results = run(opts, pins, keep_features: true)
-  write_out(out, Curtilage::Preview.html(results, ids: ids, buffer_m: opts[:buffer]), "preview")
-  puts "#{results.count(&:ok?)} of #{results.size} ok; open #{File.expand_path(out)}"
+  check_out(out)
+  pins, ids = read_sites(opts)
+  results = run(opts, pins, keep_features: true, corrections: corrections(opts, ids))
+  write_out(out, Curtilage::Preview.html(results, ids: ids, buffer_m: opts[:buffer]))
+  LOG.puts "#{results.count(&:ok?)} of #{results.size} ok; open #{File.expand_path(out)}"
+  exit(results.all?(&:ok?) ? 0 : 1)
+end
+
+def places_options(args)
+  opts = { ids: [] }
+  parser = OptionParser.new do |o|
+    o.banner = "Usage: curtilage places (--region NAME | --bbox W,S,E,N) (--category | --brand | --place-id) ..."
+    o.on("--region NAME", "A US state (virginia) or Geofabrik path (europe/germany/bayern)") { |v| opts[:region] = v }
+    o.on("--bbox W,S,E,N", Array, "A box instead: west,south,east,north") do |v|
+      opts[:bbox] = v.map { |x| Curtilage::Formats.number(x, "--bbox") }
+    end
+    place_filter_flags(o, opts)
+    o.on("--release NAME", "An Overture release, e.g. 2026-11-18.0 (default: the latest)") { |v| opts[:release] = v }
+    o.on("--out FILE", "Write here instead of printing; the format follows the extension") { |v| opts[:out] = v }
+    o.on("--format NAME", %w[csv ndjson geojson], "csv (default), ndjson or geojson") { |v| opts[:format] = v.to_sym }
+    duckdb_flags(o, opts)
+    log_flags(o, opts)
+  end
+  parse(parser, args, opts)
+end
+
+def place_filter_flags(o, opts)
+  o.on("--category NAME", "An Overture category at any level (pharmacy, health_care)") { |v| opts[:category] = v }
+  o.on("--brand NAME", "A brand's name, any case") { |v| opts[:brand] = v }
+  o.on("--place-id ID", "An Overture place id; repeat for several") { |v| opts[:ids] << v }
+  o.on("--min-confidence N", Float, "Only places Overture is at least this sure of (0 to 1)") do |v|
+    opts[:min_confidence] = v
+  end
+end
+
+# Places are inputs, not results: their licences are the sources' (named
+# per place), and premises made from them stay ODbL like any other.
+def places(args)
+  opts = places_options(args)
+  check_out(opts[:out])
+  filter = opts.slice(:category, :brand, :min_confidence, :release).merge(ids: (opts[:ids] unless opts[:ids].empty?))
+  found = Curtilage.places(**opts.slice(:region, :bbox), **filter.compact, **opts.slice(:duckdb, :extension_directory))
+  format = opts[:format] || Curtilage::Formats.format_of(opts[:out]) || :csv
+  text = Curtilage::Formats.write_places(found, format)
+  opts[:out] ? write_out(opts[:out], text) : $stdout.write(text)
+  LOG.puts "#{found.size} place(s) from Overture Maps; each row names its sources and licences " \
+           "(CDLA Permissive 2.0, CC0 or Apache 2.0)"
+end
+
+def diff_options(args)
+  opts = {}
+  parser = OptionParser.new do |o|
+    o.banner = "Usage: curtilage diff OLD NEW [options]"
+    o.on("--threshold IOU", Float, "Review sites whose premises overlap the old less than this " \
+                                   "(default #{Curtilage::Diff::REVIEW_IOU})") { |v| opts[:threshold] = v }
+    o.on("--out FILE", "Write here instead of printing; the format follows the extension") { |v| opts[:out] = v }
+    o.on("--format NAME", %w[csv ndjson], "csv (default) or ndjson") { |v| opts[:format] = v.to_sym }
+    log_flags(o, opts)
+  end
+  parse(parser, args, opts)
+end
+
+def diff(args)
+  opts = diff_options(args)
+  old, new = args.shift(2)
+  raise ArgumentError, "give OLD and NEW result files" unless old && new
+
+  check_out(opts[:out])
+  rows = Curtilage::Diff.compare(Curtilage::Formats.read_results(old), Curtilage::Formats.read_results(new),
+                                 **opts.slice(:threshold))
+  format = opts[:format] || (Curtilage::Formats.format_of(opts[:out]) == :ndjson ? :ndjson : :csv)
+  review = rows.count { |r| r[:review] }
+  summary = "#{rows.size} site(s): #{rows.count { |r| r[:status] == "same" }} same, #{review} to review"
+  deliver(Curtilage::Diff.write(rows, format), opts[:out], summary)
+  LOG.puts summary unless opts[:out]
+  exit(review.zero? ? 0 : 1)
 end
 
 def build_options(args)
   opts = { out: "." }
-  OptionParser.new do |o|
+  parser = OptionParser.new do |o|
     o.banner = "Usage: curtilage build REGION [options]"
     o.on("--out DIR", "Where to write REGION.parquet and REGION.json (default: .)") { |v| opts[:out] = v }
     o.on("--work DIR", "Download folder (default: a temporary one)") { |v| opts[:work] = v }
@@ -159,23 +415,22 @@ def build_options(args)
       opts[:ml] = v
     end
     duckdb_flags(o, opts)
-  end.parse!(args)
-  opts
+    log_flags(o, opts)
+  end
+  parse(parser, args, opts)
 end
 
 def build(args)
   opts = build_options(args)
-  region = args.shift or abort "curtilage build: give a REGION, e.g. tennessee"
+  region = args.shift or raise ArgumentError, "give a REGION, e.g. tennessee"
 
   # Without --work, a fresh private folder (a fixed name in a shared /tmp
   # could be someone else's), removed afterwards unless downloads are kept.
   work = opts[:work] || Dir.mktmpdir("curtilage-build")
   puts Curtilage::Build.run(region, out_dir: opts[:out], work_dir: work, date: opts[:date],
-                                    ml_footprints: opts[:ml], keep_downloads: opts[:keep],
+                                    ml_footprints: opts[:ml], keep_downloads: opts[:keep], log: LOG,
                                     **opts.slice(:duckdb, :extension_directory))
-  warn "downloads kept in #{work}" if opts[:keep] && !opts[:work]
-rescue Curtilage::Error, ArgumentError => e
-  abort "curtilage build: #{e.message}"
+  LOG.puts "downloads kept in #{work}" if opts[:keep] && !opts[:work]
 ensure
   FileUtils.rm_rf(work) if work && !opts[:work] && !opts[:keep]
 end
@@ -196,11 +451,32 @@ def doctor(args)
   exit(report["ok"] ? 0 : 1)
 end
 
-case ARGV.shift
-when "generate" then generate(ARGV)
-when "preview" then preview(ARGV)
-when "build" then build(ARGV)
-when "doctor" then doctor(ARGV)
-when "-h", "--help", "help", nil then puts USAGE
-else abort USAGE
+COMMANDS = %w[generate preview places diff build doctor].freeze
+
+def exit_code(error)
+  case error
+  when Curtilage::DependencyError then 3
+  when Curtilage::Error then 4
+  else 2
+  end
+end
+
+command = ARGV.shift
+begin
+  case command
+  when *COMMANDS then send(command, ARGV)
+  when "-h", "--help", "help", nil then puts USAGE
+  else
+    warn USAGE
+    exit 2
+  end
+rescue OptionParser::ParseError, ArgumentError, Curtilage::Error => e
+  LOG.error("curtilage #{command}: #{e.message}")
+  exit exit_code(e)
+rescue StandardError => e
+  # A bug, not bad input or missing data: keep exit 1 meaning "some sites
+  # failed" and say where it happened, for a report.
+  LOG.error("curtilage #{command}: unexpected error (please report it): #{e.class}: #{e.message}\n  " \
+            "#{e.backtrace&.first(5)&.join("\n  ")}")
+  exit 70
 end

@@ -77,6 +77,18 @@ module Curtilage
       end
     end
 
+    # Where the data for these files came from, for Result#provenance: each
+    # region's Geofabrik extract dates, and the ML footprints if the build
+    # added them (dated by the build, as their source publishes no dates).
+    def provenance(files)
+      regions = @regions.select { |r| files.include?(r.parquet) }.map do |r|
+        meta = r.metadata
+        ml = meta["ml_footprints"] && { source: meta["ml_footprints"], fetched: meta["built_at"].to_s[0, 10] }
+        { region: meta["region"], extract_dates: meta["source_dates"], ml_footprints: ml }.compact
+      end
+      { source: "geofabrik", regions: regions }
+    end
+
     def attribution(files)
       @regions.select { |r| files.include?(r.parquet) }.flat_map { |r| Array(r.metadata["attribution"]) }.uniq
     end

@@ -30,8 +30,8 @@ module Curtilage
 
     # Inverse of project, rounded to 7 decimals (about a centimetre): what
     # results hand out.
-    def lnglat(xy, origin)
-      unproject(xy, origin).map { |lng, lat| [lng.round(7), lat.round(7)] }
+    def lnglat(xy, origin, precision = 7)
+      unproject(xy, origin).map { |lng, lat| [lng.round(precision), lat.round(precision)] }
     end
 
     def metres_per_degree_lng(lat)
@@ -100,6 +100,7 @@ module Curtilage
     def self_intersects?(xy)
       n = xy.size
       return false if n < 4
+      return swept_crossing?(xy) if n > 8
 
       edges = xy.each_index.map { |i| [xy[i], xy[(i + 1) % n]] }
       edges.each_index.any? do |i|
@@ -110,6 +111,30 @@ module Curtilage
         end
       end
     end
+
+    # The same answer as checking every pair of edges, for bigger rings:
+    # edges in order of their left end, each checked only against earlier
+    # ones still overlapping it in x (two edges that cross overlap in x).
+    def swept_crossing?(xy)
+      n = xy.size
+      edges = xy.each_index.map { |i| [xy[i], xy[(i + 1) % n]] }
+      ranges = edges.map { |a, b| [a[0], b[0]].minmax }
+      active = []
+      (0...n).sort_by { |i| ranges[i][0] }.each do |i|
+        active.select! { |j| ranges[j][1] >= ranges[i][0] }
+        return true if crosses_any?(edges, i, active)
+
+        active << i
+      end
+      false
+    end
+
+    def crosses_any?(edges, index, others)
+      others.any? { |j| !adjacent?(index - j, edges.size) && segments_cross?(*edges[index], *edges[j]) }
+    end
+
+    # Edges whose indexes are gap apart in a ring of size share a vertex.
+    def adjacent?(gap, size) = [1, size - 1].include?(gap.abs)
 
     def segments_cross?(p1, p2, p3, p4)
       d1 = cross(p3, p4, p1)

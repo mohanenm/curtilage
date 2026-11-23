@@ -6,7 +6,7 @@ require_relative "test_helper"
 # CI or Docker files.
 class PackagingTest < Minitest::Test
   ROOT = File.expand_path("..", __dir__)
-  SHIPPED = [%r{\Alib/.+\.rb\z}, %r{\Asql/[^/]+\.sql\z}, %r{\Aexe/[^/]+\z},
+  SHIPPED = [%r{\Alib/.+\.rb\z}, %r{\Asql/[^/]+\.sql\z}, %r{\Aexe/[^/]+\z}, %r{\Adocs/schema/[^/]+\.json\z},
              %r{\A(docs/reference|docs/security|README|CHANGELOG|SECURITY)\.md\z}, /\ALICENSE\.txt\z/].freeze
 
   def files
@@ -21,7 +21,7 @@ class PackagingTest < Minitest::Test
 
   def test_the_essentials_ship
     %w[lib/curtilage.rb exe/curtilage sql/build_from_shapefiles.sql docs/reference.md docs/security.md
-       LICENSE.txt].each do |f|
+       docs/schema/site-v1.json LICENSE.txt].each do |f|
       assert_includes files, f
     end
   end

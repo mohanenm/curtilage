@@ -11,6 +11,17 @@ class ResultTest < Minitest::Test
     scene + [road(9, "service", [[-30, -15], [-30, -40]])]
   end
 
+  def test_entrances_name_the_street_they_open_onto
+    r = Curtilage.generate(PIN, with_driveway)
+    entrance = r.entrances.first
+
+    assert_equal [entrance[:point]], r.details[:access_points]
+    assert_equal({ street: nil, street_class: "secondary", street_id: 4, driveway: 9 }, entrance.except(:point))
+    assert_includes Curtilage::Formats.write([r], :kml), "1 entrance from secondary"
+    assert_includes Curtilage::Preview.html([r]), "driveway entrance from secondary"
+    assert_empty Curtilage.generate([-80.01, 35.01], scene).entrances
+  end
+
   def test_details_describe_the_building_parking_frontage_and_driveway
     d = Curtilage.generate(PIN, with_driveway).details
 

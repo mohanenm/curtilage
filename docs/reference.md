@@ -26,8 +26,21 @@ Premises for many pins, in pin order. Pins that share map data share the work. E
 | `data:` | `{}` | For builds: `max_age_days:` (31), `ml_footprints:` (`"microsoft"`), `parallel_builds:` (1, at most 8; each build peaks near 600 MB, so raise it to 2-3 only on machines with the memory). An unknown `data:` option raises `ArgumentError`. For `:auto`: `auto_build_min_pins:` (10). For Overture: `release:` (default: the latest; a release name such as `"2026-11-18.0"`). `log:` where build progress goes (anything with `puts`; default standard error). |
 | `preset:` | none | `:whole_lot`, `:tight` or `:centre` (below). |
 | `method:` | none | `:grow_trim` or `:building` to force one method, no fallback. |
+| `corrections:` | `{}` | `{ pin index => ring }` (or `{ ring:, store_ring: }`), 0-based: use these polygons instead of generating ([Corrections](#corrections-and-comparing-runs)). Their pins fetch no data. |
+| `candidates:` | none | 1 to 5: also return other premises for ambiguous sites ([Candidates](#candidates)). |
 | `keep_features:` | `false` | Keep each result's map data in `Result#features` (needed by `Preview` to draw the surroundings). Off by default to save memory on big batches. |
 | any generation option | | See the table below. |
+
+### `Curtilage.places(region: or bbox:, category: or brand: or ids:, **options) → [Hash]`
+
+Pins from [Overture Maps places](https://docs.overturemaps.org/guides/places/), for when you have no pin list. One filter: `category:` matches any level of Overture's taxonomy (`"pharmacy"`, or `"health_care"` for everything under it) or its basic category; `brand:` the brand's primary name, any case; `ids:` a list of Overture place ids. Where: `region:` (a US state such as `"virginia"`, or a Geofabrik path, matched to its outline from Geofabrik's region index) or `bbox:` `[west, south, east, north]` (at most 400 square degrees). `min_confidence:` (0 to 1) drops places Overture is less sure of; `release:` picks an Overture release; DuckDB options as elsewhere. Places that are permanently or temporarily closed are left out.
+
+Each place is `{ id:, name:, brand:, category:, confidence:, sources:, licences:, pin: [lng, lat] }`, sorted by id, at most 100,000. Places carry their own licences by source (most CDLA Permissive 2.0, AllThePlaces CC0, Foursquare Apache 2.0, which asks for its licence and notice to be kept); they're inputs, and premises made from them are ODbL like any other. Reading them tells Overture's storage host which box was read, and a `region:` downloads Geofabrik's region index.
+
+```ruby
+places = Curtilage.places(region: "delaware", category: "pharmacy", min_confidence: 0.9)
+results = Curtilage.generate_many(places.map { |p| p[:pin] })
+```
 
 ### `Curtilage.generate(pin, features, **options) → Result`
 
@@ -41,18 +54,38 @@ Premises from features you already have (from `Curtilage::Lookup.features` or `C
 | `problem` | Why they aren't usable, in words (e.g. `"no premises: no building within 30 m of the pin (it may be missing from OpenStreetMap: try buildings: :osm_filled)"`), or `nil` when `ok?`. |
 | `ring` | The premises: `[[lng, lat], ...]`, closed, convex, at most `max_vertices` corners. `nil` if nothing could be made. |
 | `store_ring` | The store zone: the building's own outline, always inside `ring`. `nil` with `store_zone: false`. |
+| `candidates` | With `candidates: N`, up to N other premises the site could have, most confident first, each a full `Result` ([Candidates](#candidates)); `nil` otherwise. |
+| `approach_ring`, `pickup_ring` | The [zones](#zones), when asked for (`approach_m:`, `pickup_m:`); `nil` otherwise. |
+| `staging_point` | `[lng, lat]` where a driver might wait, estimated, with a pickup zone ([Zones](#zones)); `nil` otherwise. |
+| `entrances` | Where vehicles enter from the street, with the street's name and class (`details[:entrances]`, below); `[]` when none. |
 | `flags` | Reasons a person should look first (below). |
+| `pin_quality` | `{ quality:, building_m:, moved_from: }`: where the pin was given (`on_building`; `on_road`, within half a public road's width of its centreline; `near_building`, a building within `building_max_distance_m`; or `far`), the distance to the nearest building's edge (0 on one, absent with none), and with `snap_m:` the pin as given when it was moved (`pin` is then the moved pin). `nil` for results that raised an error. |
 | `explanation` | Each step, in plain words. |
+| `steps` | The same steps as records, one per line of `explanation` and in the same order, for tools to show or audit (below). |
 | `validation` | `errors`, `warnings` and `metrics` (area, rectangularity, pin inside, distances). |
-| `method_name` | `:grow_trim`, or `:building` after a fallback. |
+| `method_name` | `:grow_trim`, or `:building` after a fallback; `:manual` for a [correction](#corrections-and-comparing-runs). |
 | `building` | The id of the building used. |
 | `attribution` | What to credit wherever the result is shown: OpenStreetMap, plus Overture, Overture's non-OSM building sources or Microsoft's footprints when the result could use them. `nil` means OpenStreetMap only (`Result::OSM_ATTRIBUTION`). |
 | `pin` | The pin it was made for. |
 | `details` | Facts about the site, rough by nature (open map data); `nil` when no premises were made. See below. |
+| `confidence` | How far to trust the result, 0 to 1 (below). `0.0` when not `ok?`. |
+| `confidence_factors` | The factors behind it: `[{ name:, met:, weight: }, ...]`, every factor listed. |
+| `provenance` | What the result was made from, to reproduce or audit it (below). |
 | `features` | The map data it was made from (`Curtilage::Features`, in metres around the pin), or `nil` unless `keep_features: true`. |
 | `to_geojson(include_store: false, properties: {})` | A GeoJSON Feature (premises) with everything above in its properties, including the attribution to show; with `include_store: true`, a FeatureCollection of premises and store zone (`properties.role`). `properties:` are merged into each feature's properties (your own id, say). |
-| `to_wkt`, `store_wkt` | The premises and store zone as well-known text (`POLYGON ((lng lat, ...))`), for databases and spreadsheets. |
+| `to_wkt`, `store_wkt`, `approach_wkt`, `pickup_wkt`, `staging_wkt` | The premises and store zone as well-known text (`POLYGON ((lng lat, ...))`), for databases and spreadsheets. |
 | `buffered(metres)` | The premises grown (positive) or shrunk (negative) evenly, as a closed ring: a geofence with a margin. Corners are rounded when growing. `nil` if there are no premises or they shrink away. |
+
+`provenance`:
+
+| Key | What |
+|---|---|
+| `gem_version` | The curtilage version that made it. |
+| `data` | `{ source: "overture", release: "2026-11-18.0" }`; `{ source: "geofabrik", regions: [{ region:, extract_dates: [...], ml_footprints: { source:, fetched: } }] }` for builds and catalogues (`ml_footprints` only when the build added them; their source publishes no dates, so `fetched` is the build's date); `{ source: "parquet" }` for a lone `parquet:` file; `nil` when no data covered the pin or features were passed to `generate` directly. |
+| `features_sha256` | A SHA256 of the map data the result was made from, the same whatever order the features came in. Two results with the same hash, version and options used the same inputs. |
+| `options` | Every generation option after defaults and presets. |
+
+It holds no timestamps: the same pins, options and data give the same output, byte for byte, whatever order the map data arrives in. Results that failed with an error carry only `gem_version`.
 
 `details`:
 
@@ -63,10 +96,11 @@ Premises from features you already have (from `Curtilage::Lookup.features` or `C
 | `parking_spaces_estimate` | That area over 25 m2 a space (aisles included). Unmapped parking counts as none. |
 | `frontage_m` | Length of premises edges running along a public road. |
 | `access_points` | `[[lng, lat], ...]`: where driveways taken into the premises meet the street (entrances within 10 m are counted once). |
+| `entrances` | The same entrances with what they open onto: `[{ point: [lng, lat], street:, street_class:, street_id:, driveway: }, ...]` (`street` is the street's name, `nil` when unnamed; `driveway` the driveway's id). Also `Result#entrances`. |
 
 ### Errors
 
-Every error the gem raises on purpose is a `Curtilage::Error` (or a subclass: `Lookup::Error`, `Overture::Error`, `Build::Error`, `Download::Error`, `Footprints::Error`, `ZipRange::Unsupported`, `ZipRange::Corrupt`), so `rescue Curtilage::Error` catches them all. Mistakes in what you pass (a bad pin, option or file) raise `ArgumentError`. A missing DuckDB binary is a `Curtilage::Error` saying what to install.
+Every error the gem raises on purpose is a `Curtilage::Error` (or a subclass: `Lookup::Error`, `Overture::Error`, `Build::Error`, `Download::Error`, `Footprints::Error`, `ZipRange::Unsupported`, `ZipRange::Corrupt`), so `rescue Curtilage::Error` catches them all. Mistakes in what you pass (a bad pin, option or file) raise `ArgumentError`. A missing DuckDB binary, or extensions that won't load, is a `Curtilage::DependencyError` (a `Curtilage::Error`) saying what to install.
 
 ### Presets
 
@@ -78,9 +112,25 @@ Every error the gem raises on purpose is a `Curtilage::Error` (or a subclass: `L
 
 Any option passed with a preset overrides it.
 
+**Your own profiles.** `Curtilage::Profiles.load(path)` reads named sets of generation options from a JSON (`.json`) or YAML (`.yml`, `.yaml`) file and returns `{ name => options }` to pass to `generate` or `generate_many`. A profile may start from a built-in `preset:`; names (`method`, `scope`, `buildings`, `preset`) are written as text. Every profile is checked like options passed directly, so a mistake fails at load, naming the profile. Files are capped at 1 MB and 100 profiles; YAML is read safely (no aliases or objects).
+
+```yaml
+big_box:
+  preset: whole_lot
+  parking_max_extent_m: 150
+  validation: { max_area_error_m2: 300000 }
+```
+
+```ruby
+options = Curtilage::Profiles.load("profiles.yml")[:big_box]
+Curtilage.generate_many(pins, **options)
+```
+
+On the command line: `--profiles FILE --preset big_box`; other flags given with it override the profile.
+
 ### Generation options
 
-All distances in metres, areas in square metres. These are `Curtilage::Generator::DEFAULTS`. An unknown or misspelt option raises `ArgumentError`, and so does a value out of range: distances must be 0 to 1,000 m, areas 0 to 10,000,000 m2, `max_vertices` a whole number from 4 to 50, `max_store_vertices` from 3 to 200, `shared_lot_buildings` from 1 to 1,000 (`Generator::RANGES`).
+All distances in metres, areas in square metres. These are `Curtilage::Generator::DEFAULTS`. An unknown or misspelt option raises `ArgumentError`, and so does a value out of range: distances must be 0 to 1,000 m, areas 0 to 10,000,000 m2, `max_vertices` a whole number from 4 to 50, `max_store_vertices` from 3 to 200, `shared_lot_buildings` from 1 to 1,000, `precision` a whole number from 5 to 15 (`Generator::RANGES`).
 
 | Option | Default | What |
 |---|---|---|
@@ -107,6 +157,10 @@ All distances in metres, areas in square metres. These are `Curtilage::Generator
 | `max_vertices` | `10` | The premises are simplified to at most this many corners (never cutting the building). |
 | `max_store_vertices` | `20` | The store outline is simplified to at most this many corners. |
 | `validation` | `{}` | Limits for the validation every polygon goes through (below), e.g. `{ max_area_error_m2: 300_000 }` for a big-box store's lot. |
+| `snap_m` | `nil` | Move a pin that isn't on any building 1 m inside the nearest one within this distance (real buildings before kiosks), then generate from there. Flags `pin_moved`; `pin_quality` keeps where it was given. Useful for geocoded pins that land on the street, which otherwise pull the premises toward the road (they always hold the pin). |
+| `approach_m` | `nil` | Also make an approach zone: the premises grown by this much, for "customer is near" (see [Zones](#zones)). `Generator::DEFAULT_APPROACH_M` is 150. |
+| `pickup_m` | `nil` | Also make an estimated pickup zone: mapped parking within this much of the building ([Zones](#zones)). `Generator::DEFAULT_PICKUP_M` is 25. |
+| `precision` | `7` | Decimal places in output coordinates (7 is about 1 cm). Validation checks the rounded polygon. |
 
 #### Validation limits
 
@@ -122,6 +176,92 @@ All distances in metres, areas in square metres. These are `Curtilage::Generator
 | `off_centre_m` | `200` | Warn (`off_centre`) if the polygon's centre is further than this from the pin. |
 | `swap_far_m`, `swap_near_m` | `10000`, `1000` | Error (`swapped`) when the polygon is further than `swap_far_m` from the pin but within `swap_near_m` of it with longitude and latitude swapped. |
 
+### Corrections and comparing runs
+
+To fix the few bad sites once and trust the rest:
+
+- **Corrections.** `generate_many(pins, corrections: { 3 => ring })`, or `Curtilage::Corrections.result(pin, ring, store_ring: nil)` for one site, returns the polygon you give instead of generating it: `method_name` `:manual`, `provenance` `{ gem_version:, data: { source: "manual" } }`, a `manual` step, validated like any polygon (with the `validation:` limits passed), so an invalid one is returned not `ok?`, saying why. A store zone that isn't a valid ring inside the premises is dropped, with a step. A valid correction has confidence 1.0 (the factors are just `valid`). On the command line, `--corrections FILE` (GeoJSON or NDJSON) matches polygons to sites by id; this gem's own output, edited in a GIS, works as is.
+- **Comparing runs.** `curtilage diff OLD NEW` (or `Curtilage::Diff.compare(old, new, threshold: 0.9)` on two `Formats.read_results`) compares two result files site by site: `status` (`same`, `changed`, `added`, `removed`), IoU of the premises, both areas and the change in percent, `ok` before and after, flags gained and lost, and confidence before and after. A site needs `review` when it was added or removed, gained or lost premises, changed `ok`, gained a flag, or its premises overlap the old ones less than the threshold. It prints CSV (or `--format ndjson`, or `--out FILE`), says how many need review on standard error, and exits 1 when any do.
+- **Keeping results stable.** The same pins, options and data give byte-identical results (see `provenance`), so a rerun only changes sites whose map data changed; re-applying your corrections keeps your fixes, and `diff` against the last run lists the sites worth a look.
+
+`Formats.read_results(path)` reads a GeoJSON or NDJSON result file back as `{ id => { ring:, store_ring:, properties: } }` (premises and store zone; other zones skipped; rings of up to 1,000 vertices; files up to 50 MB).
+
+### Candidates
+
+When a site is ambiguous, `candidates: N` (1 to 5, on `generate`, `generate_many` or `premises`; `--candidates N` on the command line) also returns up to N other premises in `Result#candidates`, for a reviewer or a downstream system to choose from. The main result is unchanged. Alternatives come from:
+
+- **another building** within `building_max_distance_m` of the pin (not a kiosk), in case the pin is on the wrong one: generated as if the pin were on it, flagged `pin_moved`, with `pin_quality.moved_from` the pin as given;
+- **the whole shopping centre** (`scope: :centre`) when the site's lot is shared;
+- **the building rectangle** (`method: :building`) when confidence is below 0.7 (`Candidates::LOW_CONFIDENCE`).
+
+Only valid ones that differ from the main result and from each other are kept, most confident first. Each starts with a `candidate` step saying what it is. Each candidate is a full generation, so a call takes a few times longer. In GeoJSON each is a feature with `role` `candidate` and `rank`; in NDJSON, `properties.candidates` (rank, geometry, confidence, flags, building, method, explanation); in CSV, the `candidates` column counts them; in KML, placemarks; the preview draws them dashed.
+
+### Zones
+
+For arrival detection, two optional zones nest with the premises and store zone: approach ⊇ premises ⊇ store zone and pickup zone. Every zone is checked as a shape (closed, valid coordinates, not crossing itself) and dropped with a step if it fails; only the premises get the size limits.
+
+- **Approach** (`approach_m:`): the premises grown by that many metres with rounded corners, then simplified to at most 16 corners by dropping only corners that keep every premises corner inside. "The customer is near." It may cross roads; the premises never do.
+- **Pickup** (`pickup_m:`): the largest piece of mapped parking within that many metres of the building's rectangle, kept inside the premises. Neither OpenStreetMap extracts (Geofabrik's free shapefiles) nor Overture carry pickup or curbside spots or entrances, so it's always estimated (`estimated: true` on its GeoJSON feature): the parking right by the store, not marked bays. `nil` (with a step saying so) when no mapped parking is that close.
+- **Staging point** (with a pickup zone): the pickup zone's point nearest the building, where a driver might wait. Estimated like the zone.
+
+Building entrances (`entrance=*`) and drive-through lanes (`service=drive-through`) aren't in either data source today (Geofabrik's free shapefiles drop those tags; Overture has no entrances and no drive-through subclass), so they aren't output. Driveway entrances from the street are (`details[:entrances]`).
+
+In GeoJSON they're extra features with `properties.role` `approach`, `pickup` and `staging` (a Point); in NDJSON, geometries in `properties.approach`, `properties.pickup` and `properties.staging`; in CSV, `approach_wkt`, `pickup_wkt` and `staging_wkt`; in KML, placemarks; the preview draws them.
+
+### Steps
+
+`Result#steps` (GeoJSON and NDJSON `steps`) is the explanation as records: `{ step:, text:, rule:, features:, distance_m:, area_before_m2:, area_after_m2:, flag: }`. `step` and `text` (the line of `explanation`) are always there; the rest only when they apply. `rule` names the option (from [Generation options](#generation-options)) or rule that set the distance, `features` are the map-data ids involved, and the areas are the premises in whole square metres before and after the step changed them.
+
+| `step` | What happened | `rule` |
+|---|---|---|
+| `data` | Where the map data came from, or that it's missing or partial (`flag`). | |
+| `fallback` | A method failed validation; the next was tried. | the method that failed |
+| `error` | Generation raised an error (flag `error`). | |
+| `drop_features` | Unusable map features were dropped. | |
+| `find_building` | The building under the pin, the nearest one in reach, or none. | `building_max_distance_m` when not under the pin |
+| `check_building`, `check_store` | The building's size or source raised a flag or a note. | `small_building_m2`, `large_building_m2`, `large_building_note_m2` |
+| `grow` | The building's rectangle grown toward its lot. | `grow_m`, or `building_margin_m` (fallback) |
+| `trim_road` | Trimmed at a public road or railway (one step per road). | `road_class_half_width`, `road_offset_m`, or `clearance` when the building or pin clearance kept the cut closer to the centreline |
+| `keep_road_side` | A road wasn't trimmed at because the cut would cross the building. | |
+| `claim_lot` | Parking, a garage or a canopy is the site's lot. | `parking_reach_m`, or `shared_lot_buildings` for a shared lot |
+| `share_lot` | A claimed lot also touches other buildings. | |
+| `split_neighbour` | Cut short of, or halfway to, a neighbouring building. | `neighbour_gap_m` or `halfway` |
+| `keep_neighbour` | A neighbour touching the building couldn't be split off. | |
+| `take_driveway` | A driveway to the street was taken in. | `ENTRANCE_REACH_M` |
+| `add_lot` | The claimed lot was added to the premises. | `parking_max_extent_m` |
+| `keep_off_neighbour` | Kept 1 m off a neighbour the lot reached. | |
+| `whole_centre` | The whole shopping centre (`scope: :centre`). | |
+| `widen`, `simplify` | The premises widened to hold the building, or simplified. | `max_vertices` for `simplify` |
+| `trim_store` | The store outline trimmed to fit inside the premises. | |
+| `approach_zone` | The approach zone made (or dropped). | `approach_m` |
+| `pickup_zone` | The pickup zone estimated from a parking lot, or none found. | `pickup_m` |
+| `staging_point` | The staging point placed. | |
+| `candidate` | What a candidate is (first step of each `Result#candidates`). | `scope` or `method` for those alternatives |
+| `manual` | The polygon is a correction, not generated. | |
+| `snap_pin` | The pin moved onto the nearest building (flag `pin_moved`). | `snap_m` |
+
+New step names may be added in minor versions; treat an unknown one as a plain note.
+
+### Confidence
+
+`Result#confidence` orders results for review: flags say what to look at, confidence says where to look first. It's rule-based (no learning): each factor that isn't met takes its weight off 1, never below 0, rounded to 2 places. The factors are `Curtilage::Confidence::FACTORS`:
+
+| Factor | Weight | Met when |
+|---|---|---|
+| `valid` | 1.0 | The premises passed validation. |
+| `main_method` | 0.30 | Made by the main method (no `fallback`). |
+| `building_under_pin` | 0.20 | The pin was given on the building used (no `building_not_under_pin` or `pin_moved`). |
+| `full_data` | 0.20 | Map data covers the whole area around the pin (no `partial_data`). |
+| `plausible_building` | 0.15 | The building is big enough to be a store (no `small_building`). |
+| `mapped_parking` | 0.15 | Mapped parking is inside the premises. |
+| `road_frontage` | 0.15 | At least one side of the premises runs along a public road. |
+| `osm_building` | 0.10 | The building is from OpenStreetMap (no `ml_footprint`). |
+| `single_building_store` | 0.10 | The building is small enough to be one store (no `large_building` or `store_may_be_unit`). |
+| `no_homes_next_door` | 0.10 | No home borders the lot (no `near_houses`). |
+| `no_warnings` | 0.05 | Validation raised no warnings. |
+
+The weights are judgement for now, to be calibrated on the public benchmark once its reference polygons are drawn; treat the score as an order, not a probability. Data age isn't a factor, so the same inputs always score the same.
+
 ### Flags
 
 The same list is `Curtilage::FLAGS` (flag => what it asks a person to check).
@@ -132,6 +272,7 @@ The same list is `Curtilage::FLAGS` (flag => what it asks a person to check).
 | `large_building` | Building over 5,000 m2: may be shared by several tenants. |
 | `small_building` | Building under 50 m2: may be a kiosk or canopy rather than the store. |
 | `building_not_under_pin` | No building under the pin; the nearest one within 30 m was used. |
+| `pin_moved` | The pin wasn't on a building and was moved onto the nearest one (`snap_m:`): check it's the right one. |
 | `store_may_be_unit` | The store zone is a building over 1,500 m2: the store may be one unit of it. |
 | `shopping_centre` | `scope: :centre` mapped the whole centre. |
 | `fallback` | The main method failed validation; the building rectangle was used. |
@@ -144,9 +285,10 @@ The same list is `Curtilage::FLAGS` (flag => what it asks a person to check).
 
 Reading pins:
 
-- `Formats.read_pins(path)`: pins from a `.csv` or `.geojson`/`.json` file, as `[{ id:, pin: [lng, lat] }, ...]`. `Formats.parse_pins(text, :csv | :geojson)` does the same from a string.
+- `Formats.read_pins(path, format: nil)`: pins from a `.csv`, `.geojson`/`.json` or `.ndjson`/`.jsonl` file, as `[{ id:, pin: [lng, lat] }, ...]`. `Formats.parse_pins(text, :csv | :geojson | :ndjson)` does the same from a string.
 - CSV: a header row, then one pin per row. Longitude is the column named `lng`, `lon`, `long` or `longitude`; latitude is `lat` or `latitude`; the id, if any, is `id`, `site_id` or `name` (names are case-insensitive). Quoted fields, a byte-order mark and blank lines are fine.
 - GeoJSON: a FeatureCollection of Point features (or one Point feature). The id is the feature's `id`, or its `id` or `name` property.
+- NDJSON (`.ndjson`/`.jsonl`, or `:ndjson`): one site per line, as `{"id": "a", "lng": -80.1, "lat": 35.2}` (any of the CSV column names), `{"id": "a", "pin": [-80.1, 35.2]}` or a GeoJSON Point Feature. Blank lines are skipped; a bad line is named by number.
 - Pins without an id are numbered from 1. Files are capped at 50 MB and 100,000 pins; CSV fields (and ids) at 10,000 characters and rows at 1,000 columns; GeoJSON nesting at 20 levels. Files must be UTF-8 (a byte-order mark is fine) without NUL bytes.
 - Coordinates must be plain decimal numbers (`-80.25`, `35`, `1e-3`), longitude first, longitude within 180 and latitude within 90. Hexadecimal, underscores (`1_0`), `NaN` and infinite values are refused with the line or feature named. Every entry point (Ruby calls, `--pin`, files) checks pins the same way.
 
@@ -154,9 +296,12 @@ Writing results: `Formats.write(results, format, ids: nil, store: true)` returns
 
 | Format | What |
 |---|---|
-| `:geojson` | One FeatureCollection: for each pin, its premises and (unless `store: false`) its store zone, with `properties.id`, `properties.role` and everything `to_geojson` carries. |
-| `:csv` | One row per pin. Columns: `id`, `lng`, `lat`, `ok`, `problem`, `method`, `flags` and `errors` (`;`-separated), `building`, `building_area_m2`, `parking_area_m2`, `parking_spaces_estimate`, `frontage_m`, `premises_area_m2`, `premises_wkt`, `store_wkt`, `attribution` (`; `-separated). Cells a spreadsheet would run as a formula (starting with `=`, `+`, `-`, `@`, `|` or `%`, or their full-width forms, even after spaces) get a leading `'`; plain numbers don't. |
-| `:kml` | A placemark per polygon (premises and store zone), with the flags and attribution in its description, and every source credited in the document's description, for Google Earth. |
+| `:geojson` | One FeatureCollection: for each pin, its premises, (unless `store: false`) its store zone, and any [zones](#zones) asked for, with `properties.id`, `properties.role` and everything `to_geojson` carries. |
+| `:ndjson` | One line per pin: a GeoJSON Feature of its premises (`geometry` is `null` when none could be made) with everything `to_geojson` carries in its properties, the store zone's geometry in `properties.store` (absent with `store: false`), and any [zones](#zones) in `properties.approach` and `properties.pickup`. The schema is [`docs/schema/site-v1.json`](schema/site-v1.json) (it ships in the gem); version 1 only gains optional properties, and anything that would break a reader gets a new schema version. |
+| `:csv` | One row per pin. Columns: `id`, `lng`, `lat`, `ok`, `problem`, `method`, `flags` and `errors` (`;`-separated), `building`, `building_area_m2`, `parking_area_m2`, `parking_spaces_estimate`, `frontage_m`, `premises_area_m2`, `premises_wkt`, `store_wkt`, `attribution` (`; `-separated), then `gem_version`, `data_source`, `data_release` (the Overture release or the Geofabrik extract dates, `;`-separated) and `features_sha256` from `provenance` (the options are only in GeoJSON), then `confidence`, `approach_wkt`, `pickup_wkt` and `staging_wkt` (empty unless asked for), then `pin_quality` and `candidates` (how many). Cells a spreadsheet would run as a formula (starting with `=`, `+`, `-`, `@`, `|` or `%`, or their full-width forms, even after spaces) get a leading `'`; plain numbers don't. |
+| `:kml` | A placemark per polygon (premises, store zone and any zones) and per point (driveway entrances, named by their street, and the staging point), with the confidence, flags, attribution, gem version and data release in its description, and every source credited in the document's description, for Google Earth. |
+
+`Formats.write_places(places, :csv | :ndjson | :geojson)` writes places as pins: `id`, `lng`, `lat` (which `read_pins` reads back), `name`, `brand`, `category`, `place_confidence`, `place_sources`, `place_licences`.
 
 `Formats.format_of(path)` names the format a file extension stands for.
 
@@ -166,7 +311,7 @@ Writing results: `Formats.write(results, format, ids: nil, store: true)` returns
 
 - A map 240 m across, north up, with a 50 m scale bar: the premises, store zone and pin; the site's building (darker) and other buildings, mapped parking, public roads (hover for the name), service roads and driveways, railways; driveway entrances (blue dots); with `buffer_m:`, the premises grown by that much (dashed).
 - Under it: the flags (hover for their meaning), the building and premises areas, parking area and estimated spaces, street frontage, the number of entrances, and the step-by-step explanation. Invalid results say why.
-- At the top, a count of sites that are ok, flagged or without usable premises, and two controls: **Show** (all sites; those that need a look, meaning flagged or not valid; not valid; ok with no flags; or those with a given flag, with counts) and **Sort by** (input order, needs a look first, id, largest or smallest premises). The choice is remembered in the browser. The controls are a short inline script; without it every card shows, in input order.
+- At the top, a count of sites that are ok, flagged or without usable premises, and two controls: **Show** (all sites; those that need a look, meaning flagged or not valid; not valid; ok with no flags; or those with a given flag, with counts) and **Sort by** (input order, needs a look first, lowest confidence first, id, largest or smallest premises). Each card shows its confidence. The choice is remembered in the browser. The controls are a short inline script; without it every card shows, in input order.
 
 The surroundings come from `Result#features`, so pass results from `generate_many(pins, keep_features: true)`; without them only the premises, store zone and entrances are drawn. The page loads nothing from the internet (no tiles, scripts or fonts), so opening it reveals no locations; it does contain the coordinates, so share it only as you would them. Its Content-Security-Policy allows only its own inline style and script, and text from map data is escaped.
 
@@ -178,6 +323,7 @@ The surroundings come from `Result#features`, so pass results from `generate_man
 - `Curtilage::Catalogue.from_dir(dir, base_url: nil)`: the regions built into a folder; `base_url:` when the Parquet files live in a bucket. It uses each region's recorded outline to decide which files cover a pin, and `coverage(pin)` says whether that's `:full`, `:partial` or `:none`.
 - `Curtilage::Lookup.features(parquet:, pin:)` / `features_many(parquet:, pins:)`: the map features around pins, from built files.
 - `Curtilage::Overture.features_many(pins)`: the map features around pins, from Overture Maps.
+- `Curtilage::Overture.places(bbox:, ...)`: what `Curtilage.places` reads, for a box only.
 
 ## Data licence
 
@@ -210,24 +356,47 @@ DuckDB's `spatial` and `httpfs` extensions install themselves on first use.
 ## Command line
 
 ```
-curtilage generate (--pin LNG,LAT ... | --in FILE) [--out FILE] [options]
+curtilage generate (--pin LNG,LAT ... | --in FILE|-) [--out FILE] [options]
 curtilage preview (--pin LNG,LAT ... | --in FILE) [--out FILE] [options]
+curtilage places (--region NAME | --bbox W,S,E,N) (--category NAME | --brand NAME | --place-id ID ...)
+curtilage diff OLD NEW [--threshold IOU] [--out FILE]
 curtilage build REGION [options]
 curtilage doctor
 ```
 
 - `generate`: premises and store zones for one or more pins.
-  - Pins: `--pin LNG,LAT` (repeat for several; ids 1, 2, ...) and/or `--in FILE` (CSV or GeoJSON; see [Files](#files-curtilageformats)).
-  - Output: printed as GeoJSON, or `--out FILE` in the format its extension names (`.geojson`/`.json`, `.csv`, `.kml`). `--format geojson|csv|kml` overrides. The file is written whole (to a temporary name, then renamed) and replaces any file there; a symbolic link at that path is refused.
+  - Pins: `--pin LNG,LAT` (repeat for several; ids 1, 2, ...) and/or `--in FILE` (CSV, GeoJSON or NDJSON; see [Files](#files-curtilageformats)). `--in -` reads standard input, as NDJSON unless `--in-format csv|geojson|ndjson` says otherwise; `--in-format` also overrides a file's extension.
+  - Output: printed as GeoJSON, or `--out FILE` in the format its extension names (`.geojson`/`.json`, `.ndjson`/`.jsonl`, `.csv`, `.kml`). `--format geojson|ndjson|csv|kml` overrides. The file is written whole (to a temporary name, then renamed) and replaces any file there; a symbolic link at that path is refused.
   - Data: `--source auto|geofabrik|overture` (default auto), `--cache-dir DIR`, `--catalogue DIR`, `--parquet FILE`.
-  - Style: `--preset whole_lot|tight|centre`, `--buildings osm|osm_filled|ml`, `--[no-]store`.
+  - Style: `--preset whole_lot|tight|centre` or a profile name with `--profiles FILE`, `--buildings osm|osm_filled|ml`, `--[no-]store`.
+  - Corrections: `--corrections FILE` uses your polygons for sites with the same id ([Corrections](#corrections-and-comparing-runs)).
+  - Ambiguous sites: `--candidates N` (1 to 5) adds up to N other premises ([Candidates](#candidates)).
+  - Pins: `--snap [METRES]` (default 30) moves pins that aren't on a building onto the nearest one (`snap_m:`).
+  - Zones: `--approach [METRES]` (default 150) and `--pickup [METRES]` (default 25) add the [zones](#zones).
   - DuckDB: `--duckdb PATH`, `--extension-directory DIR`.
-  - Exits 1 if any result isn't usable, so scripts can tell.
+  - Big batches: sites are generated in chunks of 500 (`Curtilage::Batch`). NDJSON and CSV are written as each chunk finishes, so memory stays flat: to standard output directly, or with `--out FILE` into `.FILE.part` next to it, renamed to `FILE` when the run finishes (so `FILE` never holds half a run). `--resume` carries on an interrupted run from that `.part` file, skipping sites already in it and redoing a line cut short by a crash; it needs `--out` with `.ndjson` or `.csv` and unique site ids. GeoJSON and KML are written whole at the end. Progress (sites done, rate, time left) goes to standard error when it's a terminal, or always with `--progress`. Without `--cache-dir`, a Geofabrik region the run builds is kept in a temporary cache for the whole run, so chunks don't rebuild it.
+  - `--min-confidence N` (0 to 1) leaves out results whose confidence is below N, and says how many on standard error; the exit code is then 1, as some sites weren't written.
+  - Logs: `--quiet` keeps only warnings and errors; `--log-format json` writes each log line as `{"level": "info"|"warning"|"error", "message": "..."}`.
 - `preview`: generates the same way (same options, except `--format`), then writes the page described under [Preview](#preview-curtilagepreview). `--out FILE` (default `curtilage-preview.html`); `--buffer METRES` also draws the premises grown by that much.
+- `diff OLD NEW`: compares two result files ([Comparing runs](#corrections-and-comparing-runs)). `--threshold IOU` (default 0.9), `--out FILE`, `--format csv|ndjson`. Exits 1 when any site needs review.
+- `places (--region NAME | --bbox W,S,E,N) (--category NAME | --brand NAME | --place-id ID ...)`: pins from Overture Maps places (`Curtilage.places`), as CSV (default), NDJSON or GeoJSON, printed or `--out FILE`. Also `--min-confidence N`, `--release NAME`, the DuckDB and log flags. Its output feeds `generate --in` directly: `curtilage places --region delaware --category pharmacy | curtilage generate --in - --in-format csv`.
 - `build REGION` writes `REGION.parquet` and `REGION.json`. REGION is a US state (`tennessee`, `new-york`) or a Geofabrik path (`europe/germany/bayern`). Options: `--out DIR` (default `.`), `--work DIR` (default: a private temporary folder, removed afterwards), `--date YYMMDD`, `--keep-downloads`, `--ml-footprints microsoft`, `--duckdb`, `--extension-directory`.
 - `doctor` checks everything the gem needs outside Ruby, with a fix for each problem: the DuckDB binary (its path and version; a warning, not a failure, outside the tested 1.4 LTS and 2.0), its `spatial` and `httpfs` extensions (with versions), and the cache folder's permissions when one is configured. `--verify DIR` also checks every built file in a catalogue or cache folder against the SHA256 its build recorded; `--network` checks that Geofabrik and Overture's catalogue answer (no locations are sent); `--json` prints the report for scripts. It exits 0 when ready, 1 if not. It prints the DuckDB version and the path of the binary that runs: `CURTILAGE_DUCKDB` runs whatever it names, so it's trusted configuration.
 
 Run `curtilage COMMAND --help` for the same list.
+
+Standard output carries only results (`generate` without `--out`, and the file path `build` wrote); progress, summaries, warnings and errors go to standard error, so output can be piped. Exit codes, for `generate`, `preview`, `places`, `diff` and `build` (`diff` uses 1 for "some sites need review"):
+
+| Code | Meaning |
+|---|---|
+| 0 | Done; every site has usable premises. |
+| 1 | Done, but some sites have no usable premises (`ok` is false); the output was still written. |
+| 2 | Bad input or usage: an unknown option or command, a bad pin, an unreadable input file, an output path that can't be written. Nothing was generated. |
+| 3 | A dependency is missing: DuckDB isn't found, or its extensions won't load. `curtilage doctor` says what to fix. |
+| 4 | Map data unavailable: a download, Overture read or build failed, offline mode forbids what's needed, or a built file can't be read. |
+| 70 | An unexpected error (a bug: please report it with the message). |
+
+`doctor` keeps its own codes: 0 ready, 1 not.
 
 ### Docker
 

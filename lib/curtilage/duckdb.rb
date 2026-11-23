@@ -44,9 +44,9 @@ module Curtilage
         [output[0].force_encoding(Encoding::UTF_8), clean(output[1].to_s.force_encoding(Encoding::UTF_8)), wait.value]
       end
     rescue Errno::ENOENT
-      raise Error, "DuckDB CLI not found (#{duckdb}). Install DuckDB 1.4 or 2.0 " \
-                   "(https://duckdb.org/docs/installation/) or set CURTILAGE_DUCKDB to its path; " \
-                   "`curtilage doctor` checks."
+      raise DependencyError, "DuckDB CLI not found (#{duckdb}). Install DuckDB 1.4 or 2.0 " \
+                             "(https://duckdb.org/docs/installation/) or set CURTILAGE_DUCKDB to its path; " \
+                             "`curtilage doctor` checks."
     end
 
     # Threads that write the SQL and read both outputs; their values carry
@@ -146,7 +146,7 @@ module Curtilage
       query = "SELECT extension_name AS name, extension_version AS version FROM duckdb_extensions() " \
               "WHERE loaded AND extension_name IN (#{list});"
       out, err, status = capture(duckdb, "#{setup}\n#{query}", "-json")
-      raise Error, "DuckDB extensions (#{names.join(", ")}) could not be loaded: #{err.strip[0, 300]}" \
+      raise DependencyError, "DuckDB extensions (#{names.join(", ")}) could not be loaded: #{err.strip[0, 300]}" \
         unless status.success?
 
       JSON.parse(out).to_h { |row| [row["name"], row["version"]] }

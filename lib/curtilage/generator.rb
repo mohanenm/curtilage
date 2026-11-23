@@ -25,14 +25,22 @@ module Curtilage
 
     # Notes explain each step; flags are reasons a person should look first.
     # access: where driveways taken into the premises meet the street.
-    Log = Struct.new(:notes, :flags, :access) do
-      def note(text) = notes << text
-
-      def access_point(xy) = (self.access ||= []) << xy
-
-      def flag(name, text)
-        flags << name unless flags.include?(name)
+    # notes: the explanation in words; steps: the same, one record per note
+    # (Result#steps): { step:, text:, rule:, features:, distance_m:,
+    # area_before_m2:, area_after_m2:, flag: }, unknown fields left out.
+    Log = Struct.new(:notes, :flags, :access, :steps) do
+      def note(text, step: "note", **fields)
         notes << text
+        self.steps ||= []
+        steps << { step: step, text: text, **fields }.compact
+      end
+
+      # Where a driveway (id) meets a street (a Features::Line), in metres.
+      def access_point(xy, street, driveway) = (self.access ||= []) << { xy: xy, street: street, driveway: driveway }
+
+      def flag(name, text, **)
+        flags << name unless flags.include?(name)
+        note(text, flag: name, **)
       end
     end
 
@@ -93,6 +101,10 @@ module Curtilage
       buildings: :osm,               # :osm, :osm_filled (ML footprints where OSM has none) or :ml
       scope: :site,                  # :site, or :centre (the whole shopping centre when on a shared lot)
       validation: {},                # limits for Validation.check, e.g. { max_area_error_m2: 300_000 }
+      precision: 7,                  # decimal places in output coordinates (7: about 1 cm)
+      approach_m: nil,               # also an approach zone: the premises grown this much (nil: none)
+      pickup_m: nil,                 # also a pickup zone: mapped parking this close to the building (nil: none)
+      snap_m: nil,                   # move a pin that's off any building onto the nearest within this (nil: don't)
     }.freeze
 
     BUILDING_SOURCES = %i[osm osm_filled ml].freeze
@@ -107,12 +119,14 @@ module Curtilage
       building_max_distance_m: DISTANCE, pin_clearance_m: DISTANCE, building_clearance_m: DISTANCE,
       grow_m: DISTANCE, road_offset_m: DISTANCE, neighbour_gap_m: DISTANCE, house_street_m: DISTANCE,
       parking_reach_m: DISTANCE, parking_max_extent_m: DISTANCE, building_margin_m: DISTANCE,
+      approach_m: DISTANCE, pickup_m: DISTANCE, snap_m: DISTANCE,
       large_building_m2: AREA, large_building_note_m2: AREA, neighbour_min_area_m2: AREA,
       neighbour_strip_min_area_m2: AREA, house_max_m2: AREA, small_building_m2: AREA,
-      shared_lot_buildings: [1, 1_000, true], max_vertices: [4, 50, true], max_store_vertices: [3, 200, true]
+      shared_lot_buildings: [1, 1_000, true], max_vertices: [4, 50, true], max_store_vertices: [3, 200, true],
+      precision: [5, 15, true]
     }.freeze
     # Options where nil means "work it out" (by road class; halfway).
-    NIL_ALLOWED = %i[road_offset_m neighbour_gap_m].freeze
+    NIL_ALLOWED = %i[road_offset_m neighbour_gap_m approach_m pickup_m snap_m].freeze
 
     module_function
 
@@ -127,12 +141,12 @@ module Curtilage
         if result.ok?
           unless failures.empty?
             result.flags.unshift(:fallback)
-            result.explanation.unshift(*failures)
+            prepend_failures(result, failures)
           end
           return result
         end
-        failures << "#{method} failed (#{failure_reason(result)})"
-        return result.tap { |r| r.explanation = failures + r.explanation } if method == CHAIN.last
+        failures << ["#{method} failed (#{failure_reason(result)})", method]
+        return prepend_failures(result, failures) if method == CHAIN.last
       end
     end
 
@@ -145,9 +159,12 @@ module Curtilage
       features = Features.new(pin, features) unless features.is_a?(Features)
       features = choose_buildings(features, opts[:buildings])
       log = Log.new([], [])
-      log.note("dropped #{features.dropped} unusable OSM features") if features.dropped.positive?
+      log.note("dropped #{features.dropped} unusable OSM features", step: "drop_features") if features.dropped.positive?
+      quality = pin_quality(features, opts)
+      features, quality[:moved_from] = snap_pin(features, opts, log) if opts[:snap_m]
       xy, target = send(method, features, opts, log)
-      finish(method, pin, [xy, target, features], log, opts)
+      finish(method, quality[:moved_from] ? features.pin : pin, [xy, target, features], log, opts)
+        .tap { |r| r.pin_quality = quality.compact }
     end
 
     # DEFAULTS with the options applied. A misspelt option would otherwise be
@@ -199,18 +216,23 @@ module Curtilage
 
     def finish(method, pin, shape, log, opts)
       xy, target, features = shape
-      result = Result.new(method_name: method, pin: pin, explanation: log.notes, flags: log.flags,
-                          building: target&.id, features: features)
+      log.steps ||= []
+      result = Result.new(method_name: method, pin: pin, explanation: log.notes, flags: log.flags, steps: log.steps,
+                          building: target&.id, features: features,
+                          provenance: { gem_version: VERSION, features_sha256: features.sha256, options: opts })
       unless xy
         result.validation = Validation.check(pin, nil)
         return result
       end
 
       premises = premises_xy(xy, target, opts, log)
-      result.ring = ring_of(premises, pin)
-      result.store_ring = ring_of(store_xy(target, premises, opts, log), pin) if target && opts[:store_zone]
+      result.ring = ring_of(premises, pin, opts[:precision])
+      if target && opts[:store_zone]
+        result.store_ring = ring_of(store_xy(target, premises, opts, log), pin, opts[:precision])
+      end
       result.validation = Validation.check(pin, result.ring, **opts[:validation])
-      result.details = details(target, premises, features, pin, log)
+      result.details = details(target, premises, features, pin, log, precision: opts[:precision])
+      add_zones(result, [premises, target, features], opts, log)
       result
     end
 
@@ -220,22 +242,21 @@ module Curtilage
     def premises_xy(xy, target, opts, log)
       xy = Geometry.clean(Geometry.counter_clockwise(xy))
       if target && !target.hull.all? { |p| inside?(xy, p) }
-        log.note("widened the premises to take in the whole building")
-        xy = Geometry.counter_clockwise(Geometry.convex_hull(xy + target.hull))
+        wider = Geometry.counter_clockwise(Geometry.convex_hull(xy + target.hull))
+        log.note("widened the premises to take in the whole building", step: "widen", features: [target.id],
+                                                                       area_before_m2: m2(xy), area_after_m2: m2(wider))
+        xy = wider
       end
       return xy if xy.size <= opts[:max_vertices]
 
-      log.note("simplified #{xy.size} vertices to at most #{opts[:max_vertices]}")
-      Geometry.simplify_containing(xy, opts[:max_vertices], (target ? target.hull : []) + [[0.0, 0.0]])
+      simple = Geometry.simplify_containing(xy, opts[:max_vertices], (target ? target.hull : []) + [[0.0, 0.0]])
+      log.note("simplified #{xy.size} vertices to at most #{opts[:max_vertices]}",
+               step: "simplify", rule: "max_vertices", area_before_m2: m2(xy), area_after_m2: m2(simple))
+      simple
     end
 
     def inside?(xy, point)
       Geometry.contains?(xy, point) || Geometry.distance_to_edges(xy, point) < 0.01
-    end
-
-    def ring_of(xy, pin)
-      ring = Geometry.lnglat(xy, pin)
-      ring << ring.first
     end
 
     def failure_reason(result)
@@ -252,8 +273,10 @@ module Curtilage
       target = find_building(features, opts, log)
       return [nil, nil] unless target
 
-      log.note("grew the building rectangle by #{opts[:grow_m]} m")
-      poly = trim_at_roads(grown(target, opts[:grow_m], opts), features, target, opts, log)
+      poly = grown(target, opts[:grow_m], opts)
+      log.note("grew the building rectangle by #{opts[:grow_m]} m", step: "grow", rule: "grow_m", features: [target.id],
+                                                                    distance_m: opts[:grow_m], area_after_m2: m2(poly))
+      poly = trim_at_roads(poly, features, target, opts, log)
       lots, shared = own_parking(features, target, opts, log)
       return [centre(shared, Site.new(features, target, opts, log)), target] if opts[:scope] == :centre && shared.any?
 
@@ -268,14 +291,24 @@ module Curtilage
       features.buildings.reject { |b| b.equal?(target) || b.area < opts[:neighbour_min_area_m2] }
     end
 
+    # Nearest first (ties by id): each cut depends on the ones before it, so
+    # the closest building, which bounds the lot most, goes first, whatever
+    # order the map data came in.
+    def nearest_first(buildings, target)
+      buildings.sort_by { |b| [Geometry.closest_points(target.hull, b.hull)[0], b.id.to_s] }
+    end
+
     # The building's minimum rectangle plus a margin, trimmed at public
     # roads (premises never cross one).
     def building(features, opts, log)
       target = find_building(features, opts, log)
       return [nil, nil] unless target
 
-      log.note("building rectangle grown by #{opts[:building_margin_m]} m")
-      [trim_at_roads(grown(target, opts[:building_margin_m], opts), features, target, opts, log), target]
+      poly = grown(target, opts[:building_margin_m], opts)
+      log.note("building rectangle grown by #{opts[:building_margin_m]} m",
+               step: "grow", rule: "building_margin_m", features: [target.id], distance_m: opts[:building_margin_m],
+               area_after_m2: m2(poly))
+      [trim_at_roads(poly, features, target, opts, log), target]
     end
 
     # The building's rectangle grown by margin metres, taking in the pin.
@@ -291,24 +324,30 @@ module Curtilage
       target = building_under_pin(features, log) || nearest_building(features, opts, log)
       if target&.kind == "ml_building"
         log.flag(:ml_footprint, "building #{target.id} is a machine-learned footprint, not mapped in OSM: " \
-                                "check it exists")
+                                "check it exists", step: "check_building", features: [target.id])
       end
       if target && target.area < opts[:small_building_m2]
         log.flag(:small_building, "building is only #{target.area.round} m2: check it's the site " \
-                                  "(a kiosk or drive-through), not a shed or canopy next to it")
+                                  "(a kiosk or drive-through), not a shed or canopy next to it",
+                 step: "check_building", rule: "small_building_m2", features: [target.id])
       end
       if target && target.area > opts[:large_building_m2]
         log.flag(:large_building, "building is over #{opts[:large_building_m2]} m2: if it's shared " \
-                                  "(strip mall, several tenants), check which part is the site")
+                                  "(strip mall, several tenants), check which part is the site",
+                 step: "check_building", rule: "large_building_m2", features: [target.id])
       elsif target && target.area > opts[:large_building_note_m2]
-        log.note("building is #{target.area.round} m2: large enough that it may be shared")
+        log.note("building is #{target.area.round} m2: large enough that it may be shared",
+                 step: "check_building", rule: "large_building_note_m2", features: [target.id])
       end
       target
     end
 
     def building_under_pin(features, log)
       target = features.buildings.select { |b| Geometry.contains?(b.xy, [0.0, 0.0]) }.min_by(&:area)
-      log.note("building #{target.id} is under the pin (#{target.area.round} m2)") if target
+      if target
+        log.note("building #{target.id} is under the pin (#{target.area.round} m2)", step: "find_building",
+                                                                                     features: [target.id])
+      end
       target
     end
 
@@ -323,16 +362,16 @@ module Curtilage
     # A tiny structure (a canopy or kiosk roof) right by the pin loses to a
     # real building in reach: the canopy then counts as part of the lot.
     def nearest_building(features, opts, log)
-      in_reach = features.buildings.map { |b| [Geometry.distance_to_edges(b.xy, [0.0, 0.0]), b] }
-                         .select { |d, _| d <= opts[:building_max_distance_m] }
-      real = in_reach.reject { |_, b| b.area < opts[:small_building_m2] }
-      distance, target = (real.empty? ? in_reach : real).min_by(&:first)
+      distance, target = nearest_in_reach(features, opts, opts[:building_max_distance_m])
       if target
         log.flag(:building_not_under_pin, "no building under the pin; using building #{target.id}, " \
-                                          "#{distance.round} m away (#{target.area.round} m2)")
+                                          "#{distance.round} m away (#{target.area.round} m2)",
+                 step: "find_building", rule: "building_max_distance_m", features: [target.id],
+                 distance_m: distance.round(1))
         target
       else
-        log.note("no building within #{opts[:building_max_distance_m]} m of the pin#{missing_hint(opts)}")
+        log.note("no building within #{opts[:building_max_distance_m]} m of the pin#{missing_hint(opts)}",
+                 step: "find_building", rule: "building_max_distance_m", distance_m: opts[:building_max_distance_m])
         nil
       end
     end
@@ -351,100 +390,16 @@ module Curtilage
 
         trimmed, used = trim_along(poly, fit_direction(run, target), target, offset,
                                    [opts[:building_clearance_m], opts[:pin_clearance_m]])
-        next log.note("kept the part beyond #{road_label(road)}: it would cut the building") unless trimmed
+        unless trimmed
+          next log.note("kept the part beyond #{road_label(road)}: it would cut the building",
+                        step: "keep_road_side", features: [road.id])
+        end
         next if trimmed.size < 3
 
-        label = "trimmed at #{road_label(road)}, #{used.round} m short of its centreline"
-        log.note(label) unless log.notes.include?(label)
+        note_trim(log, road, [used, offset], [poly, trimmed], opts)
         poly = trimmed
       end
       poly
-    end
-
-    # [road, stretch points, offset] for every public road and railway near
-    # the building, nearest stretch first.
-    def road_stretches(features, target, opts)
-      (features.public_roads + features.railways)
-        .flat_map { |road| road_runs(road, target).map { |run| [road, run, road_offset(road, opts)] } }
-        .sort_by { |_, run, _| run.map { |p| Geometry.distance_to_edges(target.hull, p) }.min }
-    end
-
-    ROAD_REACH_M = 60   # only the road this close to the building bounds the site
-    ROAD_BEND_DEG = 30  # a sharper turn starts a new stretch
-    ROAD_SNAP_DEG = 10  # a stretch this close to a building side is squared to it
-
-    # Points every 2 m along the road within reach of the building, split
-    # into stretches wherever the road turns by more than ROAD_BEND_DEG.
-    def road_runs(road, target)
-      runs = []
-      run = nil
-      road.xy.each_cons(2) do |a, b|
-        heading = Math.atan2(b[1] - a[1], b[0] - a[0]) % Math::PI
-        samples(a, b).each do |p|
-          if Geometry.distance_to_edges(target.hull, p) > ROAD_REACH_M
-            run = nil
-            next
-          end
-          if run.nil? || angle_between(run[:heading], heading) > ROAD_BEND_DEG * Math::PI / 180
-            run = { heading: heading, points: [] }
-            runs << run
-          end
-          run[:points] << p
-        end
-      end
-      runs.map { |r| r[:points] }.select { |pts| pts.size >= 2 }
-    end
-
-    def samples(a, b)
-      n = [(Geometry.distance(a, b) / 2).ceil, 1].max
-      (0..n).map { |i| Geometry.lerp(a, b, i.fdiv(n)) }
-    end
-
-    # Smallest angle between two undirected headings (radians, mod pi).
-    def angle_between(first, second)
-      d = (first - second).abs % Math::PI
-      [d, Math::PI - d].min
-    end
-
-    # [centroid, unit direction] of the stretch's best-fit line, snapped to a
-    # building side when nearly parallel.
-    #
-    # The direction is the length-weighted average of the stretch's own
-    # heading (a short jog or fork barely moves it), and the line sits at the
-    # median of the points across it (one side branch can't drag it).
-    def fit_direction(points, target)
-      heading = mean_heading(points)
-      axis = target.rectangle[:angle]
-      2.times do |k|
-        side = axis + (k * Math::PI / 2)
-        heading = side if angle_between(heading % Math::PI, side % Math::PI) <= ROAD_SNAP_DEG * Math::PI / 180
-      end
-      direction = [Math.cos(heading), Math.sin(heading)]
-      [median_line_point(points, direction), direction]
-    end
-
-    # Average of segment headings as undirected lines (doubled angles), each
-    # weighted by its length.
-    def mean_heading(points)
-      sum_cos = 0.0
-      sum_sin = 0.0
-      points.each_cons(2) do |a, b|
-        length = Geometry.distance(a, b)
-        angle = 2 * Math.atan2(b[1] - a[1], b[0] - a[0])
-        sum_cos += length * Math.cos(angle)
-        sum_sin += length * Math.sin(angle)
-      end
-      Math.atan2(sum_sin, sum_cos) / 2
-    end
-
-    # A point on the line with the given direction that has half the points
-    # on each side.
-    def median_line_point(points, direction)
-      normal = [-direction[1], direction[0]]
-      centre = Geometry.centroid(points)
-      offsets = points.map { |p| Geometry.dot([p[0] - centre[0], p[1] - centre[1]], normal) }.sort
-      median = offsets[offsets.size / 2]
-      [centre[0] + (normal[0] * median), centre[1] + (normal[1] * median)]
     end
 
     # Clips at the line, moved toward the pin by up to offset metres but
@@ -484,14 +439,14 @@ module Curtilage
     def trim_at_neighbours(poly, features, target, opts, log)
       hull = target.hull
       area = Geometry.bounds(poly)
-      neighbours(features, target, opts).each do |other|
-        next unless Geometry.bounds_near?(area, other.bounds)
-
+      near = neighbours(features, target, opts).select { |other| Geometry.bounds_near?(area, other.bounds) }
+      nearest_first(near, target).each do |other|
         other_hull = other.hull
         next unless Geometry.overlap?(other_hull, poly)
 
         if Geometry.overlap?(other_hull, hull)
-          log.note("building #{other.id} touches the building, so it can't be split off")
+          log.note("building #{other.id} touches the building, so it can't be split off",
+                   step: "keep_neighbour", features: [other.id])
           next
         end
         home = home?(other, features, opts) && (behind_home?(other, target, features) ? :behind : :beside)
@@ -499,27 +454,13 @@ module Curtilage
         trimmed = split_from_neighbour(poly, hull, other_hull, target.rectangle[:angle], stop: strip_stop(strip))
         next if trimmed.size < 3
 
-        explain_cut(log, other, home, strip)
+        explain_cut(log, other, home, strip, area_before_m2: m2(poly), area_after_m2: m2(trimmed))
         poly = trimmed
       end
       poly
     end
 
     HALFWAY = ->(near, far) { (near + far) / 2 }
-
-    # home: :behind, :beside or false (not a home).
-    def explain_cut(log, other, home, strip)
-      case home
-      when :behind
-        log.flag(:near_houses, "the lot backs onto a home (building #{other.id}): split halfway, " \
-                               "check where its yard starts")
-      when :beside
-        log.flag(:near_houses, "the lot runs beside a home (building #{other.id}), stopping " \
-                               "#{strip} m short of it: check the property line")
-      else
-        log.note(strip ? "stopped #{strip} m short of building #{other.id}" : "split halfway to building #{other.id}")
-      end
-    end
 
     # The strip left to a neighbour, or nil to split halfway. Pavement
     # between two buildings usually belongs to one of them, and the site's
@@ -559,11 +500,14 @@ module Curtilage
       cosine < -0.5
     end
 
-    def nearest_street_point(point, features)
-      points = features.public_roads.flat_map do |road|
-        road.xy.each_cons(2).map { |a, b| Geometry.closest_point_on_segment(point, a, b) }
+    def nearest_street_point(point, features) = nearest_street(point, features)&.last
+
+    # [public road, its point nearest point], or nil without public roads.
+    def nearest_street(point, features)
+      pairs = features.public_roads.flat_map do |road|
+        road.xy.each_cons(2).map { |a, b| [road, Geometry.closest_point_on_segment(point, a, b)] }
       end
-      points.min_by { |p| Geometry.distance(p, point) }
+      pairs.min_by { |_, p| Geometry.distance(p, point) }
     end
 
     # Never less than halfway: a narrow gap is still split down the middle.
