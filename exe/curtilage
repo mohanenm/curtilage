@@ -230,6 +230,8 @@ def style_flags(o, opts)
 end
 
 def zone_flags(o, opts)
+  o.on("--h3 RES", Integer, "Also list the H3 cells (0-15) the premises touch (installs DuckDB's community h3 " \
+                            "extension)") { |v| opts[:h3] = v }
   o.on("--simplify N", Integer, "At most N corners per premises (3+), keeping the pin and store zone inside") do |v|
     raise ArgumentError, "--simplify needs 3 or more" if v < 3
 
@@ -306,6 +308,7 @@ def run_chunk(opts, pins, fixes)
   local = fixes.each_with_index.filter_map { |fix, i| [i, fix] if fix }.to_h
   run(opts, pins, corrections: local).tap do |results|
     results.each { |r| simplify(r, opts[:simplify]) } if opts[:simplify]
+    Curtilage::H3.cover(results, opts[:h3], **opts.slice(:duckdb, :extension_directory)) if opts[:h3]
   end
 end
 

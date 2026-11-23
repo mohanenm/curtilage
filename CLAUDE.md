@@ -31,5 +31,5 @@ If `data/AGENT_NOTES.md` exists, read it too.
 ## Rules
 
 - **Never commit real site locations, private data or credentials.** Tests and examples use made-up coordinates, or well-known public places.
-- Network access only to public map-data hosts (Geofabrik, Overture Maps, Microsoft's footprint files when opted in) and DuckDB's extension repository. Never send site locations anywhere else.
+- Network access only to public map-data hosts (Geofabrik, Overture Maps, Microsoft's footprint files when opted in) and DuckDB's extension repositories (core; community only for the opt-in `h3` extension). Never send site locations anywhere else.
 - Git: stage files by explicit path (never `git add -A`, `git add .` or `commit -a`), check `git diff --cached --stat` before committing, no Co-Authored-By trailer, and don't push unless asked. Other sessions may be working in the same folder, so run `git status` first.

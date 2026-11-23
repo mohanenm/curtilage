@@ -9,14 +9,11 @@ What was added for people who don't write Ruby, and what was assessed but not bu
 - **HTTP server**: `curtilage serve` on the standard library; spec in `docs/openapi.yaml`.
 - **Helpers and recipes**: `Curtilage.point_in_premises?`, `docs/recipes/`, a Homebrew formula (`packaging/`).
 
-## H3 cells (not built: needs a decision)
+## H3 cells
 
-An H3 cover of each premises at a chosen resolution. Two ways:
+`--h3 RES` (or `Curtilage::H3.cover(results, res)`) lists the H3 cells each premises touches ("overlap" cover, so even a small site gets one), in every output. It runs through DuckDB's community `h3` extension, installed only when asked for. Community extensions are built and signed by DuckDB from third-party code, a step down from the core extensions used everywhere else, which is why it's opt-in. A plain-Ruby H3 (the icosahedral projection, cell boundaries, polygon fill) would be several hundred lines of numeric code to write and test against the reference implementation.
 
-1. **DuckDB's `h3` community extension** (`INSTALL h3 FROM community`): `h3_polygon_wkt_to_cells`, mature and fast. But community extensions are built and signed by DuckDB from a third party's code, a step down from the core extensions the gem trusts now, and a new thing to install and keep current.
-2. **H3 in plain Ruby**: the hierarchical icosahedral projection, cell boundaries and polygon fill. Several hundred lines of careful numeric code to write and test against the reference implementation; not small.
-
-Recommendation: the extension, opt-in (an `--h3 RES` flag that installs it only when asked), documented as a community extension. Or leave H3 to users: GeoParquet loads straight into DuckDB, where they can run the extension themselves.
+The extension follows DuckDB's releases with a lag: at the time of writing it's published for 1.4 LTS but not 2.0.1, where `--h3` stops with an error that says so.
 
 ## PMTiles for large batches (assessed only)
 
@@ -30,8 +27,7 @@ It would call `curtilage serve` on 127.0.0.1 (simplest: plain HTTP from Python, 
 
 Open points: packaging Ruby and DuckDB for QGIS users on Windows (the Docker image may be the practical answer); the plugin repository's licence (GPL is required for QGIS plugins, which is compatible with calling an MIT tool); and where a click sends coordinates (nowhere but the local server or CLI, which is the point).
 
-## Waiting for a decision
+## Not done here
 
-- H3: extension or not (above).
-- Publishing the Docker image to GitHub Container Registry, and the Homebrew tap: both written, neither turned on.
-- The Python package: `python/` in this repository, or a separate repository.
+- Publishing the Docker image to GitHub Container Registry and the Homebrew tap: both are written, neither is turned on.
+- A Python wrapper.

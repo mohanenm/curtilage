@@ -14,10 +14,10 @@ module Curtilage
   # provenance: what the result was made from and with (gem version, data
   # source and release, options, a hash of the map data), so it can be
   # reproduced; it holds no timestamps, so the same inputs give the same
-  # output byte for byte.
+  # output byte for byte. h3: { resolution:, cells: } when H3.cover was run.
   Result = Struct.new(:method_name, :pin, :ring, :store_ring, :explanation, :flags, :validation, :building,
                       :details, :attribution, :features, :provenance, :steps, :approach_ring, :pickup_ring,
-                      :staging_point, :pin_quality, :candidates, keyword_init: true) do
+                      :staging_point, :pin_quality, :candidates, :h3, keyword_init: true) do
     def ok?
       !ring.nil? && validation.ok?
     end
@@ -129,7 +129,7 @@ module Curtilage
         confidence_factors: confidence_factors, method: method_name, flags: flags, building: building,
         details: details, errors: validation.errors, warnings: validation.warnings, metrics: validation.metrics,
         explanation: explanation, steps: steps || [], attribution: attribution, provenance: provenance,
-        enclosing_circle: enclosing_circle, fit_circle: fit_circle }
+        enclosing_circle: enclosing_circle, fit_circle: fit_circle, **(h3 ? { h3: h3 } : {}) }
     end
 
     # Circles, for geofences that take only circles (Android's Geofencing

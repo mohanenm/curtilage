@@ -70,6 +70,7 @@ module Curtilage
         "#{text.call("$.provenance.data.source")} AS data_source",
         "#{text.call("$.provenance.features_sha256")} AS features_sha256",
         "json_extract(properties, '$.provenance')::VARCHAR AS provenance",
+        "array_to_string(json_extract_string(properties, '$.h3.cells[*]'), ';') AS h3_cells",
         "CASE WHEN json_type(json_extract(properties, '$.store')) = 'OBJECT' " \
         "THEN ST_AsText(ST_GeomFromGeoJSON(json_extract(properties, '$.store'))) END AS store_wkt",
         "CASE WHEN json_type(geometry) = 'OBJECT' THEN ST_GeomFromGeoJSON(geometry) END AS geometry"

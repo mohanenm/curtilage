@@ -224,6 +224,7 @@ Pins never leave the machine as coordinates: they aren't put in any URL or reque
 | ... in your bucket (`s3://`, `gs://`, `https://`) | your bucket's host | The parts of files read: roughly where each pin is. |
 | Microsoft footprints in a build (opt-in) | Microsoft's footprint host | Which tiles cover the region you build. |
 | First run, or `curtilage doctor` | DuckDB's extension repository | That you install the `spatial` and `httpfs` extensions, and your DuckDB version and platform. |
+| `--h3` / `Curtilage::H3` (opt-in) | DuckDB's community extension repository | That you install the community `h3` extension, and your DuckDB version and platform. |
 
 - **For a sensitive list of locations, use `source: :geofabrik`** (or `CURTILAGE_SOURCE=geofabrik`): hosts then learn only which regions you build. `:auto` reads scattered pins from Overture.
 - The gem's own downloads go only to Geofabrik, Overture's catalogue and Microsoft's footprint host, and anything else is refused. DuckDB reads Overture's storage, your bucket and its extension repository itself.

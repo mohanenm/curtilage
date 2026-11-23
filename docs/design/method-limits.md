@@ -28,7 +28,7 @@ Overture's `width_rules` gives a width for 117 of 111,782 public road segments i
 
 ## Buildings missing from OSM (7.3)
 
-`buildings: :osm_or_ml` uses machine-learned footprints only when no OSM building is under or within 30 m of the pin; every other site is exactly as with `:osm`. On the held-out set: 2 of the 5 sites with no OSM building get valid premises (IoU 0.23 and 0.65, flagged `ml_footprint`); the other 3 have no footprint either. The benchmark has no site missing from OSM. **Whether `:auto` should use it by default is an open decision**: it needs footprints in the data (a build with `--ml-footprints microsoft`, or Overture's non-OSM buildings).
+`buildings: :osm_or_ml` uses machine-learned footprints only when no OSM building is under or within 30 m of the pin; every other site is exactly as with `:osm`. On the held-out set: 2 of the 5 sites with no OSM building get valid premises (IoU 0.23 and 0.65, flagged `ml_footprint`); the other 3 have no footprint either. The benchmark has no site missing from OSM. It needs footprints in the data, so sites read from Overture (whose non-OSM buildings come with it) use it by default; with Geofabrik builds it's opt-in, together with `--ml-footprints microsoft`.
 
 ## Shared lots (7.4)
 

@@ -47,6 +47,10 @@ results = Curtilage.generate_many(places.map { |p| p[:pin] })
 
 Whether a `[lng, lat]` point (a device's location) is inside a premises ring as you stored it (`[[lng, lat], ...]`, closed or not); on the edge counts as inside. Plain Ruby, no database needed. For PostGIS, see [the PostGIS recipe](recipes/postgis.md).
 
+### `Curtilage::H3.cover(results, resolution, **lookup) → results`
+
+Sets `result.h3 = { resolution:, cells: [...] }` on each result with premises: the H3 cells (resolution 0-15) the premises touch, so even a small site gets at least one. Also `--h3 RES` on the command line; the cells appear in GeoJSON/NDJSON (`properties.h3`), CSV (`h3_cells`, `;`-separated) and the GIS formats. It uses DuckDB's **community** `h3` extension, installed on first use from DuckDB's community repository (built and signed by DuckDB from third-party code); with `CURTILAGE_OFFLINE=1` it must be installed already. The extension isn't published for every DuckDB release (at the time of writing: 1.4 LTS yes, 2.0.1 no); where it's missing, a `DependencyError` says so.
+
 ### `Curtilage.generate(pin, features, **options) → Result`
 
 Premises from features you already have (from `Curtilage::Lookup.features` or `Curtilage::Overture.features_many`), with the same `preset:`, `method:` and generation options.
@@ -397,6 +401,7 @@ curtilage doctor
   - Output: printed as GeoJSON, or `--out FILE` in the format its extension names (`.geojson`/`.json`, `.ndjson`/`.jsonl`, `.csv`, `.kml`, `.parquet`, `.gpkg`, `.fgb`). `--format geojson|ndjson|csv|kml|geoparquet|gpkg|fgb` overrides; the last three need `--out` ([GIS formats](#gis-formats)). The file is written whole (to a temporary name, then renamed) and replaces any file there; a symbolic link at that path is refused.
   - Data: `--source auto|geofabrik|overture` (default auto), `--cache-dir DIR`, `--catalogue DIR`, `--parquet FILE`.
   - Style: `--preset whole_lot|tight|centre` or a profile name with `--profiles FILE`, `--buildings osm|osm_or_ml|osm_filled|ml`, `--[no-]store`, `--entrances near|all` (`entrances:`).
+  - H3: `--h3 RES` lists the H3 cells each premises touches ([H3](#curtilageh3coverresults-resolution-lookup--results)).
   - Geofences: `--simplify N` keeps at most N corners per premises, never dropping the pin or store zone (`Result#simplified`). Every GeoJSON/NDJSON premises carries `enclosing_circle` and `fit_circle`; CSV has `circle_*` and `fit_*` columns.
   - Parcels: `--parcels FILE` clips premises to your property lines ([Parcels](#parcels)).
   - Corrections: `--corrections FILE` uses your polygons for sites with the same id ([Corrections](#corrections-and-comparing-runs)).

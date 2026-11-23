@@ -1,6 +1,6 @@
 # DuckDB: how users get it
 
-Status: analysis for a decision. curtilage needs DuckDB for every data path (building regions, reading built files, reading Overture). Today the user installs the DuckDB CLI (1.4 LTS or 2.0) and the gem runs it as a separate process.
+Status: analysis. curtilage needs DuckDB for every data path (building regions, reading built files, reading Overture). Today the user installs the DuckDB CLI (1.4 LTS or 2.0) and the gem runs it as a separate process.
 
 ## Options
 
@@ -44,7 +44,7 @@ Already true in practice: 1.4.4 and 2.0.1 are both tested end to end, and the ge
 2. **b next**, as an explicit `doctor --install` with pinned checksums, once you approve the GitHub hosts.
 3. **a later, if at all**: only if single-pin API speed matters more than isolation, and then as an optional backend next to the CLI, never instead of it.
 
-## Decisions needed
+## Not done
 
-1. Build `doctor --install` (b), allowing downloads from `github.com` and its `objects.githubusercontent.com` redirect, for the gem's users?
-2. Defer the Ruby bindings (a)?
+- `doctor --install` (b): it would mean allowing downloads from `github.com` and its `objects.githubusercontent.com` redirect.
+- The Ruby bindings (a).

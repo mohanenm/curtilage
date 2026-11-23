@@ -82,6 +82,24 @@ class IntegrationTest < Minitest::Test
     JSON.parse(out)
   end
 
+  # The community h3 extension isn't published for every DuckDB release
+  # (2.0.1 lacks it at the time of writing): skipped where it can't load.
+  def test_h3_cover_with_the_real_extension
+    with_region do |dir|
+      results = Curtilage.generate_many([PIN], parquet: File.join(dir, "fixture.parquet"))
+      begin
+        Curtilage::H3.cover(results, 11)
+      rescue Curtilage::DependencyError => e
+        skip e.message
+      end
+
+      cells = results[0].h3[:cells]
+
+      assert_operator cells.size, :>=, 2 # a ~70 x 80 m lot spans several 25 m cells
+      assert(cells.all? { |c| c.match?(/\A8b[0-9a-f]{13}\z/) })
+    end
+  end
+
   def test_lookup_reads_the_features_around_a_pin
     with_region do |dir|
       rows = Curtilage::Lookup.features(parquet: File.join(dir, "fixture.parquet"), pin: PIN)

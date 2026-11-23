@@ -4,6 +4,7 @@
 
 ### Added
 
+- H3 cells: `--h3 RES` / `Curtilage::H3.cover(results, res)` lists the cells each premises touches, in every output, through DuckDB's community `h3` extension (opt-in; installed only when used; published for DuckDB 1.4 LTS at the time of writing).
 - `Curtilage.point_in_premises?(ring, point)`: the geofence check on a stored ring.
 - `curtilage serve`: an HTTP API (`POST /premises`, `GET /health`, `GET /version`) on the standard library, spec in `docs/openapi.yaml`. Binds 127.0.0.1 unless `--host`; optional bearer token from an environment variable; body, pin, time and concurrency limits; no CORS unless configured; pins never logged unless `--log-pins`. The Docker image exposes 8754 with a health check.
 - GeoParquet, GeoPackage and FlatGeobuf output (`--out FILE.parquet|.gpkg|.fgb`, or `--format`), written through DuckDB with attribution and provenance as columns; `--resume` works for them.

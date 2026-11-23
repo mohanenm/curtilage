@@ -48,7 +48,7 @@ What the data allows today:
 
 - **Driveway entrances: yes.** The rules already found where driveways taken into the premises meet a public road (`access_points`). Each now also records the street (name, class, id) and the driveway's id: `details[:entrances]` and `Result#entrances`. The points are unchanged (checked on the held-out set).
 - **Staging point: estimated.** "Parking nearest the main entrance" needs the main entrance, which isn't mapped in our data, so it's the pickup zone's point nearest the building, made only with a pickup zone.
-- **Building entrances and drive-through lanes: no.** Geofabrik's free shapefiles drop `entrance=*` and `service=*`; Overture's buildings have no entrances and its road subclasses (`link`, `sidewalk`, `crosswalk`, `parking_aisle`, `driveway`, `alley`, `cycle_crossing`) have no drive-through. Getting them means reading full OSM data (`.osm.pbf`, same host, much bigger files, a second build path) or waiting for Overture. Decision pending.
+- **Building entrances and drive-through lanes: no.** Geofabrik's free shapefiles drop `entrance=*` and `service=*`; Overture's buildings have no entrances and its road subclasses (`link`, `sidewalk`, `crosswalk`, `parking_aisle`, `driveway`, `alley`, `cycle_crossing`) have no drive-through. Getting them means reading full OSM data (`.osm.pbf`, same host, much bigger files, a second build path) or waiting for Overture. Not built.
 
 ## 6.6 Fixing pins and finding places
 
