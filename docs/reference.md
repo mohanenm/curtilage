@@ -195,7 +195,8 @@ Set once instead of passing on every call. Defaults come from the environment.
 | `source` | `CURTILAGE_SOURCE` | `auto` |
 | `offline` | `CURTILAGE_OFFLINE` | off. `1`: never use the network: extensions are loaded but not installed (populate the folder first, e.g. with `curtilage doctor`), every download is refused, and so are Overture and bucket reads; prebuilt catalogues and cached builds still work |
 | `duckdb_timeout` | `CURTILAGE_DUCKDB_TIMEOUT` | `600` seconds per lookup or Overture query; DuckDB is then stopped, with anything it started |
-| | `CURTILAGE_CURL` | Downloads use the `curl` command when installed (much faster); `0` forces Ruby's own HTTP client |
+| | `CURTILAGE_CURL` | Downloads use the `curl` command when it's installed (optional, much faster); `0` forces Ruby's own HTTP client |
+| | `HTTPS_PROXY`, `NO_PROXY` | Downloads go through this proxy (both with and without `curl`), except to hosts `NO_PROXY` covers. DuckDB's own reads (Overture, buckets) use DuckDB's `http_proxy` setting, which `lookup: { setup_sql: }` can set. |
 
 ```ruby
 Curtilage.configure do |c|
