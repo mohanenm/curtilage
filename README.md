@@ -175,6 +175,7 @@ Rules on open map data go a long way, but some sites need a person. These are th
 - **Dense rowhouse blocks.** Cuts toward many close neighbours can leave a thin sliver.
 - **`near_houses` is noisy in dense urban areas,** where almost every site borders homes. It's more meaningful in suburbs.
 - **The polygon is always convex,** so entrance notches and L-shaped lots are approximated.
+- **Sites within about 100 m of the antimeridian** (180° longitude: parts of Fiji, Chukotka, the Aleutians) get no polygon: premises can't cross that line, so validation refuses them.
 
 ## Building footprints: OSM, or OSM plus machine-learned
 

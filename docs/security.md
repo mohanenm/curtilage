@@ -49,6 +49,7 @@ What curtilage trusts, what it doesn't, who might attack it, and how each attack
 - **Atomic writes**: the cached region index, each region's metadata and the command line's `--out` files are written to a temporary name and renamed; an unreadable cached index is fetched again. `--out` refuses a symbolic link at the target.
 - **Errors**: everything raised on purpose is a `Curtilage::Error`, or an `ArgumentError` for bad input.
 - **Output**: the preview escapes all text, drops Unicode direction controls from it, and carries a Content-Security-Policy that allows only its own inline style and script (by hash) and no loads at all, so a missed escape can't run script. CSV cells a spreadsheet would run as a formula (a leading `=`, `+`, `-`, `@`, `|` or `%`, full-width forms, after any whitespace) get a leading `'`, in every column; KML escapes all text; GeoJSON is written by a JSON library.
+- **Fuzz tests** (`test/fuzz_test.rb`, plain Ruby, fixed seed): the CSV and GeoJSON readers, map-data parsing, geometry on degenerate input (repeated, lined-up and coincident points), validation, and generation near the poles and the antimeridian. `FUZZ_ITERATIONS=5000` runs a longer pass.
 - **Docker**: the image runs as a non-root user.
 
 ## Known gaps
