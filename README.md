@@ -4,7 +4,11 @@
 
 Generates a site's **premises polygon** (the building plus its customer-facing lot) and a **store zone** (the building's own outline) from free map data, so nobody has to draw them by hand.
 
-**Status:** 0.3.0. Tested on over 200 real store sites around the US, plus some in South America and Europe. The rules were tuned on 20 of them and checked on the rest, which they had never seen; on the largest batch, 97% got a valid polygon, and nearly all the misses were buildings absent from OpenStreetMap. Results were reviewed against hand-drawn premises and by eye on aerial imagery. The API may still change before 1.0.
+**Status:** 0.3, rule-based; the API may change before 1.0. How it's been checked so far, on private sets of real sites that can't be published:
+
+- On 164 sites the rules had never seen, 159 (97%) got a polygon that passed the gem's own validation (pin inside, closed, no self-intersection, plausible size). Nearly all five misses were buildings missing from OpenStreetMap. Passing validation means usable, not necessarily right.
+- Against hand-drawn premises for those sites, the median overlap (IoU) was 0.47. Hand-drawn polygons often hug the building more tightly than the whole lot this gem aims for, so IoU undersells generous but correct results.
+- The 20 sites used to tune the rules were also reviewed by eye on aerial imagery, which is a subjective check. An earlier version gave similar validity on 51 sites in the US, Brazil and Hungary (47 of 51).
 
 ## Quick start
 
