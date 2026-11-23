@@ -87,7 +87,8 @@ What the data allows today:
 - **Progress** only on a terminal (or `--progress`), so logs and pipes stay clean.
 - **Builds are reused across chunks:** without `--cache-dir`, a temporary cache lives for the run, or `:auto` would rebuild a region per chunk.
 - **Throughput, 10,000 made-up pins** (centres of randomly sampled buildings in a prebuilt Delaware file, laptop, one process): 497 s at first (20 sites/s). Profiling 500 of them: lookup 7 ms, parsing 8 ms, generation 34 ms a site, 85% of it sampling every road around the pin every 2 m, several times a site. Skipping segments whose box is beyond reach of the building's box (exactly the samples that were being discarded) took generation to 7 ms and the run to 203 s (49 sites/s), with all 10,000 premises identical. Ruby's memory levels off around 550-650 MB (the map data for a chunk), whatever the batch size.
-- Next bottlenecks, not tackled: parsing DuckDB's JSON (8 ms a site) and the lookup (7 ms); generation is single-threaded (one core).
+- **Then the lookup and parsing.** The lookup ran one scan of the file per pin, each decoding at least a 20,000-row group; local files are now read once, joined to the pins' boxes (7 ms to 2 ms a pin), while remote files keep per-pin scans so only nearby row groups are fetched, and new builds write 5,000-row groups. Parsing spent 3.3 ms of 8 checking polygons for self-intersection by comparing every edge pair; an edge sweep halves it with the same answers. 10,000 pins: 145 s (69 sites/s), all premises identical to the first run.
+- Left as they are: sorting and hashing the input for determinism (1.8 ms, mostly generating each feature's canonical JSON), and generation on one core (a site is now about 15 ms all in: 2 lookup, 7 parsing, 6 generating).
 
 ## 8.2 A stable CLI contract
 

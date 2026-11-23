@@ -171,8 +171,8 @@ The current folder is mounted at `/work`, so file names are relative to it. The 
 ### Speed
 
 - Generate: about 10 ms per site for an ordinary building, about 65 ms (median) for the busier commercial sites tested; a few hundred ms in dense blocks.
-- Big batches: 10,000 made-up pins in one state took about 3.5 minutes from a prebuilt file on a laptop (about 50 sites a second), with Ruby under 650 MB however long the batch. `curtilage generate` works in chunks of 500, shows progress on a terminal, streams NDJSON and CSV, and `--resume` carries on an interrupted run.
-- Prebuilt files: about 85 ms per lookup through the DuckDB CLI; one call serves many pins.
+- Big batches: 10,000 made-up pins in one state took under 2.5 minutes from a prebuilt file on a laptop (about 70 sites a second), with Ruby under 650 MB however long the batch. `curtilage generate` works in chunks of 500, shows progress on a terminal, streams NDJSON and CSV, and `--resume` carries on an interrupted run.
+- Prebuilt files: about 2 ms a pin in batches (one DuckDB call serves 500 pins); about 85 ms for a single lookup, mostly starting DuckDB.
 - Overture (the default for scattered pins): about 5-10 s per area; pins within a few km of each other share it. A test batch of 51 sites in 17 regions across three continents took 4 minutes from a cold start; the 164 (143 pins read from Geofabrik builds, 21 from Overture) took under 6.
 - Geofabrik builds (the default once 10+ pins share a region): 1-5 minutes per US state the first time (Texas, the largest tested, about 4.5 minutes and under 650 MB of memory), then as above. Downloads use `curl` when it's installed, and `data: { parallel_builds: 2 }` builds two regions at once on machines with the memory.
 
