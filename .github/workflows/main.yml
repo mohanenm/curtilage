@@ -9,6 +9,8 @@ on:
 permissions:
   contents: read
 
+# Actions are pinned to full commit SHAs (the version is in the comment);
+# Dependabot proposes updates.
 jobs:
   build:
     runs-on: ubuntu-latest
@@ -21,11 +23,11 @@ jobs:
           - "3.4"
           - "4.0"
     steps:
-      - uses: actions/checkout@v7
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           persist-credentials: false
       - name: Set up Ruby
-        uses: ruby/setup-ruby@v1
+        uses: ruby/setup-ruby@be3c7df29b3349ec6bcfc6b4792f1cf9f5237d18 # v1.343.0
         with:
           ruby-version: ${{ matrix.ruby }}
           bundler-cache: true
@@ -34,3 +36,33 @@ jobs:
         env:
           LANG: C
         run: bundle exec rake
+
+  # Known vulnerabilities in the development gems. bundler-audit is installed
+  # here only, so it isn't a dependency of the gem or its Gemfile.
+  audit:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: ruby/setup-ruby@be3c7df29b3349ec6bcfc6b4792f1cf9f5237d18 # v1.343.0
+        with:
+          ruby-version: "3.4"
+          bundler-cache: true
+      - name: Audit the bundle
+        run: |
+          gem install bundler-audit --no-document
+          bundle-audit check --update
+
+  # Nobody needs Docker to work on the gem, so CI checks the image builds
+  # (DuckDB verified against its SHA256) and runs with no network at all.
+  docker:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - name: Build the image
+        run: docker build -t curtilage .
+      - name: Check it offline
+        run: docker run --rm --network none -e CURTILAGE_OFFLINE=1 curtilage doctor
