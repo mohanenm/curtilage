@@ -59,6 +59,15 @@ What the data allows today:
 - **Place id alone is a filter, not a lookup:** Overture's files are indexed by location only, so finding one id without a region would scan the whole global dataset; `--place-id` needs `--region` or `--bbox`.
 - **Snapping to the building that matches a name or brand: not built.** It needs an extra places read for every pin's area (Overture only; Geofabrik builds have no places layer), for a gain pin quality and nearest-building snapping mostly cover.
 
+## 6.7 Multiple candidates
+
+`candidates: N` adds `Result#candidates`: other full results, so each has confidence, flags, steps and every output field. The main result never changes.
+
+- **Ambiguity, as the brief listed it, decides what's offered:** several buildings near the pin (each other building within `building_max_distance_m`, not a kiosk, generated with the pin moved onto it, which reuses snapping); a shared lot (the whole centre); low confidence (the building rectangle, below 0.7). Nothing else, so a clear site gets none.
+- Only valid, distinct candidates are kept, most confident first. Confidence drops for a moved pin, so the main result usually ranks above its alternatives.
+- Opt-in: every candidate is a full generation. On the held-out set with 3: 112 of 164 sites got at least one (74 whole-centre, 89 other-building, 7 rectangle offers before the cap), about 230 ms a site against 90.
+- In batches, candidates drop their map data with their result unless `keep_features: true`.
+
 ## 8.2 A stable CLI contract
 
 (Pulled ahead of Phase 8 because the provenance and NDJSON schema go together.)

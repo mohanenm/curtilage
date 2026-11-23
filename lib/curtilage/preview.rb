@@ -31,6 +31,7 @@ module Curtilage
       cards = results.zip(ids).each_with_index.map { |(result, id), i| card(result, id, i, buffer_m) }
       credits = results.flat_map { |r| r.attribution || Result::OSM_ATTRIBUTION }.uniq
       zones = %w[approach pickup].select { |z| results.any? { |r| r.public_send("#{z}_ring") } }
+      zones << "candidate" if results.any? { |r| r.candidates&.any? }
       page(title, cards, toolbar(results), credits, [buffer_m, zones])
     end
 
@@ -102,6 +103,7 @@ module Curtilage
       rings = { "buffer" => grown, "approach" => result.approach_ring, "premises" => result.ring,
                 "pickup" => result.pickup_ring, "store" => result.store_ring }
       rings.each { |css, ring| parts << path(ring, result.pin, css) if ring }
+      (result.candidates || []).each { |c| parts.unshift(path(c.ring, result.pin, "candidate")) }
       parts.concat(access_marks(result))
       parts << %(<circle r="2.2" class="pin"><title>pin</title></circle>) << scale_bar
     end
@@ -158,7 +160,12 @@ module Curtilage
       items << "parking #{d[:parking_area_m2]} m² (about #{d[:parking_spaces_estimate]} spaces)"
       items << "street frontage #{d[:frontage_m]} m"
       items << "#{d[:access_points].size} driveway entrance(s)" if d[:access_points].any?
+      items << candidates_fact(result.candidates) if result.candidates&.any?
       %(<p class="facts">#{h(items.join(" · "))}</p>)
+    end
+
+    def candidates_fact(candidates)
+      "#{candidates.size} other candidate(s) (dashed), confidence #{candidates.map(&:confidence).join(", ")}"
     end
 
     def path(ring, pin, css)
@@ -209,6 +216,7 @@ module Curtilage
       keys << ["buffer", "premises + #{format("%g", buffer_m)} m"] if buffer_m
       keys << ["approach", "approach zone"] if zones.include?("approach")
       keys << ["pickup", "pickup zone (estimated)"] if zones.include?("pickup")
+      keys << ["candidate", "other candidates"] if zones.include?("candidate")
       keys.map { |css, text| %(<span><i class="k-#{css}"></i>#{h(text)}</span>) }.join(" ")
     end
 
@@ -280,6 +288,7 @@ module Curtilage
       .approach { fill: none; stroke: var(--premises); stroke-width: 1; stroke-dasharray: 1 3; }
       .pickup { fill: var(--access); fill-opacity: .25; stroke: var(--access); stroke-width: 1; }
       .staging { fill: var(--card); stroke: var(--access); stroke-width: 2; }
+      .candidate { fill: none; stroke: var(--access); stroke-width: 1; stroke-dasharray: 5 3; }
       .access { fill: var(--access); stroke: var(--card); stroke-width: 1; }
       .scale path { fill: none; stroke: var(--fg); stroke-width: 1.2; }
       .scale text { fill: var(--fg); font-size: 9px; dominant-baseline: middle; }
@@ -299,6 +308,7 @@ module Curtilage
       .k-rail { height: 0 !important; border-top: 2px dashed var(--fg); }
       .k-access { width: 9px !important; height: 9px !important; border-radius: 50%; background: var(--access); }
       .k-buffer { border: 1px dashed var(--premises); }
+      .k-candidate { border: 1px dashed var(--access); }
       .k-approach { border: 1px dotted var(--premises); } .k-pickup { background: var(--access); opacity: .4; }
     CSS
   end

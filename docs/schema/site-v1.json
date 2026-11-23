@@ -277,6 +277,46 @@
             }
           },
           "description": "The staging point, always estimated (the pickup zone's point nearest the building); only with a pickup zone."
+        },
+        "candidates": {
+          "type": "array",
+          "description": "Other premises the site could have, most confident first; only with --candidates.",
+          "items": {
+            "type": "object",
+            "required": [
+              "rank",
+              "geometry",
+              "confidence",
+              "flags"
+            ],
+            "properties": {
+              "rank": {
+                "type": "integer"
+              },
+              "geometry": {
+                "$ref": "#/$defs/polygon_or_null"
+              },
+              "confidence": {
+                "type": "number"
+              },
+              "flags": {
+                "type": "array",
+                "items": {
+                  "type": "string"
+                }
+              },
+              "building": {},
+              "method": {
+                "type": "string"
+              },
+              "explanation": {
+                "type": "array",
+                "items": {
+                  "type": "string"
+                }
+              }
+            }
+          }
         }
       }
     }

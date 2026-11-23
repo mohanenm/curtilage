@@ -151,7 +151,8 @@ def run(opts, pins, **extra)
   catalogue = opts[:catalogue] && Curtilage::Catalogue.from_dir(opts[:catalogue])
   Curtilage.generate_many(pins, catalogue: catalogue, **opts.slice(:parquet, :source, :cache_dir),
                                 lookup: opts.slice(:duckdb, :extension_directory), data: { log: LOG },
-                                **opts.slice(:preset, :buildings, :store_zone, :approach_m, :pickup_m, :snap_m),
+                                **opts.slice(:preset, :buildings, :store_zone, :approach_m, :pickup_m, :snap_m,
+                                             :candidates),
                                 **extra)
 end
 
@@ -175,6 +176,9 @@ def style_flags(o, opts)
   o.on("--snap [METRES]", Float, "Move pins that aren't on a building onto the nearest one within METRES " \
                                  "(default #{Curtilage::Generator::DEFAULT_SNAP_M})") do |v|
     opts[:snap_m] = v || Curtilage::Generator::DEFAULT_SNAP_M
+  end
+  o.on("--candidates N", Integer, "Also give up to N other premises for ambiguous sites (1 to 5)") do |v|
+    opts[:candidates] = v
   end
   o.on("--approach [METRES]", Float, "Add an approach zone: the premises grown by METRES " \
                                      "(default #{Curtilage::Generator::DEFAULT_APPROACH_M})") do |v|

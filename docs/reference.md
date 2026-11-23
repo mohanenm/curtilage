@@ -52,6 +52,7 @@ Premises from features you already have (from `Curtilage::Lookup.features` or `C
 | `problem` | Why they aren't usable, in words (e.g. `"no premises: no building within 30 m of the pin (it may be missing from OpenStreetMap: try buildings: :osm_filled)"`), or `nil` when `ok?`. |
 | `ring` | The premises: `[[lng, lat], ...]`, closed, convex, at most `max_vertices` corners. `nil` if nothing could be made. |
 | `store_ring` | The store zone: the building's own outline, always inside `ring`. `nil` with `store_zone: false`. |
+| `candidates` | With `candidates: N`, up to N other premises the site could have, most confident first, each a full `Result` ([Candidates](#candidates)); `nil` otherwise. |
 | `approach_ring`, `pickup_ring` | The [zones](#zones), when asked for (`approach_m:`, `pickup_m:`); `nil` otherwise. |
 | `staging_point` | `[lng, lat]` where a driver might wait, estimated, with a pickup zone ([Zones](#zones)); `nil` otherwise. |
 | `entrances` | Where vehicles enter from the street, with the street's name and class (`details[:entrances]`, below); `[]` when none. |
@@ -157,6 +158,16 @@ All distances in metres, areas in square metres. These are `Curtilage::Generator
 | `off_centre_m` | `200` | Warn (`off_centre`) if the polygon's centre is further than this from the pin. |
 | `swap_far_m`, `swap_near_m` | `10000`, `1000` | Error (`swapped`) when the polygon is further than `swap_far_m` from the pin but within `swap_near_m` of it with longitude and latitude swapped. |
 
+### Candidates
+
+When a site is ambiguous, `candidates: N` (1 to 5, on `generate`, `generate_many` or `premises`; `--candidates N` on the command line) also returns up to N other premises in `Result#candidates`, for a reviewer or a downstream system to choose from. The main result is unchanged. Alternatives come from:
+
+- **another building** within `building_max_distance_m` of the pin (not a kiosk), in case the pin is on the wrong one: generated as if the pin were on it, flagged `pin_moved`, with `pin_quality.moved_from` the pin as given;
+- **the whole shopping centre** (`scope: :centre`) when the site's lot is shared;
+- **the building rectangle** (`method: :building`) when confidence is below 0.7 (`Candidates::LOW_CONFIDENCE`).
+
+Only valid ones that differ from the main result and from each other are kept, most confident first. Each starts with a `candidate` step saying what it is. Each candidate is a full generation, so a call takes a few times longer. In GeoJSON each is a feature with `role` `candidate` and `rank`; in NDJSON, `properties.candidates` (rank, geometry, confidence, flags, building, method, explanation); in CSV, the `candidates` column counts them; in KML, placemarks; the preview draws them dashed.
+
 ### Zones
 
 For arrival detection, two optional zones nest with the premises and store zone: approach ⊇ premises ⊇ store zone and pickup zone. Every zone is checked as a shape (closed, valid coordinates, not crossing itself) and dropped with a step if it fails; only the premises get the size limits.
@@ -197,6 +208,7 @@ In GeoJSON they're extra features with `properties.role` `approach`, `pickup` an
 | `approach_zone` | The approach zone made (or dropped). | `approach_m` |
 | `pickup_zone` | The pickup zone estimated from a parking lot, or none found. | `pickup_m` |
 | `staging_point` | The staging point placed. | |
+| `candidate` | What a candidate is (first step of each `Result#candidates`). | `scope` or `method` for those alternatives |
 | `snap_pin` | The pin moved onto the nearest building (flag `pin_moved`). | `snap_m` |
 
 New step names may be added in minor versions; treat an unknown one as a plain note.
@@ -257,7 +269,7 @@ Writing results: `Formats.write(results, format, ids: nil, store: true)` returns
 |---|---|
 | `:geojson` | One FeatureCollection: for each pin, its premises, (unless `store: false`) its store zone, and any [zones](#zones) asked for, with `properties.id`, `properties.role` and everything `to_geojson` carries. |
 | `:ndjson` | One line per pin: a GeoJSON Feature of its premises (`geometry` is `null` when none could be made) with everything `to_geojson` carries in its properties, the store zone's geometry in `properties.store` (absent with `store: false`), and any [zones](#zones) in `properties.approach` and `properties.pickup`. The schema is [`docs/schema/site-v1.json`](schema/site-v1.json) (it ships in the gem); version 1 only gains optional properties, and anything that would break a reader gets a new schema version. |
-| `:csv` | One row per pin. Columns: `id`, `lng`, `lat`, `ok`, `problem`, `method`, `flags` and `errors` (`;`-separated), `building`, `building_area_m2`, `parking_area_m2`, `parking_spaces_estimate`, `frontage_m`, `premises_area_m2`, `premises_wkt`, `store_wkt`, `attribution` (`; `-separated), then `gem_version`, `data_source`, `data_release` (the Overture release or the Geofabrik extract dates, `;`-separated) and `features_sha256` from `provenance` (the options are only in GeoJSON), then `confidence`, `approach_wkt`, `pickup_wkt` and `staging_wkt` (empty unless asked for), then `pin_quality`. Cells a spreadsheet would run as a formula (starting with `=`, `+`, `-`, `@`, `|` or `%`, or their full-width forms, even after spaces) get a leading `'`; plain numbers don't. |
+| `:csv` | One row per pin. Columns: `id`, `lng`, `lat`, `ok`, `problem`, `method`, `flags` and `errors` (`;`-separated), `building`, `building_area_m2`, `parking_area_m2`, `parking_spaces_estimate`, `frontage_m`, `premises_area_m2`, `premises_wkt`, `store_wkt`, `attribution` (`; `-separated), then `gem_version`, `data_source`, `data_release` (the Overture release or the Geofabrik extract dates, `;`-separated) and `features_sha256` from `provenance` (the options are only in GeoJSON), then `confidence`, `approach_wkt`, `pickup_wkt` and `staging_wkt` (empty unless asked for), then `pin_quality` and `candidates` (how many). Cells a spreadsheet would run as a formula (starting with `=`, `+`, `-`, `@`, `|` or `%`, or their full-width forms, even after spaces) get a leading `'`; plain numbers don't. |
 | `:kml` | A placemark per polygon (premises, store zone and any zones) and per point (driveway entrances, named by their street, and the staging point), with the confidence, flags, attribution, gem version and data release in its description, and every source credited in the document's description, for Google Earth. |
 
 `Formats.write_places(places, :csv | :ndjson | :geojson)` writes places as pins: `id`, `lng`, `lat` (which `read_pins` reads back), `name`, `brand`, `category`, `place_confidence`, `place_sources`, `place_licences`.
@@ -327,6 +339,7 @@ curtilage doctor
   - Output: printed as GeoJSON, or `--out FILE` in the format its extension names (`.geojson`/`.json`, `.ndjson`/`.jsonl`, `.csv`, `.kml`). `--format geojson|ndjson|csv|kml` overrides. The file is written whole (to a temporary name, then renamed) and replaces any file there; a symbolic link at that path is refused.
   - Data: `--source auto|geofabrik|overture` (default auto), `--cache-dir DIR`, `--catalogue DIR`, `--parquet FILE`.
   - Style: `--preset whole_lot|tight|centre`, `--buildings osm|osm_filled|ml`, `--[no-]store`.
+  - Ambiguous sites: `--candidates N` (1 to 5) adds up to N other premises ([Candidates](#candidates)).
   - Pins: `--snap [METRES]` (default 30) moves pins that aren't on a building onto the nearest one (`snap_m:`).
   - Zones: `--approach [METRES]` (default 150) and `--pickup [METRES]` (default 25) add the [zones](#zones).
   - DuckDB: `--duckdb PATH`, `--extension-directory DIR`.

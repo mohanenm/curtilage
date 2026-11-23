@@ -103,6 +103,7 @@ end
 | `confidence` | 0 to 1, from documented rules (fallback used, pin off the building, no mapped parking, ...), to decide which sites to review first ([reference](docs/reference.md#confidence)). |
 | `explanation` | Each step, in plain words. |
 | `details` | The building (id, name, type, area, outline), mapped parking inside the premises and an estimate of spaces, street frontage, and where driveways meet the street. Rough, like the map data. |
+| `candidates` | With `candidates: 3`, other premises an ambiguous site could have (another building near the pin, the whole shopping centre, a tighter shape), each with its own confidence and flags. |
 | `approach_ring`, `pickup_ring` | Optional zones for arrival detection (`approach_m: 150`, `pickup_m: 25`): the premises grown for "customer is near", and the parking right by the store (estimated). Nested with the premises ([reference](docs/reference.md#zones)). |
 | `buffered(15)` | The premises grown 15 m (rounded corners), e.g. for a geofence with a margin; negative shrinks. |
 | `to_geojson`, `to_wkt` | Ready to draw or store. GeoJSON carries everything above and the attribution to show. |

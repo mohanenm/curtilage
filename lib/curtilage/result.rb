@@ -17,7 +17,7 @@ module Curtilage
   # output byte for byte.
   Result = Struct.new(:method_name, :pin, :ring, :store_ring, :explanation, :flags, :validation, :building,
                       :details, :attribution, :features, :provenance, :steps, :approach_ring, :pickup_ring,
-                      :staging_point, :pin_quality, keyword_init: true) do
+                      :staging_point, :pin_quality, :candidates, keyword_init: true) do
     def ok?
       !ring.nil? && validation.ok?
     end
@@ -59,7 +59,26 @@ module Curtilage
       }
       store = { type: "Feature", geometry: Result.polygon(store_ring),
                 properties: properties.merge(role: "store", building: building, attribution: attribution) }
-      [premises, store] + zone_features(properties.merge(attribution: attribution))
+      [premises, store] + zone_features(properties.merge(attribution: attribution)) + candidate_features(properties)
+    end
+
+    # Each candidate (generate's candidates:) as a Feature of its own, role
+    # candidate, rank 1 for the most confident, with everything a premises
+    # Feature carries.
+    def candidate_features(properties)
+      (candidates || []).each_with_index.map do |c, i|
+        c.geojson_features(properties: properties).first.tap do |f|
+          f[:properties] = f[:properties].merge(role: "candidate", rank: i + 1)
+        end
+      end
+    end
+
+    # The candidates in short, for NDJSON and the like.
+    def candidate_summaries
+      (candidates || []).each_with_index.map do |c, i|
+        { rank: i + 1, geometry: Result.polygon(c.ring), confidence: c.confidence, flags: c.flags,
+          building: c.building, method: c.method_name, explanation: c.explanation }
+      end
     end
 
     # The approach and pickup zones and the staging point, when asked for

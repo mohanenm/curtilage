@@ -30,7 +30,7 @@ module Curtilage
     CSV_COLUMNS = %w[id lng lat ok problem method flags errors building building_area_m2 parking_area_m2
                      parking_spaces_estimate frontage_m premises_area_m2 premises_wkt store_wkt attribution
                      gem_version data_source data_release features_sha256 confidence approach_wkt pickup_wkt
-                     staging_wkt pin_quality].freeze
+                     staging_wkt pin_quality candidates].freeze
 
     module_function
 
@@ -196,6 +196,7 @@ module Curtilage
         premises[:properties][:approach] = Result.polygon(result.approach_ring) if result.approach_ring
         premises[:properties][:pickup] = Result.polygon(result.pickup_ring) if result.pickup_ring
         premises[:properties][:staging] = Result.point(result.staging_point) if result.staging_point
+        premises[:properties][:candidates] = result.candidate_summaries if result.candidates
         "#{JSON.generate(premises)}\n"
       end.join
     end
@@ -219,7 +220,7 @@ module Curtilage
     # Columns added after the first release, in order.
     def later_columns(result)
       [result.confidence, result.approach_wkt, result.pickup_wkt, result.staging_wkt,
-       result.pin_quality&.dig(:quality)]
+       result.pin_quality&.dig(:quality), result.candidates&.size]
     end
 
     # gem_version, data_source, data_release, features_sha256 (the full
@@ -237,15 +238,7 @@ module Curtilage
     end
 
     def kml(results, ids, store)
-      marks = results.zip(ids).flat_map do |result, id|
-        [placemark("#{id} premises", result.ring, kml_description(result), "premises"),
-         (placemark("#{id} store", result.store_ring, nil, "store") if store),
-         placemark("#{id} approach", result.approach_ring, nil, "approach"),
-         placemark("#{id} pickup (estimated)", result.pickup_ring, nil, "pickup"),
-         point_mark("#{id} staging (estimated)", result.staging_point),
-         *result.entrances.map { |e| point_mark("#{id} entrance from #{e[:street] || e[:street_class]}", e[:point]) }]
-          .compact
-      end
+      marks = results.zip(ids).flat_map { |result, id| kml_marks(result, id, store) }
       <<~KML
         <?xml version="1.0" encoding="UTF-8"?>
         <kml xmlns="http://www.opengis.net/kml/2.2"><Document>
@@ -254,10 +247,31 @@ module Curtilage
         <Style id="premises"><LineStyle><color>ff4a9a1a</color><width>2</width></LineStyle><PolyStyle><color>334a9a1a</color></PolyStyle></Style>
         <Style id="store"><LineStyle><color>ff111111</color><width>2</width></LineStyle><PolyStyle><fill>0</fill></PolyStyle></Style>
         <Style id="approach"><LineStyle><color>ffc06515</color><width>1</width></LineStyle><PolyStyle><fill>0</fill></PolyStyle></Style>
+        <Style id="candidate"><LineStyle><color>ff2090ff</color><width>1</width></LineStyle><PolyStyle><fill>0</fill></PolyStyle></Style>
         <Style id="pickup"><LineStyle><color>ff0080ff</color><width>2</width></LineStyle><PolyStyle><color>440080ff</color></PolyStyle></Style>
         #{marks.join("\n")}
         </Document></kml>
       KML
+    end
+
+    # Every placemark for one result: its polygons, then its points.
+    def kml_marks(result, id, store)
+      polygons = [placemark("#{id} premises", result.ring, kml_description(result), "premises"),
+                  (placemark("#{id} store", result.store_ring, nil, "store") if store),
+                  placemark("#{id} approach", result.approach_ring, nil, "approach"),
+                  placemark("#{id} pickup (estimated)", result.pickup_ring, nil, "pickup")]
+      entrances = result.entrances.map do |e|
+        point_mark("#{id} entrance from #{e[:street] || e[:street_class]}", e[:point])
+      end
+      points = [point_mark("#{id} staging (estimated)", result.staging_point)] + entrances
+      (polygons + candidate_marks(result, id) + points).compact
+    end
+
+    def candidate_marks(result, id)
+      result.candidate_summaries.map do |c|
+        placemark("#{id} candidate #{c[:rank]}", c[:geometry][:coordinates][0],
+                  "confidence #{c[:confidence]}; flags: #{c[:flags].join(", ")}", "candidate")
+      end
     end
 
     def placemark(name, ring, description, style)

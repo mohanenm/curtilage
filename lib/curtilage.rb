@@ -16,6 +16,7 @@ require_relative "curtilage/generator_details"
 require_relative "curtilage/generator_steps"
 require_relative "curtilage/generator_zones"
 require_relative "curtilage/generator_pin"
+require_relative "curtilage/candidates"
 require_relative "curtilage/lookup"
 require_relative "curtilage/download"
 require_relative "curtilage/zip_range"
@@ -98,11 +99,19 @@ module Curtilage
   # Premises for one pin from features you already have (Lookup.features).
   # With no method or preset, the recommended method with its fallback
   # (Generator.propose).
-  def self.generate(pin, features, method: nil, preset: nil, **options)
+  #
+  # candidates: N (1 to 5) also returns up to N other premises the site
+  # could have, in Result#candidates (see Candidates).
+  def self.generate(pin, features, method: nil, preset: nil, candidates: nil, **options)
     opts = preset_options(preset).merge(options)
     method ||= opts.delete(:method)
     opts.delete(:method)
-    method ? Generator.generate(method, pin, features, **opts) : Generator.propose(pin, features, **opts)
+    result = method ? Generator.generate(method, pin, features, **opts) : Generator.propose(pin, features, **opts)
+    return result unless candidates
+
+    result.tap do |r|
+      r.candidates = Candidates.for(r, pin, features, { method: method, preset: preset, **options }.compact, candidates)
+    end
   end
 
   SOURCES = %i[auto geofabrik overture].freeze
@@ -136,7 +145,7 @@ module Curtilage
   # dropped to save memory. Other options go to generate.
   def self.generate_many(pins, keep_features: false, max_pins: MAX_PINS_PER_CALL, **)
     results = fetch_and_generate(checked_pins(pins, max_pins), **)
-    results.each { |r| r.features = nil } unless keep_features
+    results.each { |r| [r, *r.candidates].each { |c| c.features = nil } } unless keep_features
     results
   end
 
@@ -156,7 +165,12 @@ module Curtilage
   # Options are checked once, before any work, so a mistake in them fails
   # the call instead of turning every site into an error result.
   def self.check_generation_options(options)
-    opts = preset_options(options[:preset]).merge(options.except(:preset))
+    count = options[:candidates]
+    unless count.nil? || (count.is_a?(Integer) && count.between?(1, Candidates::MAX))
+      raise ArgumentError, "candidates must be a whole number from 1 to #{Candidates::MAX}: #{count.inspect}"
+    end
+
+    opts = preset_options(options[:preset]).merge(options.except(:preset, :candidates))
     method = opts.delete(:method)
     raise ArgumentError, "unknown method #{method.inspect}" if method && !Generator::METHODS.include?(method)
 

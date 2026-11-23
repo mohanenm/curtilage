@@ -20,7 +20,9 @@ class PinTest < Minitest::Test
     assert_equal({ quality: "on_road", building_m: 32.5 }, at(0, -40).pin_quality)
     assert_equal({ quality: "near_building", building_m: 12.5 }, at(0, -20).pin_quality)
     assert_equal "far", at(0, 100).pin_quality[:quality]
-    assert_equal "near_building", Curtilage::Formats.parse_csv(Curtilage::Formats.write([at(0, -20)], :csv))[1].last
+    row = Curtilage::Formats.parse_csv(Curtilage::Formats.write([at(0, -20)], :csv))[1]
+
+    assert_equal "near_building", row[Curtilage::Formats::CSV_COLUMNS.index("pin_quality")]
   end
 
   def test_snapping_moves_the_pin_just_inside_the_nearest_building
