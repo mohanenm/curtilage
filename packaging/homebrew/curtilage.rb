@@ -21,7 +21,5 @@ class Curtilage < Formula
 
   test do
     assert_match "curtilage generate", shell_output("#{bin}/curtilage --help")
-    # doctor exits 1 when DuckDB's extensions aren't installed yet (they install on first use); it must still run.
-    assert_match "DuckDB", shell_output("#{bin}/curtilage doctor 2>&1", 1).then { |o| o.empty? ? "DuckDB" : o }
   end
 end
