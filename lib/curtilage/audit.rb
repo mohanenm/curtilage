@@ -18,11 +18,11 @@ module Curtilage
 
     # verdict: :invalid (fails validation), :review (see reasons) or :ok.
     # options go to Curtilage.generate.
-    def check(pin, ring, features, thresholds: {}, **)
+    def check(pin, ring, features, thresholds: {}, **options)
       limits = THRESHOLDS.merge(thresholds)
       features = Features.new(pin, features) unless features.is_a?(Features)
-      validation = Validation.check(pin, ring)
-      generated = Curtilage.generate(pin, features, **)
+      validation = Validation.check(pin, ring, **options.fetch(:validation, {}))
+      generated = Curtilage.generate(pin, features, **options)
       return Report.new(verdict: :invalid, reasons: validation.errors, validation: validation, generated: generated) \
         unless validation.ok?
 

@@ -54,9 +54,25 @@ module Curtilage
       number
     end
 
-    # pin: [lng, lat]. ring: [[lng, lat], ...], closed or not.
+    # The limits with options applied; unknown keys and values that aren't
+    # positive numbers are refused (a misspelt limit would be ignored).
+    def limits(options)
+      unknown = options.keys - DEFAULTS.keys
+      raise ArgumentError, "unknown validation limit(s): #{unknown.join(", ")} (have: #{DEFAULTS.keys.join(", ")})" \
+        if unknown.any?
+
+      options.each do |key, value|
+        next if value.is_a?(Numeric) && value.real? && value.to_f.finite? && value.positive? && value <= 1e9
+
+        raise ArgumentError, "validation limit #{key} must be a positive number: #{value.inspect}"
+      end
+      DEFAULTS.merge(options)
+    end
+
+    # pin: [lng, lat]. ring: [[lng, lat], ...], closed or not. options: the
+    # limits in DEFAULTS, e.g. max_area_error_m2: 300_000 for big lots.
     def check(pin, ring, **options)
-      opts = DEFAULTS.merge(options)
+      opts = limits(options)
       return Result.new(["missing"], [], {}) if ring.nil? || ring.empty?
       return Result.new(["invalid_coordinates"], [], {}) unless Geometry.valid_coordinates?(ring)
 

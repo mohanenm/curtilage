@@ -106,6 +106,21 @@ All distances in metres, areas in square metres. These are `Curtilage::Generator
 | `building_margin_m` | `20` | The fallback's margin around the building rectangle. |
 | `max_vertices` | `10` | The premises are simplified to at most this many corners (never cutting the building). |
 | `max_store_vertices` | `20` | The store outline is simplified to at most this many corners. |
+| `validation` | `{}` | Limits for the validation every polygon goes through (below), e.g. `{ max_area_error_m2: 300_000 }` for a big-box store's lot. |
+
+#### Validation limits
+
+`Curtilage::Validation::DEFAULTS`, changed with the `validation:` option (or passed to `Validation.check`). Values must be positive numbers; an unknown limit raises `ArgumentError`.
+
+| Limit | Default | What |
+|---|---|---|
+| `min_area_m2` | `1000` | Warn (`small`) below this area. |
+| `max_area_m2` | `40000` | Warn (`large`) above this area. |
+| `max_area_error_m2` | `100000` | Error (`too_large`) above this area: a block, not one site's lot. |
+| `max_vertex_distance_m` | `1000` | Error (`too_far_from_pin`) if any corner is further than this from the pin. |
+| `max_vertices` | `50` | Error (`too_many_vertices`) above this many corners. |
+| `off_centre_m` | `200` | Warn (`off_centre`) if the polygon's centre is further than this from the pin. |
+| `swap_far_m`, `swap_near_m` | `10000`, `1000` | Error (`swapped`) when the polygon is further than `swap_far_m` from the pin but within `swap_near_m` of it with longitude and latitude swapped. |
 
 ### Flags
 

@@ -401,4 +401,23 @@ class GeneratorTest < Minitest::Test
     end
     assert_predicate Curtilage.generate(PIN, scene, road_offset_m: nil, neighbour_gap_m: nil, grow_m: 0), :ok?
   end
+
+  # A big-box store's whole lot passes 100,000 m2, the default error limit:
+  # by default it falls back to the building, with the limits raised it
+  # gets the whole lot. Bad limits are refused up front.
+  def test_validation_limits_can_be_raised_for_big_lots
+    big_box = [polygon("building", 1, -150, -100, 150, 100), polygon("parking", 2, -150, -170, 150, -101),
+               road(3, "primary", [[-400, -220], [400, -220]])]
+    default = Curtilage.generate(PIN, big_box)
+    raised = Curtilage.generate(PIN, big_box, validation: { max_area_m2: 200_000, max_area_error_m2: 300_000 })
+
+    assert_includes default.flags, :fallback
+    assert_equal :grow_trim, raised.method_name
+    assert_predicate raised, :ok?
+    assert_operator raised.validation.metrics[:area_m2], :>, 100_000
+    [{ max_area: 1 }, { max_area_error_m2: -5 }, { max_vertices: Float::NAN }].each do |bad|
+      assert_raises(ArgumentError, bad.inspect) { Curtilage.generate(PIN, big_box, validation: bad) }
+    end
+    assert_raises(ArgumentError) { Curtilage.generate(PIN, big_box, validation: 300_000) }
+  end
 end

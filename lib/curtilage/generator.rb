@@ -92,6 +92,7 @@ module Curtilage
       max_store_vertices: 20,        # the store outline is simplified to at most this many corners
       buildings: :osm,               # :osm, :osm_filled (ML footprints where OSM has none) or :ml
       scope: :site,                  # :site, or :centre (the whole shopping centre when on a shared lot)
+      validation: {},                # limits for Validation.check, e.g. { max_area_error_m2: 300_000 }
     }.freeze
 
     BUILDING_SOURCES = %i[osm osm_filled ml].freeze
@@ -156,14 +157,20 @@ module Curtilage
       raise ArgumentError, "unknown option(s): #{unknown.join(", ")} (see Generator::DEFAULTS)" if unknown.any?
 
       opts = DEFAULTS.merge(options)
+      check_choices(opts)
+      raise ArgumentError, "validation must be a Hash of limits" unless opts[:validation].is_a?(Hash)
+
+      Validation.limits(opts[:validation])
+      RANGES.each { |key, range| check_range(key, opts[key], *range) }
+      opts
+    end
+
+    def check_choices(opts)
       raise ArgumentError, "unknown scope: #{opts[:scope].inspect} (have: #{SCOPES.join(", ")})" \
         unless SCOPES.include?(opts[:scope])
       raise ArgumentError, "unknown buildings: #{opts[:buildings].inspect} (have: #{BUILDING_SOURCES.join(", ")})" \
         unless BUILDING_SOURCES.include?(opts[:buildings])
       raise ArgumentError, "store_zone must be true or false" unless [true, false].include?(opts[:store_zone])
-
-      RANGES.each { |key, range| check_range(key, opts[key], *range) }
-      opts
     end
 
     def check_range(key, value, min, max, whole)
@@ -202,7 +209,7 @@ module Curtilage
       premises = premises_xy(xy, target, opts, log)
       result.ring = ring_of(premises, pin)
       result.store_ring = ring_of(store_xy(target, premises, opts, log), pin) if target && opts[:store_zone]
-      result.validation = Validation.check(pin, result.ring)
+      result.validation = Validation.check(pin, result.ring, **opts[:validation])
       result.details = details(target, premises, features, pin, log)
       result
     end
