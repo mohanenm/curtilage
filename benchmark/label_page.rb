@@ -10,6 +10,30 @@ require "json"
 module CurtilageBenchmark
   # Shortcut keys, in the order of the kinds table.
   KEYS = "1234567890qwertyuiop"
+  # One line per kind, shown on the page (the full table is in LABELS.md).
+  KIND_NOTES = {
+    "building" => "Inside this site's building.",
+    "walkway" => "Pavement between this site's building and its own parking or the street.",
+    "own_parking" => "A stall or aisle on a lot only this site uses (staff parking mixed in counts too).",
+    "drive_through" => "A drive-through lane, including the menu board and window.",
+    "forecourt" => "A fuel forecourt: pumps, the canopy, the lanes between them.",
+    "entrance" => "This site's driveway, on the site side of the kerb, where it meets a public road.",
+    "service" => "Back of house only this site uses: loading dock, bins, a rear delivery lane, " \
+                 "fenced or gated staff parking.",
+    "landscaping" => "Grass or planting enclosed with this site.",
+    "shared_parking_near" => "A stall on a lot shared with other businesses, nearer this site's door than any other's.",
+    "shared_parking_far" => "A stall on a shared lot, nearer another business's door.",
+    "centre_road" => "A private road inside a shopping centre or business park, not a public street.",
+    "sidewalk" => "The public pavement between the kerb and the site.",
+    "public_road" => "The carriageway of a public road, past the kerb.",
+    "neighbour_lot" => "Parking, yard or forecourt of another business with its own access.",
+    "neighbour_building" => "Inside another business's building.",
+    "residential" => "A house, its yard or a residential street's frontage.",
+    "railway" => "Track, ballast or the lineside strip.",
+    "open_land" => "Field, woods or vacant land that isn't part of any lot.",
+    "construction" => "Land being cleared or built on next to the site.",
+    "unclear" => "You can't tell. Use it rather than guessing.",
+  }.freeze
   RANDOM_POINTS = 15
   RANDOM_RADIUS_M = 120
 
@@ -19,7 +43,9 @@ module CurtilageBenchmark
     data = sites.map do |s|
       s.slice("id", "category", "notes", "pin").merge("labels" => labels(s["id"], labels_dir) || [])
     end
-    kinds = KINDS.each_with_index.map { |k, i| { "kind" => k, "key" => KEYS[i], "group" => kind_group(k) } }
+    kinds = KINDS.each_with_index.map do |k, i|
+      { "kind" => k, "key" => KEYS[i], "group" => kind_group(k), "note" => KIND_NOTES.fetch(k) }
+    end
     format(PAGE, sites: safe_json(data), kinds: safe_json(kinds), random: RANDOM_POINTS, radius: RANDOM_RADIUS_M)
   end
 
@@ -55,7 +81,7 @@ module CurtilageBenchmark
       .other-g { background: #888; } .n { margin-left: auto; color: #666; }
       button { font: inherit; padding: 4px 10px; margin: 0 4px 4px 0; cursor: pointer; }
       #save { background: #1a7f37; color: #fff; border: 0; border-radius: 4px; }
-      #status { margin: 6px 0; }
+      #status { margin: 6px 0; } #note { margin: 0 0 6px; padding: 6px 8px; background: #f2f2f2; border-radius: 4px; }
       @media (max-width: 700px) { #app { flex-direction: column; } #side { width: 100%%; height: 45%%; } }
     </style></head><body>
     <div id="app"><div id="side">
@@ -67,6 +93,7 @@ module CurtilageBenchmark
         in places you wouldn't have thought to check, and are scored apart from the points you place.</p>
       <div><button id="undo">Undo</button><button id="random">Random points</button><button id="save">Save</button></div>
       <div id="status" class="muted"></div>
+      <div id="note"></div>
       <div id="kinds"></div>
       <p><b>Sites</b></p><div id="list"></div>
       <p class="muted">Imagery: USGS The National Map (public domain). Drafts stay in this browser until saved.</p>
@@ -103,7 +130,7 @@ module CurtilageBenchmark
       labels.forEach((l, i) => {
         const m = L.circleMarker([l.point[1], l.point[0]], { radius: 6, weight: l.source === "random" ? 3 : 1,
           color: "#000", fillColor: COLOUR[group(l.kind)], fillOpacity: .9 }).addTo(layer);
-        m.bindTooltip(l.kind + (l.source === "random" ? " (random)" : ""));
+        m.bindTooltip(l.kind + (l.source === "random" ? " (random)" : "") + ": " + KINDS.find(x => x.kind === l.kind).note);
         m.on("click", e => { L.DomEvent.stop(e); labels.splice(i, 1); save(); redraw(); });
       });
       if (queue.length) {
@@ -116,6 +143,8 @@ module CurtilageBenchmark
       document.getElementById("status").textContent = queue.length
         ? `Random point ${RANDOM - queue.length + 1} of ${RANDOM}: press the key for what's inside the yellow ring (p: unclear).`
         : `${s.id}: ${hand} placed, ${rand} of ${RANDOM} random points labelled.`;
+      const chosen = KINDS.find(x => x.kind === kind);
+      document.getElementById("note").textContent = queue.length ? "" : `${chosen.kind}: ${chosen.note}`;
       renderKinds(); renderList();
     }
     function renderKinds() {
@@ -128,6 +157,7 @@ module CurtilageBenchmark
         const dot = document.createElement("span"); dot.className = "dot " + k.group + "-g";
         const name = document.createElement("span"); name.textContent = k.kind;
         const n = document.createElement("span"); n.className = "n"; n.textContent = labels.filter(l => l.kind === k.kind).length || "";
+        el.title = k.note;
         el.append(key, dot, name, n);
         el.onclick = () => choose(k.kind);
         box.append(el);

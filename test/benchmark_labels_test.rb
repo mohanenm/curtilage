@@ -112,6 +112,7 @@ class LabelPageTest < Minitest::Test
     html = Dir.mktmpdir { |dir| B.label_page(sites, dir) }
 
     assert_equal B::KINDS.size, B::KEYS.size
+    assert_equal B::KINDS.sort, B::KIND_NOTES.keys.sort
     B::KINDS.each { |k| assert_includes html, "\"#{k}\"" }
     refute_includes html, "</script><b>"
     refute_includes html, "Esri"
