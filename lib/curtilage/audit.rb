@@ -48,14 +48,13 @@ module Curtilage
       reasons
     end
 
-    # Intersection over union with the generated polygon (convex, so it can
-    # clip any shape), or nil when nothing was generated.
+    # Intersection over union with the generated polygon, or nil when
+    # nothing was generated.
     def overlap(xy, generated, pin)
       return nil unless generated.ok?
 
       gen = Geometry.counter_clockwise(Geometry.open_ring(Geometry.project(generated.ring, pin)))
-      inter = Geometry.clip_convex(xy, gen)
-      common = inter.size >= 3 ? Geometry.area(inter) : 0
+      common = Geometry.overlap_area(xy, gen)
       (common / (Geometry.area(xy) + Geometry.area(gen) - common)).round(2)
     end
 

@@ -1,0 +1,7 @@
+{
+  "name": "centre",
+  "description": "The whole shopping centre a store sits in. Scores scope: centre.",
+  "options": { "scope": "centre" },
+  "in": ["building", "walkway", "own_parking", "drive_through", "forecourt", "entrance", "service", "landscaping", "shared_parking_near", "shared_parking_far", "centre_road"],
+  "out": ["public_road", "neighbour_lot", "neighbour_building", "residential", "railway", "open_land"]
+}

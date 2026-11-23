@@ -98,16 +98,20 @@ module Curtilage
       max_vertices: 10,              # the premises are simplified to at most this many corners
       store_zone: true,              # also return the building's outline as the store zone
       max_store_vertices: 20,        # the store outline is simplified to at most this many corners
-      buildings: :osm,               # :osm, :osm_filled (ML footprints where OSM has none) or :ml
+      buildings: :osm,               # :osm, :osm_or_ml (ML only when no OSM building is in reach), :osm_filled or :ml
       scope: :site,                  # :site, or :centre (the whole shopping centre when on a shared lot)
       validation: {},                # limits for Validation.check, e.g. { max_area_error_m2: 300_000 }
       precision: 7,                  # decimal places in output coordinates (7: about 1 cm)
       approach_m: nil,               # also an approach zone: the premises grown this much (nil: none)
       pickup_m: nil,                 # also a pickup zone: mapped parking this close to the building (nil: none)
       snap_m: nil,                   # move a pin that's off any building onto the nearest within this (nil: don't)
+      unit_m: nil,                   # store zone of a large building: this much frontage round the pin (nil: all)
+      entrances: :near,              # :near, or :all (follow driveways to every entrance; premises not convex)
+      lot_split: :square,            # shared lots: :square (cut square to the building) or :voronoi (nearest building)
     }.freeze
 
-    BUILDING_SOURCES = %i[osm osm_filled ml].freeze
+    BUILDING_SOURCES = %i[osm osm_or_ml osm_filled ml].freeze
+    LOT_SPLITS = %i[square voronoi].freeze
     SCOPES = %i[site centre].freeze
 
     # Allowed values for the numeric options: [min, max, whole number?].
@@ -119,14 +123,14 @@ module Curtilage
       building_max_distance_m: DISTANCE, pin_clearance_m: DISTANCE, building_clearance_m: DISTANCE,
       grow_m: DISTANCE, road_offset_m: DISTANCE, neighbour_gap_m: DISTANCE, house_street_m: DISTANCE,
       parking_reach_m: DISTANCE, parking_max_extent_m: DISTANCE, building_margin_m: DISTANCE,
-      approach_m: DISTANCE, pickup_m: DISTANCE, snap_m: DISTANCE,
+      approach_m: DISTANCE, pickup_m: DISTANCE, snap_m: DISTANCE, unit_m: DISTANCE,
       large_building_m2: AREA, large_building_note_m2: AREA, neighbour_min_area_m2: AREA,
       neighbour_strip_min_area_m2: AREA, house_max_m2: AREA, small_building_m2: AREA,
       shared_lot_buildings: [1, 1_000, true], max_vertices: [4, 50, true], max_store_vertices: [3, 200, true],
       precision: [5, 15, true]
     }.freeze
     # Options where nil means "work it out" (by road class; halfway).
-    NIL_ALLOWED = %i[road_offset_m neighbour_gap_m approach_m pickup_m snap_m].freeze
+    NIL_ALLOWED = %i[road_offset_m neighbour_gap_m approach_m pickup_m snap_m unit_m].freeze
 
     module_function
 
@@ -157,7 +161,7 @@ module Curtilage
       pin = Validation.pin(pin)
       opts = checked_options(options)
       features = Features.new(pin, features) unless features.is_a?(Features)
-      features = choose_buildings(features, opts[:buildings])
+      features = choose_buildings(features, opts[:buildings], opts)
       log = Log.new([], [])
       log.note("dropped #{features.dropped} unusable OSM features", step: "drop_features") if features.dropped.positive?
       quality = pin_quality(features, opts)
@@ -183,11 +187,16 @@ module Curtilage
     end
 
     def check_choices(opts)
-      raise ArgumentError, "unknown scope: #{opts[:scope].inspect} (have: #{SCOPES.join(", ")})" \
-        unless SCOPES.include?(opts[:scope])
-      raise ArgumentError, "unknown buildings: #{opts[:buildings].inspect} (have: #{BUILDING_SOURCES.join(", ")})" \
-        unless BUILDING_SOURCES.include?(opts[:buildings])
+      choices.each do |key, allowed|
+        raise ArgumentError, "unknown #{key}: #{opts[key].inspect} (have: #{allowed.join(", ")})" \
+          unless allowed.include?(opts[key])
+      end
       raise ArgumentError, "store_zone must be true or false" unless [true, false].include?(opts[:store_zone])
+    end
+
+    # The options that take one of a few names, and the names.
+    def choices
+      { scope: SCOPES, buildings: BUILDING_SOURCES, entrances: ENTRANCES, lot_split: LOT_SPLITS }
     end
 
     def check_range(key, value, min, max, whole)
@@ -202,16 +211,27 @@ module Curtilage
 
     # The building flavour: OSM only (default), OSM filled in with ML
     # footprints that don't overlap any OSM building, or ML footprints only.
-    def choose_buildings(features, source)
+    #
+    # :osm_or_ml uses OSM alone unless no OSM building is under the pin or
+    # within building_max_distance_m of it; then it fills in like
+    # :osm_filled, so a site missing from OSM can still get premises (flagged
+    # ml_footprint) while every other site is exactly as with :osm.
+    def choose_buildings(features, source, opts = DEFAULTS)
       case source
       when :osm then features
       when :ml then features.with_buildings(features.ml_buildings)
+      when :osm_or_ml then osm_in_reach?(features, opts) ? features : choose_buildings(features, :osm_filled)
       else
         extra = features.ml_buildings.reject do |m|
           features.buildings.any? { |b| b.near?(m) && Geometry.overlap?(b.hull, m.hull) }
         end
         features.with_buildings(features.buildings + extra)
       end
+    end
+
+    def osm_in_reach?(features, opts)
+      features.buildings.any? { |b| Geometry.contains?(b.xy, [0.0, 0.0]) } ||
+        !nearest_in_reach(features, opts, opts[:building_max_distance_m]).nil?
     end
 
     def finish(method, pin, shape, log, opts)
@@ -228,7 +248,8 @@ module Curtilage
       premises = premises_xy(xy, target, opts, log)
       result.ring = ring_of(premises, pin, opts[:precision])
       if target && opts[:store_zone]
-        result.store_ring = ring_of(store_xy(target, premises, opts, log), pin, opts[:precision])
+        store = store_xy(target, premises, opts, log, features)
+        result.store_ring = ring_of(store, pin, opts[:precision]) if store
       end
       result.validation = Validation.check(pin, result.ring, **opts[:validation])
       result.details = details(target, premises, features, pin, log, precision: opts[:precision])
@@ -241,6 +262,8 @@ module Curtilage
     # in ways that keep it and the pin.
     def premises_xy(xy, target, opts, log)
       xy = Geometry.clean(Geometry.counter_clockwise(xy))
+      return outline_xy(xy, target, opts, log) unless Geometry.convex?(xy)
+
       if target && !target.hull.all? { |p| inside?(xy, p) }
         wider = Geometry.counter_clockwise(Geometry.convex_hull(xy + target.hull))
         log.note("widened the premises to take in the whole building", step: "widen", features: [target.id],
@@ -253,6 +276,29 @@ module Curtilage
       log.note("simplified #{xy.size} vertices to at most #{opts[:max_vertices]}",
                step: "simplify", rule: "max_vertices", area_before_m2: m2(xy), area_after_m2: m2(simple))
       simple
+    end
+
+    # Non-convex premises (entrances: :all) were built round the building
+    # and pin; they're simplified only in ways that keep both inside (with
+    # room for the store zone) and the outline simple, to max_vertices plus
+    # four per entrance taken in (at most Validation's 50). If that can't be
+    # done, the convex outline is used instead.
+    def outline_xy(xy, target, opts, log)
+      budget = outline_budget(opts, log)
+      inner = [pin_square(opts).map { |p| p.map { |v| v.clamp(-0.5, 0.5) } }, *target&.hull&.then { |h| [h] }]
+      margin = store_margin(opts[:precision]) + 0.01
+      simple = Geometry.simplify_around(xy, budget, inner, margin)
+      return simple if simple.size <= budget && !Geometry.self_intersects?(simple) &&
+                       inner.all? { |r| Geometry.ring_inside?(r, simple, margin) }
+
+      log.note("kept the convex outline: the detailed one couldn't be simplified to #{budget} corners",
+               step: "simplify", rule: "max_vertices")
+      premises_xy(Geometry.convex_hull(xy), target, opts, log)
+    end
+
+    def outline_budget(opts, log)
+      extra = log.steps.to_a.any? { |s| s[:step] == "take_entrance" } ? 4 * (log.access || []).size : 0
+      [opts[:max_vertices] + extra, Validation::DEFAULTS[:max_vertices]].min
     end
 
     def inside?(xy, point)
@@ -283,8 +329,13 @@ module Curtilage
       claimed = lots.select { |lot| lot.kind == "building" }
       features = features.with_buildings(features.buildings - claimed) unless claimed.empty?
       poly = trim_at_neighbours(poly, features, target, opts, log)
-      poly = add_parking(poly, lots, Site.new(features, target, opts, log, shared)) unless lots.empty?
-      [poly, target]
+      [take_lot(poly, lots, Site.new(features, target, opts, log, shared)), target]
+    end
+
+    def take_lot(poly, lots, site)
+      poly = add_parking(poly, lots, site) unless lots.empty?
+      poly = add_all_entrances(poly, site) if site.opts[:entrances] == :all
+      site.features.parcels.empty? ? poly : clip_to_parcel(poly, lots, site)
     end
 
     def neighbours(features, target, opts)
@@ -356,7 +407,7 @@ module Curtilage
     def missing_hint(opts)
       return "" unless opts[:buildings] == :osm
 
-      " (it may be missing from OpenStreetMap: try buildings: :osm_filled)"
+      " (it may be missing from OpenStreetMap: try buildings: :osm_or_ml)"
     end
 
     # A tiny structure (a canopy or kiosk roof) right by the pin loses to a
@@ -523,33 +574,44 @@ module Curtilage
     # most lot. Falls back to a cut across the line between their nearest
     # points.
     def split_from_neighbour(poly, hull, other, angle, stop: HALFWAY)
-      cuts = 4.times.filter_map { |k| square_cut(poly, hull, other, angle + (k * Math::PI / 2), stop) }
-      return cuts.max_by { |c| c.size >= 3 ? Geometry.area(c) : 0 } unless cuts.empty?
-
-      diagonal_cut(poly, hull, other, stop)
+      origin, normal = neighbour_line(poly, hull, other, angle, stop)
+      normal ? Geometry.clip_half_plane(poly, origin, normal) : poly
     end
 
-    def diagonal_cut(poly, hull, other, stop)
+    # The cut split_from_neighbour makes, as [origin, outward normal] (the
+    # neighbour's side is where (p - origin) . normal > 0), or nil when the
+    # buildings' nearest points coincide.
+    def neighbour_line(poly, hull, other, angle, stop = HALFWAY)
+      lines = 4.times.filter_map { |k| square_line(hull, other, angle + (k * Math::PI / 2), stop) }
+      return diagonal_line(hull, other, stop) if lines.empty?
+
+      lines.max_by do |origin, normal|
+        cut = Geometry.clip_half_plane(poly, origin, normal)
+        cut.size >= 3 ? Geometry.area(cut) : 0
+      end
+    end
+
+    def diagonal_line(hull, other, stop)
       _, p, q = Geometry.closest_points(hull, other)
       normal = [q[0] - p[0], q[1] - p[1]]
       length = Math.hypot(*normal)
-      return poly if length < 1e-6
+      return nil if length < 1e-6
 
       normal = normal.map { |v| v / length }
       at = stop.call(Geometry.dot(p, normal), Geometry.dot(q, normal))
-      Geometry.clip_half_plane(poly, [normal[0] * at, normal[1] * at], normal)
+      [[normal[0] * at, normal[1] * at], normal]
     end
 
     # The cut facing direction (radians) where stop puts it in the gap, or
     # nil when the buildings overlap along that direction.
-    def square_cut(poly, hull, other, direction, stop)
+    def square_line(hull, other, direction, stop)
       normal = [Math.cos(direction), Math.sin(direction)]
       near = hull.map { |p| Geometry.dot(p, normal) }.max
       far = other.map { |p| Geometry.dot(p, normal) }.min
       return nil unless far > near
 
       at = stop.call(near, far)
-      Geometry.clip_half_plane(poly, [normal[0] * at, normal[1] * at], normal)
+      [[normal[0] * at, normal[1] * at], normal]
     end
 
     def side(point, origin, normal)

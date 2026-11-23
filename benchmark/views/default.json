@@ -1,0 +1,7 @@
+{
+  "name": "default",
+  "description": "What curtilage documents as premises: the building and its customer-facing lot, up to the kerb and short of neighbours. Scores the default settings; the headline number.",
+  "options": {},
+  "in": ["building", "walkway", "own_parking", "drive_through", "forecourt", "entrance", "landscaping", "shared_parking_near"],
+  "out": ["shared_parking_far", "public_road", "neighbour_lot", "neighbour_building", "residential", "railway", "open_land"]
+}

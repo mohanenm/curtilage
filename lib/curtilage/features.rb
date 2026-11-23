@@ -38,7 +38,9 @@ module Curtilage
     end
     Line = Struct.new(:id, :highway, :name, :xy, keyword_init: true)
 
-    attr_reader :pin, :buildings, :ml_buildings, :parking, :roads, :railways, :dropped, :sha256
+    # parcels: property lines the caller supplied ("parcel" features; see
+    # Generator, which clips the premises to the building's parcel).
+    attr_reader :pin, :buildings, :ml_buildings, :parking, :roads, :railways, :parcels, :dropped, :sha256
 
     # A SHA256 of the input that ignores the order of the features and the
     # style of their keys, so two results can be shown to come from the same
@@ -69,6 +71,7 @@ module Curtilage
       @parking = []
       @roads = []
       @railways = []
+      @parcels = []
       @dropped = 0
       @seen = {}
       ordered = self.class.in_order(features)
@@ -91,7 +94,7 @@ module Curtilage
       copy = dup
       copy.instance_variable_set(:@pin, Geometry.lnglat([point], pin, 9).first)
       copy.instance_variable_set(:@public_roads, nil)
-      %i[@buildings @ml_buildings @parking @roads @railways].each do |name|
+      %i[@buildings @ml_buildings @parking @roads @railways @parcels].each do |name|
         list = instance_variable_get(name).map { |f| f.class.new(**f.to_h, xy: f.xy.map { |x, y| [x - dx, y - dy] }) }
         copy.instance_variable_set(name, list)
       end
@@ -152,6 +155,7 @@ module Curtilage
       when "building" then @buildings << polygon
       when "ml_building" then @ml_buildings << polygon
       when "parking" then @parking << polygon
+      when "parcel" then @parcels << polygon
       else @dropped += 1
       end
     end

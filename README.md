@@ -6,7 +6,7 @@
 
 Generates a site's **premises polygon** (the building plus its customer-facing lot) and a **store zone** (the building's own outline) from free map data, so nobody has to draw them by hand.
 
-**Status:** 0.4, rule-based; the API may change before 1.0. On the [public benchmark](benchmark/README.md) (ten public sites in Delaware, with references drawn to the whole customer-facing lot), all ten get a valid polygon and the median overlap (IoU) is 0.30: the premises mostly fall short of the whole lot, which the next round of rule changes targets. Anyone can rerun it (`rake benchmark`). On private sets of real sites that can't be published:
+**Status:** 0.4, rule-based; the API may change before 1.0. On the [public benchmark](benchmark/README.md) (ten public sites in Delaware, with references drawn to the whole customer-facing lot), all ten get a valid polygon and the median overlap (IoU) is 0.30. Scored on labelled points instead (what's really at each spot), the default takes in 44% of what should be in and under 1% of what should stay out: premises rarely overreach but often fall short of the whole lot ([Known limitations](#known-limitations)). Anyone can rerun it (`rake benchmark`). On private sets of real sites that can't be published:
 
 - On 164 sites the rules had never seen, 159 (97%) got a polygon that passed the gem's own validation (pin inside, closed, no self-intersection, plausible size). Nearly all five misses were buildings missing from OpenStreetMap. Passing validation means usable, not necessarily right.
 - Against hand-drawn premises for those sites, the median overlap (IoU) was 0.47. Hand-drawn polygons often hug the building more tightly than the whole lot this gem aims for, so IoU undersells generous but correct results.
@@ -167,6 +167,8 @@ The current folder is mounted at `/work`, so file names are relative to it. The 
 | `fallback` | The main method failed validation; the building rectangle was used |
 | `partial_data` | Part of the area around the pin is in a region that isn't built |
 | `ml_footprint` | Built on a machine-learned footprint, not an OSM building |
+| `unit_estimated` | The store zone is an estimated unit of a large building (`unit_m:`): check it |
+| `beyond_parcel` | The site's parking runs past the building's parcel (parcels supplied): check the property line |
 | `no_data` | No map data covers the pin |
 | `error` | Generating this site raised an error (see its explanation); the rest of the batch went on |
 
@@ -180,21 +182,24 @@ The current folder is mounted at `/work`, so file names are relative to it. The 
 
 ## Known limitations
 
-Rules on open map data go a long way, but some sites need a person. These are the patterns seen in testing, and what helps:
+**Results are proposals for review, not survey-grade property lines.** They're built from open map data by fixed rules, so they're only as good as what's mapped near the site, and a person should check them before they're used for anything that matters. These are the patterns seen in testing, the flag that marks each, and what helps:
 
-- **The building isn't in OpenStreetMap** (about 3-8% of sites tested). Nothing is generated. Opting in to machine-learned footprints (`buildings: :osm_filled`) usually fills the gap.
-- **A store that's one unit of a long or large building** (storefronts in urban blocks, strip malls). The premises cover the whole building and its lot, often several times too big. Flagged `store_may_be_unit` or `large_building`; `preset: :tight` or `preset: :centre` may suit these better.
-- **Sites spread over several buildings** (compounds, campuses). The premises cover the building at the pin only, so they come out too small.
-- **Dense rowhouse blocks.** Cuts toward many close neighbours can leave a thin sliver.
-- **`near_houses` is noisy in dense urban areas,** where almost every site borders homes. It's more meaningful in suburbs.
-- **The polygon is always convex.** Entrance notches are approximated, and an L-shaped site (a building plus a lot to one side) gets a diagonal edge that can cross a neighbour's parking or clip its buildings.
-- **Lots reaching more than 60 m from the building** (deep lots, big parking fields) are cut short (`parking_max_extent_m`), and entrances beyond the claimed lot aren't taken in unless a mapped driveway leads to them.
-- **Shopping centres.** A shared lot is split by nearest building, which is crude; internal streets mapped as service roads don't bound the lot; and a building at an angle to its car park gets an oversized rectangle that can spill into neighbouring lots. Ring roads tagged `unclassified` can cut a store off from its own car park. Check results flagged `store_may_be_unit` or on shared lots, or try `scope: :centre` or `candidates: 3`.
-- **Sites within about 100 m of the antimeridian** (180° longitude: parts of Fiji, Chukotka, the Aleutians) get no polygon: premises can't cross that line, so validation refuses them.
+| What goes wrong | Flag | What helps |
+|---|---|---|
+| **The building isn't in OpenStreetMap** (about 3-8% of sites tested): nothing is generated. | (no premises) | `buildings: :osm_or_ml` uses machine-learned footprints only for those sites; on a private test set it rescued 2 of 5. |
+| **Premises fall short of the whole lot.** On the public benchmark's labelled points the default takes in 44% of what should be in, but almost nothing (under 1%) of what should stay out: unmapped forecourts and parking, lots reaching past 60 m from the building, and **entrances** (missed at 8 of 9 labelled sites). | | `entrances: :all` follows mapped driveways to every entrance (12 of 24 labelled entrances, from 5); `parking_max_extent_m` for deep lots; `lot_split: :voronoi` on shared lots. All experimental, off by default. |
+| **A store that's one unit of a large building** (strip malls, urban blocks): the store zone is the whole building, the premises its whole lot. | `store_may_be_unit`, `large_building` | `unit_m: 15` estimates the unit round the pin (flag `unit_estimated`); `preset: :tight`, or `scope: :centre` for the whole centre. |
+| **Shopping centres.** A shared lot is split by nearest building; a centre's internal roads tagged as public streets (ring roads, "Plaza" streets) cut a store off from its car park; a building at an angle to its lot gets an oversized rectangle. | `store_may_be_unit` | `lot_split: :voronoi`, `scope: :centre`, `candidates: 3`. Internal roads mapped as public streets have no fix yet. |
+| **Sites spread over several buildings** (compounds, campuses, a fuel canopy and its shop): only the building at the pin counts as the site, so premises come out too small. | `small_building` for canopies | `candidates: 3`, or a correction. |
+| **Property lines aren't known.** Premises follow roads, railways and neighbours, not legal boundaries. | `near_houses` | `parcels:` clips to property lines you supply (flag `beyond_parcel` where the site's parking runs past them). |
+| **Road widths are typical figures by road class**, not measured: no free source maps them (Overture gives a width for about 0.1-0.2% of roads). | | `road_offset_m` for a fixed offset. |
+| **Default premises are convex.** An L-shaped site gets a diagonal edge that can cross a neighbour's corner. | | `entrances: :all` and `parcels:` can give non-convex premises; a general non-convex mode waits for benchmark sites that need it. |
+| **Dense rowhouse blocks:** cuts toward many close neighbours can leave a thin sliver; `near_houses` fires almost everywhere in dense areas. | `near_houses` | |
+| **Sites within about 100 m of the antimeridian** (180° longitude: parts of Fiji, Chukotka, the Aleutians) get no polygon: premises can't cross that line. | (no premises) | |
 
 ## Building footprints: OSM, or OSM plus machine-learned
 
-By default all buildings come from OpenStreetMap. Where OSM is missing buildings, you can opt in to [Microsoft's Global ML Building Footprints](https://github.com/microsoft/GlobalMLBuildingFootprints) (CDLA Permissive 2.0): build with `--ml-footprints microsoft` (or `ml_footprints: "microsoft"`), then generate with `buildings: :osm_filled` or `:ml`. With `source: :overture`, Overture's non-OSM buildings play the same role. Results built on one carry the `ml_footprint` flag, and their attribution credits the footprints' source.
+By default all buildings come from OpenStreetMap. Where OSM is missing buildings, you can opt in to [Microsoft's Global ML Building Footprints](https://github.com/microsoft/GlobalMLBuildingFootprints) (CDLA Permissive 2.0): build with `--ml-footprints microsoft` (or `ml_footprints: "microsoft"`), then generate with `buildings: :osm_or_ml` (only where OSM has no building near the pin), `:osm_filled` or `:ml`. With `source: :overture`, Overture's non-OSM buildings play the same role. Results built on one carry the `ml_footprint` flag, and their attribution credits the footprints' source.
 
 ## Privacy
 

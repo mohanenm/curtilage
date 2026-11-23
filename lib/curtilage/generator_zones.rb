@@ -31,9 +31,9 @@ module Curtilage
       reach = Geometry.counter_clockwise(Geometry.oriented_box(rect[:corners], rect[:angle], opts[:pickup_m]))
       pieces = features.parking.map do |lot|
         piece = Geometry.clip_convex(lot.xy, reach)
-        [lot, Geometry.clean(Geometry.clip_inside(piece, premises, store_margin(opts[:precision])))]
+        [lot, piece.size >= 3 ? inside_premises(piece, premises, store_margin(opts[:precision])) : nil]
       end
-      lot, best = pieces.select { |_, xy| m2(xy) >= MIN_PICKUP_M2 }.max_by { |_, xy| m2(xy) }
+      lot, best = pieces.select { |_, xy| xy && m2(xy) >= MIN_PICKUP_M2 }.max_by { |_, xy| m2(xy) }
       note_pickup(log, lot, best, opts)
       best
     end

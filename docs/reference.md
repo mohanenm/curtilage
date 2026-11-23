@@ -26,6 +26,7 @@ Premises for many pins, in pin order. Pins that share map data share the work. E
 | `data:` | `{}` | For builds: `max_age_days:` (31), `ml_footprints:` (`"microsoft"`), `parallel_builds:` (1, at most 8; each build peaks near 600 MB, so raise it to 2-3 only on machines with the memory). An unknown `data:` option raises `ArgumentError`. For `:auto`: `auto_build_min_pins:` (10). For Overture: `release:` (default: the latest; a release name such as `"2026-11-18.0"`). `log:` where build progress goes (anything with `puts`; default standard error). |
 | `preset:` | none | `:whole_lot`, `:tight` or `:centre` (below). |
 | `method:` | none | `:grow_trim` or `:building` to force one method, no fallback. |
+| `parcels:` | `nil` | Property lines you supply: a GeoJSON file of Polygons or MultiPolygons, or GeoParquet (a WKB `geometry` column) as a local path or a URL DuckDB can read (`lookup: { setup_sql: }` for a private bucket). Only parcels near the pins are used ([Parcels](#parcels)). |
 | `corrections:` | `{}` | `{ pin index => ring }` (or `{ ring:, store_ring: }`), 0-based: use these polygons instead of generating ([Corrections](#corrections-and-comparing-runs)). Their pins fetch no data. |
 | `candidates:` | none | 1 to 5: also return other premises for ambiguous sites ([Candidates](#candidates)). |
 | `keep_features:` | `false` | Keep each result's map data in `Result#features` (needed by `Preview` to draw the surroundings). Off by default to save memory on big batches. |
@@ -51,7 +52,7 @@ Premises from features you already have (from `Curtilage::Lookup.features` or `C
 | Field | What |
 |---|---|
 | `ok?` | The premises passed validation. Never save one that isn't. |
-| `problem` | Why they aren't usable, in words (e.g. `"no premises: no building within 30 m of the pin (it may be missing from OpenStreetMap: try buildings: :osm_filled)"`), or `nil` when `ok?`. |
+| `problem` | Why they aren't usable, in words (e.g. `"no premises: no building within 30 m of the pin (it may be missing from OpenStreetMap: try buildings: :osm_or_ml)"`), or `nil` when `ok?`. |
 | `ring` | The premises: `[[lng, lat], ...]`, closed, convex, at most `max_vertices` corners. `nil` if nothing could be made. |
 | `store_ring` | The store zone: the building's own outline, always inside `ring`. `nil` with `store_zone: false`. |
 | `candidates` | With `candidates: N`, up to N other premises the site could have, most confident first, each a full `Result` ([Candidates](#candidates)); `nil` otherwise. |
@@ -74,7 +75,7 @@ Premises from features you already have (from `Curtilage::Lookup.features` or `C
 | `features` | The map data it was made from (`Curtilage::Features`, in metres around the pin), or `nil` unless `keep_features: true`. |
 | `to_geojson(include_store: false, properties: {})` | A GeoJSON Feature (premises) with everything above in its properties, including the attribution to show; with `include_store: true`, a FeatureCollection of premises and store zone (`properties.role`). `properties:` are merged into each feature's properties (your own id, say). |
 | `to_wkt`, `store_wkt`, `approach_wkt`, `pickup_wkt`, `staging_wkt` | The premises and store zone as well-known text (`POLYGON ((lng lat, ...))`), for databases and spreadsheets. |
-| `buffered(metres)` | The premises grown (positive) or shrunk (negative) evenly, as a closed ring: a geofence with a margin. Corners are rounded when growing. `nil` if there are no premises or they shrink away. |
+| `buffered(metres)` | The premises grown (positive) or shrunk (negative) evenly, as a closed ring: a geofence with a margin. Corners are rounded when growing. `nil` if there are no premises or they shrink away. Non-convex premises (`entrances: :all`) are buffered on a half-metre to two-metre grid, keeping the part round the pin. |
 
 `provenance`:
 
@@ -135,7 +136,7 @@ All distances in metres, areas in square metres. These are `Curtilage::Generator
 | Option | Default | What |
 |---|---|---|
 | `store_zone` | `true` | Also return the building's outline as the store zone. |
-| `buildings` | `:osm` | `:osm`, `:osm_filled` (machine-learned footprints only where OSM has no building) or `:ml`. |
+| `buildings` | `:osm` | `:osm`, `:osm_or_ml` (OSM alone unless no OSM building is under the pin or within `building_max_distance_m`; then as `:osm_filled`, so only sites missing from OSM change), `:osm_filled` (machine-learned footprints added wherever they don't overlap an OSM building) or `:ml`. The footprints have to be in the data: a build with `--ml-footprints microsoft`, or Overture's non-OSM buildings. |
 | `scope` | `:site` | `:site`, or `:centre` for the whole shopping centre when on a shared lot. |
 | `grow_m` | `30` | How far the building's rectangle grows toward its lot before trimming. |
 | `road_offset_m` | `nil` | How far short of road centrelines to stop; `nil` uses half a typical road width by class. |
@@ -159,6 +160,9 @@ All distances in metres, areas in square metres. These are `Curtilage::Generator
 | `validation` | `{}` | Limits for the validation every polygon goes through (below), e.g. `{ max_area_error_m2: 300_000 }` for a big-box store's lot. |
 | `snap_m` | `nil` | Move a pin that isn't on any building 1 m inside the nearest one within this distance (real buildings before kiosks), then generate from there. Flags `pin_moved`; `pin_quality` keeps where it was given. Useful for geocoded pins that land on the street, which otherwise pull the premises toward the road (they always hold the pin). |
 | `approach_m` | `nil` | Also make an approach zone: the premises grown by this much, for "customer is near" (see [Zones](#zones)). `Generator::DEFAULT_APPROACH_M` is 150. |
+| `entrances` | `:near` | `:near` takes in a driveway only where it leaves the lot close by. `:all` follows the mapped service roads from the lot to every place they meet a public road (up to 250 m along them, and at most 30 m alongside a street, so a frontage road isn't followed down the block) and adds a corridor 8 m wide along each, up to the kerb, kept off public roads, railways and neighbouring buildings. The premises are then usually **not convex**: a lot with corridors. They're simplified to `max_vertices` plus four corners per entrance (at most 50); if that can't be done they fall back to the convex outline, with a step saying so. Slower (about 0.3 s a site against 0.06 s). Experimental: off by default while it's judged on the benchmark. |
+| `lot_split` | `:square` | How a shared (shopping-centre) lot is split between its buildings. `:square` cuts it halfway to each building, square to the site's building. `:voronoi` keeps the part nearer the site's walls than any other building's on the lot, then squares that up as usual. Experimental: on the public benchmark and a private held-out set it takes in a little more of the site's own and nearby shared parking with nothing more of the neighbours'; about 30 ms slower a site. |
+| `unit_m` | `nil` | For a building large enough to be shared (over `large_building_note_m2`), make the store zone the slice this many metres wide along its frontage (the side facing the nearest public road, else its long side) centred on the pin, within the building. No data source maps units, entrances or address points, so it's an estimate: flag `unit_estimated` instead of `store_may_be_unit`. Buildings under 1.5 units wide are left whole. Typical units are 6-20 m wide. |
 | `pickup_m` | `nil` | Also make an estimated pickup zone: mapped parking within this much of the building ([Zones](#zones)). `Generator::DEFAULT_PICKUP_M` is 25. |
 | `precision` | `7` | Decimal places in output coordinates (7 is about 1 cm). Validation checks the rounded polygon. |
 
@@ -185,6 +189,15 @@ To fix the few bad sites once and trust the rest:
 - **Keeping results stable.** The same pins, options and data give byte-identical results (see `provenance`), so a rerun only changes sites whose map data changed; re-applying your corrections keeps your fixes, and `diff` against the last run lists the sites worth a look.
 
 `Formats.read_results(path)` reads a GeoJSON or NDJSON result file back as `{ id => { ring:, store_ring:, properties: } }` (premises and store zone; other zones skipped; rings of up to 1,000 vertices; files up to 50 MB).
+
+### Parcels
+
+Property lines are an extra boundary when you have them. Curtilage never fetches any: you supply them, and **their licence is yours to check** (many county parcel layers restrict reuse).
+
+- `generate_many(pins, parcels: "parcels.geojson")` (or GeoParquet, local or a URL) reads the parcels near the pins once and adds them to each pin's map data as `"parcel"` features. With `Curtilage.generate(pin, features)`, add them yourself: `{ "feature" => "parcel", "id" => ..., "geometry" => polygon }`.
+- The parcel holding at least half the building is the site's. The premises are clipped to it (to within a cell of 0.5-1 m), keeping the building and pin. Where the site's own mapped parking runs at least 100 m2 past the parcel, that parking stays in and the result is flagged `beyond_parcel`.
+- A parcel that doesn't hold the building changes nothing. The premises can then be non-convex.
+- Input caps as for map data: 100 MB for a GeoJSON file, at most 5,000 corners a polygon, invalid shapes dropped.
 
 ### Candidates
 
@@ -239,6 +252,9 @@ In GeoJSON they're extra features with `properties.role` `approach`, `pickup` an
 | `candidate` | What a candidate is (first step of each `Result#candidates`). | `scope` or `method` for those alternatives |
 | `manual` | The polygon is a correction, not generated. | |
 | `snap_pin` | The pin moved onto the nearest building (flag `pin_moved`). | `snap_m` |
+| `take_entrance` | Corridors along driveways to further entrances were added. | `entrances` |
+| `estimate_unit` | The store zone estimated as one unit of a large building (flag `unit_estimated`). | `unit_m` |
+| `clip_parcel` | The premises clipped to the building's parcel (or kept past it for the site's parking, flag `beyond_parcel`). | `parcels` |
 
 New step names may be added in minor versions; treat an unknown one as a plain note.
 
@@ -277,6 +293,8 @@ The same list is `Curtilage::FLAGS` (flag => what it asks a person to check).
 | `shopping_centre` | `scope: :centre` mapped the whole centre. |
 | `fallback` | The main method failed validation; the building rectangle was used. |
 | `ml_footprint` | Built on a machine-learned footprint, not an OSM building. |
+| `unit_estimated` | The store zone is an estimated unit of a large building (`unit_m:`): check it. |
+| `beyond_parcel` | The site's parking runs past the building's parcel (parcels supplied): check the property line. |
 | `no_data` | No map data covers the pin. |
 | `error` | Generating this site raised an error (see its explanation); the rest of the batch went on. |
 | `partial_data` | Part of the area around the pin is in a region that isn't built (a hand-built catalogue near a border): buildings or roads there are missing. |
@@ -368,7 +386,8 @@ curtilage doctor
   - Pins: `--pin LNG,LAT` (repeat for several; ids 1, 2, ...) and/or `--in FILE` (CSV, GeoJSON or NDJSON; see [Files](#files-curtilageformats)). `--in -` reads standard input, as NDJSON unless `--in-format csv|geojson|ndjson` says otherwise; `--in-format` also overrides a file's extension.
   - Output: printed as GeoJSON, or `--out FILE` in the format its extension names (`.geojson`/`.json`, `.ndjson`/`.jsonl`, `.csv`, `.kml`). `--format geojson|ndjson|csv|kml` overrides. The file is written whole (to a temporary name, then renamed) and replaces any file there; a symbolic link at that path is refused.
   - Data: `--source auto|geofabrik|overture` (default auto), `--cache-dir DIR`, `--catalogue DIR`, `--parquet FILE`.
-  - Style: `--preset whole_lot|tight|centre` or a profile name with `--profiles FILE`, `--buildings osm|osm_filled|ml`, `--[no-]store`.
+  - Style: `--preset whole_lot|tight|centre` or a profile name with `--profiles FILE`, `--buildings osm|osm_or_ml|osm_filled|ml`, `--[no-]store`, `--entrances near|all` (`entrances:`).
+  - Parcels: `--parcels FILE` clips premises to your property lines ([Parcels](#parcels)).
   - Corrections: `--corrections FILE` uses your polygons for sites with the same id ([Corrections](#corrections-and-comparing-runs)).
   - Ambiguous sites: `--candidates N` (1 to 5) adds up to N other premises ([Candidates](#candidates)).
   - Pins: `--snap [METRES]` (default 30) moves pins that aren't on a building onto the nearest one (`snap_m:`).
