@@ -23,9 +23,27 @@ namespace :benchmark do
 
   desc "Run the benchmark and save its numbers (no polygons) as benchmark/baseline.json"
   task :baseline do
+    if benchmark.paths[:private]
+      abort "benchmark:baseline is for the public benchmark only (CURTILAGE_BENCHMARK_DIR is set)"
+    end
     run = benchmark.run
     puts benchmark.table(run)
     File.write(File.join(benchmark::DIR, "baseline.json"), "#{JSON.pretty_generate(benchmark.numbers_only(run))}\n")
     puts "", "saved #{benchmark.save(run)} and benchmark/baseline.json"
+  end
+end
+
+namespace :benchmark do
+  desc "Write the labelling page (data/benchmark/label.html, or label.html in CURTILAGE_BENCHMARK_DIR)"
+  task :label_page do
+    paths = benchmark.paths
+    if paths[:private] && ENV["ALLOW_IMAGERY"] != "1"
+      abort "The labelling page loads USGS imagery for each site, which sends the sites' locations to USGS. " \
+            "Set ALLOW_IMAGERY=1 only if that's allowed for these sites."
+    end
+    out = File.join(File.dirname(paths[:runs]), "label.html")
+    FileUtils.mkdir_p(File.dirname(out))
+    File.write(out, benchmark.label_page(benchmark.sites, paths[:labels]))
+    puts "wrote #{out}: open it in a browser"
   end
 end
