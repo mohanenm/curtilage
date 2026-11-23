@@ -88,6 +88,7 @@ end
 - Styles: `preset: :whole_lot` (default), `:tight` (building plus a small margin) or `:centre`. `store_zone: false` skips the store zone. Every rule's distance is an option ([reference](docs/reference.md#generation-options)).
 - Built ahead of time, for instant lookups: `curtilage build tennessee`, then `generate_many(pins, catalogue: Curtilage::Catalogue.from_dir("."))`. Files can also live in a bucket (`s3://`, `gs://`, `https://`).
 - Just the building at a pin: `Curtilage.building_at(pin)`.
+- No pin list? `curtilage places --region virginia --category pharmacy` (or `--brand`) lists matching places from Overture Maps as pins to generate from (`Curtilage.places` in Ruby). Each row names its sources and licences.
 - Big sites (a big-box store's lot can pass 100,000 m2, where validation stops by default): raise the limits, e.g. `validation: { max_area_m2: 200_000, max_area_error_m2: 300_000 }` ([reference](docs/reference.md#validation-limits)).
 - Check a polygon someone already drew: `Curtilage::Audit.check(pin, ring, features)` returns `:ok`, `:review` (with reasons) or `:invalid`.
 
@@ -196,6 +197,7 @@ Pins never leave the machine as coordinates: they aren't put in any URL or reque
 |---|---|---|
 | Geofabrik build (`source: :geofabrik`, or `:auto` where 10+ pins share a region or it's cached) | `download.geofabrik.de` | Which region(s) you build, from the region index and the region's file. Not where in the region. |
 | Overture read (`source: :overture`, or `:auto` for scattered pins) | `stac.overturemaps.org` | Which Overture release you use. Nothing about the pins. |
+| `curtilage places` / `Curtilage.places` | Overture's storage, and Geofabrik for `--region` | The box or region you search, and Geofabrik's region index is downloaded. No pins are involved. |
 | | Overture's storage (Amazon S3, `overturemaps-us-west-2`) | Which files and parts of files are read: roughly where each pin is, to within a few km. |
 | Your own built files (`catalogue:`, `parquet:`) on disk | none | Nothing. |
 | ... in your bucket (`s3://`, `gs://`, `https://`) | your bucket's host | The parts of files read: roughly where each pin is. |

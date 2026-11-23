@@ -29,6 +29,17 @@ Premises for many pins, in pin order. Pins that share map data share the work. E
 | `keep_features:` | `false` | Keep each result's map data in `Result#features` (needed by `Preview` to draw the surroundings). Off by default to save memory on big batches. |
 | any generation option | | See the table below. |
 
+### `Curtilage.places(region: or bbox:, category: or brand: or ids:, **options) → [Hash]`
+
+Pins from [Overture Maps places](https://docs.overturemaps.org/guides/places/), for when you have no pin list. One filter: `category:` matches any level of Overture's taxonomy (`"pharmacy"`, or `"health_care"` for everything under it) or its basic category; `brand:` the brand's primary name, any case; `ids:` a list of Overture place ids. Where: `region:` (a US state such as `"virginia"`, or a Geofabrik path, matched to its outline from Geofabrik's region index) or `bbox:` `[west, south, east, north]` (at most 400 square degrees). `min_confidence:` (0 to 1) drops places Overture is less sure of; `release:` picks an Overture release; DuckDB options as elsewhere. Places that are permanently or temporarily closed are left out.
+
+Each place is `{ id:, name:, brand:, category:, confidence:, sources:, licences:, pin: [lng, lat] }`, sorted by id, at most 100,000. Places carry their own licences by source (most CDLA Permissive 2.0, AllThePlaces CC0, Foursquare Apache 2.0, which asks for its licence and notice to be kept); they're inputs, and premises made from them are ODbL like any other. Reading them tells Overture's storage host which box was read, and a `region:` downloads Geofabrik's region index.
+
+```ruby
+places = Curtilage.places(region: "delaware", category: "pharmacy", min_confidence: 0.9)
+results = Curtilage.generate_many(places.map { |p| p[:pin] })
+```
+
 ### `Curtilage.generate(pin, features, **options) → Result`
 
 Premises from features you already have (from `Curtilage::Lookup.features` or `Curtilage::Overture.features_many`), with the same `preset:`, `method:` and generation options.
@@ -249,6 +260,8 @@ Writing results: `Formats.write(results, format, ids: nil, store: true)` returns
 | `:csv` | One row per pin. Columns: `id`, `lng`, `lat`, `ok`, `problem`, `method`, `flags` and `errors` (`;`-separated), `building`, `building_area_m2`, `parking_area_m2`, `parking_spaces_estimate`, `frontage_m`, `premises_area_m2`, `premises_wkt`, `store_wkt`, `attribution` (`; `-separated), then `gem_version`, `data_source`, `data_release` (the Overture release or the Geofabrik extract dates, `;`-separated) and `features_sha256` from `provenance` (the options are only in GeoJSON), then `confidence`, `approach_wkt`, `pickup_wkt` and `staging_wkt` (empty unless asked for), then `pin_quality`. Cells a spreadsheet would run as a formula (starting with `=`, `+`, `-`, `@`, `|` or `%`, or their full-width forms, even after spaces) get a leading `'`; plain numbers don't. |
 | `:kml` | A placemark per polygon (premises, store zone and any zones) and per point (driveway entrances, named by their street, and the staging point), with the confidence, flags, attribution, gem version and data release in its description, and every source credited in the document's description, for Google Earth. |
 
+`Formats.write_places(places, :csv | :ndjson | :geojson)` writes places as pins: `id`, `lng`, `lat` (which `read_pins` reads back), `name`, `brand`, `category`, `place_confidence`, `place_sources`, `place_licences`.
+
 `Formats.format_of(path)` names the format a file extension stands for.
 
 ### Preview: `Curtilage::Preview`
@@ -269,6 +282,7 @@ The surroundings come from `Result#features`, so pass results from `generate_man
 - `Curtilage::Catalogue.from_dir(dir, base_url: nil)`: the regions built into a folder; `base_url:` when the Parquet files live in a bucket. It uses each region's recorded outline to decide which files cover a pin, and `coverage(pin)` says whether that's `:full`, `:partial` or `:none`.
 - `Curtilage::Lookup.features(parquet:, pin:)` / `features_many(parquet:, pins:)`: the map features around pins, from built files.
 - `Curtilage::Overture.features_many(pins)`: the map features around pins, from Overture Maps.
+- `Curtilage::Overture.places(bbox:, ...)`: what `Curtilage.places` reads, for a box only.
 
 ## Data licence
 
@@ -303,6 +317,7 @@ DuckDB's `spatial` and `httpfs` extensions install themselves on first use.
 ```
 curtilage generate (--pin LNG,LAT ... | --in FILE|-) [--out FILE] [options]
 curtilage preview (--pin LNG,LAT ... | --in FILE) [--out FILE] [options]
+curtilage places (--region NAME | --bbox W,S,E,N) (--category NAME | --brand NAME | --place-id ID ...)
 curtilage build REGION [options]
 curtilage doctor
 ```
@@ -318,12 +333,13 @@ curtilage doctor
   - `--min-confidence N` (0 to 1) leaves out results whose confidence is below N, and says how many on standard error; the exit code is then 1, as some sites weren't written.
   - Logs: `--quiet` keeps only warnings and errors; `--log-format json` writes each log line as `{"level": "info"|"warning"|"error", "message": "..."}`.
 - `preview`: generates the same way (same options, except `--format`), then writes the page described under [Preview](#preview-curtilagepreview). `--out FILE` (default `curtilage-preview.html`); `--buffer METRES` also draws the premises grown by that much.
+- `places (--region NAME | --bbox W,S,E,N) (--category NAME | --brand NAME | --place-id ID ...)`: pins from Overture Maps places (`Curtilage.places`), as CSV (default), NDJSON or GeoJSON, printed or `--out FILE`. Also `--min-confidence N`, `--release NAME`, the DuckDB and log flags. Its output feeds `generate --in` directly: `curtilage places --region delaware --category pharmacy | curtilage generate --in - --in-format csv`.
 - `build REGION` writes `REGION.parquet` and `REGION.json`. REGION is a US state (`tennessee`, `new-york`) or a Geofabrik path (`europe/germany/bayern`). Options: `--out DIR` (default `.`), `--work DIR` (default: a private temporary folder, removed afterwards), `--date YYMMDD`, `--keep-downloads`, `--ml-footprints microsoft`, `--duckdb`, `--extension-directory`.
 - `doctor` checks everything the gem needs outside Ruby, with a fix for each problem: the DuckDB binary (its path and version; a warning, not a failure, outside the tested 1.4 LTS and 2.0), its `spatial` and `httpfs` extensions (with versions), and the cache folder's permissions when one is configured. `--verify DIR` also checks every built file in a catalogue or cache folder against the SHA256 its build recorded; `--network` checks that Geofabrik and Overture's catalogue answer (no locations are sent); `--json` prints the report for scripts. It exits 0 when ready, 1 if not. It prints the DuckDB version and the path of the binary that runs: `CURTILAGE_DUCKDB` runs whatever it names, so it's trusted configuration.
 
 Run `curtilage COMMAND --help` for the same list.
 
-Standard output carries only results (`generate` without `--out`, and the file path `build` wrote); progress, summaries, warnings and errors go to standard error, so output can be piped. Exit codes, for `generate`, `preview` and `build`:
+Standard output carries only results (`generate` without `--out`, and the file path `build` wrote); progress, summaries, warnings and errors go to standard error, so output can be piped. Exit codes, for `generate`, `preview`, `places` and `build`:
 
 | Code | Meaning |
 |---|---|

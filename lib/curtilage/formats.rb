@@ -137,6 +137,33 @@ module Curtilage
       raise ArgumentError, "#{where} isn't valid JSON: #{e.message[0, 200]}"
     end
 
+    PLACE_COLUMNS = %w[id lng lat name brand category place_confidence place_sources place_licences].freeze
+
+    # Places (Curtilage.places) as pins to generate from, in :csv, :ndjson
+    # or :geojson: id, lng and lat, which read_pins reads back, plus the
+    # place's name, brand, category, Overture confidence, sources and
+    # licences.
+    def write_places(places, format)
+      rows = places.map do |p|
+        [p[:id], *p[:pin], p[:name], p[:brand], p[:category], p[:confidence], p[:sources].join(";"),
+         p[:licences].join(";")]
+      end
+      case format.to_sym
+      when :csv then csv_text([PLACE_COLUMNS] + rows)
+      when :ndjson then rows.map { |row| "#{JSON.generate(PLACE_COLUMNS.zip(row).to_h)}\n" }.join
+      when :geojson then JSON.pretty_generate(places_geojson(places, rows))
+      else raise ArgumentError, "unknown places format #{format.inspect} (have: csv, ndjson, geojson)"
+      end
+    end
+
+    def places_geojson(places, rows)
+      features = places.zip(rows).map do |place, row|
+        { type: "Feature", id: place[:id], geometry: { type: "Point", coordinates: place[:pin] },
+          properties: PLACE_COLUMNS.zip(row).to_h.except("lng", "lat") }
+      end
+      { type: "FeatureCollection", features: features }
+    end
+
     # The results as text in format (:geojson, :ndjson, :csv or :kml). ids:
     # one per result (default 1, 2, ...). store: include the store zones.
     def write(results, format, ids: nil, store: true)
@@ -174,9 +201,11 @@ module Curtilage
     end
 
     def csv(results, ids)
-      rows = results.zip(ids).map { |result, id| csv_row(result, id) }
-      ([CSV_COLUMNS] + rows).map { |row| row.map { |v| csv_field(v) }.join(",") }.join("\r\n") << "\r\n"
+      csv_text([CSV_COLUMNS] + results.zip(ids).map { |result, id| csv_row(result, id) })
     end
+
+    # Every cell guarded (csv_field), CRLF line ends.
+    def csv_text(rows) = rows.map { |row| row.map { |v| csv_field(v) }.join(",") }.join("\r\n") << "\r\n"
 
     def csv_row(result, id)
       d = result.details || {}

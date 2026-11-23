@@ -11,6 +11,7 @@ USAGE = <<~TEXT
   Usage:
     curtilage generate (--pin LNG,LAT ... | --in FILE) [--out FILE] [options]
     curtilage preview (--pin LNG,LAT ... | --in FILE) [--out FILE] [options]
+    curtilage places (--region NAME | --bbox W,S,E,N) (--category NAME | --brand NAME | --place-id ID ...)
     curtilage build REGION [options]
     curtilage doctor
 
@@ -20,6 +21,8 @@ USAGE = <<~TEXT
              or host.
   preview    Generate, then write an HTML page with a map of each site to
              check by eye (it loads nothing from the internet).
+  places     Pins from Overture Maps places (a category or brand in a region),
+             to feed generate when you have no pin list.
   build      Build a region's map data ahead of time (a US state such as
              "tennessee", or a Geofabrik path such as "europe/germany/bayern").
   doctor     Check that DuckDB and its extensions are ready.
@@ -238,6 +241,47 @@ def preview(args)
   exit(results.all?(&:ok?) ? 0 : 1)
 end
 
+def places_options(args)
+  opts = { ids: [] }
+  parser = OptionParser.new do |o|
+    o.banner = "Usage: curtilage places (--region NAME | --bbox W,S,E,N) (--category | --brand | --place-id) ..."
+    o.on("--region NAME", "A US state (virginia) or Geofabrik path (europe/germany/bayern)") { |v| opts[:region] = v }
+    o.on("--bbox W,S,E,N", Array, "A box instead: west,south,east,north") do |v|
+      opts[:bbox] = v.map { |x| Curtilage::Formats.number(x, "--bbox") }
+    end
+    place_filter_flags(o, opts)
+    o.on("--release NAME", "An Overture release, e.g. 2026-11-18.0 (default: the latest)") { |v| opts[:release] = v }
+    o.on("--out FILE", "Write here instead of printing; the format follows the extension") { |v| opts[:out] = v }
+    o.on("--format NAME", %w[csv ndjson geojson], "csv (default), ndjson or geojson") { |v| opts[:format] = v.to_sym }
+    duckdb_flags(o, opts)
+    log_flags(o, opts)
+  end
+  parse(parser, args, opts)
+end
+
+def place_filter_flags(o, opts)
+  o.on("--category NAME", "An Overture category at any level (pharmacy, health_care)") { |v| opts[:category] = v }
+  o.on("--brand NAME", "A brand's name, any case") { |v| opts[:brand] = v }
+  o.on("--place-id ID", "An Overture place id; repeat for several") { |v| opts[:ids] << v }
+  o.on("--min-confidence N", Float, "Only places Overture is at least this sure of (0 to 1)") do |v|
+    opts[:min_confidence] = v
+  end
+end
+
+# Places are inputs, not results: their licences are the sources' (named
+# per place), and premises made from them stay ODbL like any other.
+def places(args)
+  opts = places_options(args)
+  check_out(opts[:out])
+  filter = opts.slice(:category, :brand, :min_confidence, :release).merge(ids: (opts[:ids] unless opts[:ids].empty?))
+  found = Curtilage.places(**opts.slice(:region, :bbox), **filter.compact, **opts.slice(:duckdb, :extension_directory))
+  format = opts[:format] || Curtilage::Formats.format_of(opts[:out]) || :csv
+  text = Curtilage::Formats.write_places(found, format)
+  opts[:out] ? write_out(opts[:out], text) : $stdout.write(text)
+  LOG.puts "#{found.size} place(s) from Overture Maps; each row names its sources and licences " \
+           "(CDLA Permissive 2.0, CC0 or Apache 2.0)"
+end
+
 def build_options(args)
   opts = { out: "." }
   parser = OptionParser.new do |o|
@@ -286,7 +330,7 @@ def doctor(args)
   exit(report["ok"] ? 0 : 1)
 end
 
-COMMANDS = %w[generate preview build doctor].freeze
+COMMANDS = %w[generate preview places build doctor].freeze
 
 def exit_code(error)
   case error

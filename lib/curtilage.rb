@@ -77,6 +77,24 @@ module Curtilage
     premises(pin, **, store_zone: false).details&.fetch(:building)
   end
 
+  # Places from Overture Maps to generate premises for, when you have no
+  # pins: one filter (category:, brand: or ids:, see Overture.places) inside
+  # a region (a US state such as "virginia", or a Geofabrik path, looked up
+  # in Geofabrik's region index and matched to its outline) or a bbox:
+  # [west, south, east, north]. Each place's pin feeds generate_many:
+  #
+  #   places = Curtilage.places(region: "delaware", category: "pharmacy")
+  #   results = Curtilage.generate_many(places.map { |p| p[:pin] })
+  def self.places(region: nil, bbox: nil, **)
+    raise ArgumentError, "give region: or bbox:, not both" unless region.nil? ^ bbox.nil?
+    return Overture.places(bbox: bbox, **) if bbox
+
+    path = Build.region_path(region)
+    area = Regions.download.regions.find { |r| r.path == path } or
+      raise ArgumentError, "no Geofabrik region #{path} (see https://download.geofabrik.de)"
+    Overture.places(bbox: area.bbox, **).select { |place| area.covers?(place[:pin]) }
+  end
+
   # Premises for one pin from features you already have (Lookup.features).
   # With no method or preset, the recommended method with its fallback
   # (Generator.propose).

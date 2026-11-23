@@ -47,6 +47,103 @@ module Curtilage
       end
     end
 
+    # Places matching one filter inside a box (west, south, east, north),
+    # from Overture's places theme: [{ id:, name:, brand:, category:,
+    # confidence:, sources:, licences:, pin: [lng, lat] }, ...], open or of
+    # unknown status, by id. category: matches any level of Overture's
+    # taxonomy (pharmacy, or health_care for all of it) or its basic
+    # category; brand: the brand's primary name, any case; ids: place ids.
+    # min_confidence: drop places Overture is less sure of (0 to 1).
+    # Each place keeps its own sources and licences (CDLA Permissive 2.0,
+    # CC0 or Apache 2.0, by source). The storage host learns the box.
+    def places(bbox:, category: nil, brand: nil, ids: nil, min_confidence: nil, max: Formats::MAX_PINS, **options)
+      Curtilage.online!("reading Overture Maps places")
+      options = Curtilage.duckdb_options(options)
+      bbox = checked_bbox(bbox)
+      where = place_filter(category, brand, ids)
+      if min_confidence
+        raise ArgumentError, "min_confidence is 0 to 1" unless min_confidence.is_a?(Numeric) && min_confidence.between?(
+          0, 1
+        )
+
+        where += " AND confidence >= #{min_confidence.to_f}"
+      end
+      Dir.mktmpdir("curtilage-places") do |dir|
+        index = File.join(dir, "index.parquet")
+        File.binwrite(index, Download.read(STAC_HOST, "/#{release(options)}/collections.parquet",
+                                           max_bytes: MAX_INDEX_BYTES))
+        files = place_files(index, bbox, options)
+        rows = files.empty? ? [] : run(places_sql(files, bbox, where, max, options), options)
+        raise ArgumentError, "more than #{max} places match: narrow the box or the filter" if rows.size > max
+
+        rows.map { |r| place(r) }
+      end
+    end
+
+    PLACE_TEXT = /\A[^[:cntrl:]]{1,200}\z/
+    # A box bigger than this (about a large US state) is likely a mistake.
+    MAX_PLACES_BOX_DEG2 = 400
+
+    # [west, south, east, north] as finite floats in range, west < east.
+    def checked_bbox(bbox)
+      raise ArgumentError, "a box is [west, south, east, north]" unless bbox.is_a?(Array) && bbox.size == 4
+
+      w, s, e, n = bbox.map { |v| Validation.coordinate(v, bbox) }
+      raise ArgumentError, "box out of range or west/south not below east/north: #{bbox.inspect}" \
+        unless w.abs <= 180 && e.abs <= 180 && s.abs <= 90 && n.abs <= 90 && w < e && s < n
+      raise ArgumentError, "box over #{MAX_PLACES_BOX_DEG2} square degrees: narrow it" \
+        if (e - w) * (n - s) > MAX_PLACES_BOX_DEG2
+
+      [w, s, e, n]
+    end
+
+    def place_filter(category, brand, ids)
+      given = { category: category, brand: brand, ids: ids }.compact
+      raise ArgumentError, "give one of category:, brand: or ids:" unless given.size == 1
+
+      values = Array(given.values.first).map(&:to_s)
+      raise ArgumentError, "place filters are 1-200 characters, no control characters" \
+        unless values.any? && values.size <= 1_000 && values.all? { |v| v.match?(PLACE_TEXT) }
+
+      case given.keys.first
+      when :category
+        "(list_contains(taxonomy.hierarchy, #{quote(values[0])}) OR basic_category = #{quote(values[0])})"
+      when :brand then "lower(brand.names.\"primary\") = lower(#{quote(values[0])})"
+      else "id IN (#{values.map { |v| quote(v) }.join(", ")})"
+      end
+    end
+
+    def place_files(index, bbox, options)
+      sql = "SELECT assets.aws.alternate.s3.href AS href FROM read_parquet(#{quote(index)}) " \
+            "WHERE collection = 'place' AND #{box_filter("bbox", bbox)};"
+      hrefs = run([setup(options, remote: false), sql].join("\n"), options).map { |r| r["href"] }
+      hrefs.select { |h| h.to_s.start_with?("s3://overturemaps-") }
+    end
+
+    PLACE_COLUMNS = "id, names.\"primary\" AS name, brand.names.\"primary\" AS brand, " \
+                    "taxonomy.\"primary\" AS category, confidence, " \
+                    "list_distinct(list_transform(sources, lambda s: s.dataset)) AS sources, " \
+                    "list_distinct(list_transform(sources, lambda s: s.license)) AS licences, " \
+                    "ST_X(geometry) AS lng, ST_Y(geometry) AS lat"
+
+    def places_sql(files, bbox, where, max, options)
+      list = files.map { |f| quote(f) }.join(", ")
+      query = "SELECT #{PLACE_COLUMNS} FROM read_parquet([#{list}]) WHERE #{box_filter("bbox", bbox)} AND #{where} " \
+              "AND coalesce(operating_status, 'open') NOT IN ('permanently_closed', 'temporarily_closed') " \
+              "AND ST_GeometryType(geometry) = 'POINT' ORDER BY id LIMIT #{max + 1};"
+      [setup(options, remote: true), query].join("\n")
+    end
+
+    # A place from a result row; its text is map data, so cleaned and capped.
+    def place(row)
+      text = ->(v) { v && v.to_s.gsub(/[[:cntrl:]]/, "").strip[0, 200] }
+      list = ->(v) { Array(v).filter_map { |x| text.call(x) }.reject(&:empty?) }
+      { id: text.call(row["id"]), name: text.call(row["name"]), brand: text.call(row["brand"]),
+        category: text.call(row["category"]), confidence: row["confidence"]&.to_f&.round(2),
+        sources: list.call(row["sources"]), licences: list.call(row["licences"]),
+        pin: Validation.pin([row["lng"], row["lat"]]) }
+    end
+
     RELEASE = /\A\d{4}-\d{2}-\d{2}(\.\d+)?\z/
 
     def release(options)
