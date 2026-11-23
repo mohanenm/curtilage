@@ -224,13 +224,16 @@ class GeneratorTest < Minitest::Test
   end
 
   # The store zone always sits inside the premises, whatever the method,
-  # including an L-shaped building and premises simplified to few corners.
+  # including an L-shaped building, premises simplified to few corners and
+  # coordinates rounded coarsely.
   def test_store_is_always_inside_the_premises
     l_shape = [[-10, -10], [20, -10], [20, 0], [0, 0], [0, 15], [-10, 15], [-10, -10]].map { |x, y| lnglat(x, y) }
     building = { "feature" => "building", "id" => 1, "geometry" => { "type" => "Polygon", "coordinates" => [l_shape] } }
     features = [building, road(4, "secondary", [[-200, -40], [200, -40]]),
                 road(5, "primary", [[-60, -200], [-60, 200]])]
-    [{}, { preset: :tight }, { max_vertices: 4 }].each do |options|
+    [{}, { preset: :tight }, { max_vertices: 4 }, { max_vertices: 4, precision: 5 },
+     { max_vertices: 4, precision: 6 }, { preset: :tight, building_margin_m: 0, precision: 5 },
+     { preset: :tight, building_margin_m: 0, precision: 6 }].each do |options|
       result = Curtilage.generate(PIN, features, **options)
       premises = xy(result)
       store = Curtilage::Geometry.open_ring(Curtilage::Geometry.project(result.store_ring, PIN))
