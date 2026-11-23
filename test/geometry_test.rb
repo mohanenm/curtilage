@@ -56,4 +56,26 @@ class GeometryTest < Minitest::Test
 
     assert_equal 5, G.simplify(octagon, 5).size
   end
+
+  def test_the_sweep_agrees_with_checking_every_pair
+    pairwise = lambda do |xy|
+      n = xy.size
+      edges = xy.each_index.map { |i| [xy[i], xy[(i + 1) % n]] }
+      (0...n).any? do |i|
+        ((i + 2)...n).any? { |j| !(i.zero? && j == n - 1) && G.segments_cross?(*edges[i], *edges[j]) }
+      end
+    end
+    rng = Random.new(7)
+    300.times do
+      xy = Array.new(rng.rand(9..30)) { [rng.rand(-50..50), rng.rand(-50..50)] }
+
+      assert_equal pairwise.call(xy), G.self_intersects?(xy), xy.inspect
+    end
+    star = Array.new(10) do |k|
+      radius = k.even? ? 20 : 8
+      [Math.cos(k * Math::PI / 5) * radius, Math.sin(k * Math::PI / 5) * radius]
+    end
+
+    refute G.self_intersects?(star), "a simple 10-pointed star"
+  end
 end
