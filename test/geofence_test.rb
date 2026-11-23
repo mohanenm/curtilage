@@ -56,4 +56,15 @@ class GeofenceTest < Minitest::Test
     assert_in_delta 2.5, radius, 1e-9
     assert_in_delta 2.0, centre[0], 1e-9
   end
+
+  def test_point_in_premises_on_a_stored_ring
+    ring = result.ring
+
+    assert Curtilage.point_in_premises?(ring, PIN)
+    refute Curtilage.point_in_premises?(ring, lnglat(500, 500))
+    assert Curtilage.point_in_premises?(ring[0...-1], PIN) # open ring
+    assert Curtilage.point_in_premises?(ring, ring[1]) # a corner counts
+    assert_raises(ArgumentError) { Curtilage.point_in_premises?([[0, 0]], PIN) }
+    assert_raises(ArgumentError) { Curtilage.point_in_premises?(ring, [200, 0]) }
+  end
 end

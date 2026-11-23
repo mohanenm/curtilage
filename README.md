@@ -124,6 +124,10 @@ end
 
 From Ruby, `Curtilage::Formats` does the same ([reference](docs/reference.md#files-curtilageformats)).
 
+### Recipes
+
+PostGIS, geofences on your own server, circles for mobile geofences, geofence platforms, QGIS, DuckDB, GeoPandas and Rails: [docs/recipes](docs/recipes/README.md), each with made-up data.
+
 ### HTTP API
 
 `curtilage serve` runs a small HTTP API on this machine (127.0.0.1:8754): `POST /premises` with `{"pins": [[-80.0, 35.0]]}` answers GeoJSON (or NDJSON), for apps in any language. Set `CURTILAGE_SERVE_TOKEN` to require a bearer token; requests, pins and time are capped, and pins are never logged. Put a reverse proxy in front for TLS. Details and the OpenAPI spec: [reference](docs/reference.md#http-server-curtilage-serve).

@@ -43,6 +43,10 @@ places = Curtilage.places(region: "delaware", category: "pharmacy", min_confiden
 results = Curtilage.generate_many(places.map { |p| p[:pin] })
 ```
 
+### `Curtilage.point_in_premises?(ring, point) → true or false`
+
+Whether a `[lng, lat]` point (a device's location) is inside a premises ring as you stored it (`[[lng, lat], ...]`, closed or not); on the edge counts as inside. Plain Ruby, no database needed. For PostGIS, see [the PostGIS recipe](recipes/postgis.md).
+
 ### `Curtilage.generate(pin, features, **options) → Result`
 
 Premises from features you already have (from `Curtilage::Lookup.features` or `Curtilage::Overture.features_many`), with the same `preset:`, `method:` and generation options.

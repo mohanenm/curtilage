@@ -86,6 +86,19 @@ module Curtilage
     generate_many([pin], **).first
   end
 
+  # Whether point ([lng, lat]) is inside ring (premises as stored:
+  # [[lng, lat], ...], closed or not), on its edge counting as inside: the
+  # check a geofence makes for a device's location. In plain Ruby, flat
+  # around the ring (accurate to well under a metre at premises scale).
+  def self.point_in_premises?(ring, point)
+    lng, lat = Validation.pin(point)
+    raise ArgumentError, "ring must be a list of [lng, lat] corners" unless ring.is_a?(Array) && ring.size >= 3 &&
+                                                                            Geometry.valid_coordinates?(ring)
+
+    xy = Geometry.open_ring(Geometry.project(ring, [lng, lat]))
+    Geometry.contains?(xy, [0.0, 0.0]) || Geometry.distance_to_edges(xy, [0.0, 0.0]) < 0.01
+  end
+
   # The building at a pin (the one its premises would be made from), with
   # the same options as premises: { id:, name:, type:, area_m2:, footprint: }
   # (footprint: [[lng, lat], ...] closed), or nil if there is none.
