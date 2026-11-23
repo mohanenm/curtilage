@@ -167,6 +167,7 @@ The current folder is mounted at `/work`, so file names are relative to it. The 
 | `fallback` | The main method failed validation; the building rectangle was used |
 | `partial_data` | Part of the area around the pin is in a region that isn't built |
 | `ml_footprint` | Built on a machine-learned footprint, not an OSM building |
+| `unit_estimated` | The store zone is an estimated unit of a large building (`unit_m:`): check it |
 | `beyond_parcel` | The site's parking runs past the building's parcel (parcels supplied): check the property line |
 | `no_data` | No map data covers the pin |
 | `error` | Generating this site raised an error (see its explanation); the rest of the batch went on |

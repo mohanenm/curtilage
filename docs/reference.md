@@ -162,6 +162,7 @@ All distances in metres, areas in square metres. These are `Curtilage::Generator
 | `approach_m` | `nil` | Also make an approach zone: the premises grown by this much, for "customer is near" (see [Zones](#zones)). `Generator::DEFAULT_APPROACH_M` is 150. |
 | `entrances` | `:near` | `:near` takes in a driveway only where it leaves the lot close by. `:all` follows the mapped service roads from the lot to every place they meet a public road (up to 250 m along them, and at most 30 m alongside a street, so a frontage road isn't followed down the block) and adds a corridor 8 m wide along each, up to the kerb, kept off public roads, railways and neighbouring buildings. The premises are then usually **not convex**: a lot with corridors. They're simplified to `max_vertices` plus four corners per entrance (at most 50); if that can't be done they fall back to the convex outline, with a step saying so. Slower (about 0.3 s a site against 0.06 s). Experimental: off by default while it's judged on the benchmark. |
 | `lot_split` | `:square` | How a shared (shopping-centre) lot is split between its buildings. `:square` cuts it halfway to each building, square to the site's building. `:voronoi` keeps the part nearer the site's walls than any other building's on the lot, then squares that up as usual. Experimental: on the public benchmark and a private held-out set it takes in a little more of the site's own and nearby shared parking with nothing more of the neighbours'; about 30 ms slower a site. |
+| `unit_m` | `nil` | For a building large enough to be shared (over `large_building_note_m2`), make the store zone the slice this many metres wide along its frontage (the side facing the nearest public road, else its long side) centred on the pin, within the building. No data source maps units, entrances or address points, so it's an estimate: flag `unit_estimated` instead of `store_may_be_unit`. Buildings under 1.5 units wide are left whole. Typical units are 6-20 m wide. |
 | `pickup_m` | `nil` | Also make an estimated pickup zone: mapped parking within this much of the building ([Zones](#zones)). `Generator::DEFAULT_PICKUP_M` is 25. |
 | `precision` | `7` | Decimal places in output coordinates (7 is about 1 cm). Validation checks the rounded polygon. |
 
@@ -252,6 +253,7 @@ In GeoJSON they're extra features with `properties.role` `approach`, `pickup` an
 | `manual` | The polygon is a correction, not generated. | |
 | `snap_pin` | The pin moved onto the nearest building (flag `pin_moved`). | `snap_m` |
 | `take_entrance` | Corridors along driveways to further entrances were added. | `entrances` |
+| `estimate_unit` | The store zone estimated as one unit of a large building (flag `unit_estimated`). | `unit_m` |
 | `clip_parcel` | The premises clipped to the building's parcel (or kept past it for the site's parking, flag `beyond_parcel`). | `parcels` |
 
 New step names may be added in minor versions; treat an unknown one as a plain note.
@@ -291,6 +293,7 @@ The same list is `Curtilage::FLAGS` (flag => what it asks a person to check).
 | `shopping_centre` | `scope: :centre` mapped the whole centre. |
 | `fallback` | The main method failed validation; the building rectangle was used. |
 | `ml_footprint` | Built on a machine-learned footprint, not an OSM building. |
+| `unit_estimated` | The store zone is an estimated unit of a large building (`unit_m:`): check it. |
 | `beyond_parcel` | The site's parking runs past the building's parcel (parcels supplied): check the property line. |
 | `no_data` | No map data covers the pin. |
 | `error` | Generating this site raised an error (see its explanation); the rest of the batch went on. |

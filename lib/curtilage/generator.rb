@@ -105,6 +105,7 @@ module Curtilage
       approach_m: nil,               # also an approach zone: the premises grown this much (nil: none)
       pickup_m: nil,                 # also a pickup zone: mapped parking this close to the building (nil: none)
       snap_m: nil,                   # move a pin that's off any building onto the nearest within this (nil: don't)
+      unit_m: nil,                   # store zone of a large building: this much frontage round the pin (nil: all)
       entrances: :near,              # :near, or :all (follow driveways to every entrance; premises not convex)
       lot_split: :square,            # shared lots: :square (cut square to the building) or :voronoi (nearest building)
     }.freeze
@@ -122,14 +123,14 @@ module Curtilage
       building_max_distance_m: DISTANCE, pin_clearance_m: DISTANCE, building_clearance_m: DISTANCE,
       grow_m: DISTANCE, road_offset_m: DISTANCE, neighbour_gap_m: DISTANCE, house_street_m: DISTANCE,
       parking_reach_m: DISTANCE, parking_max_extent_m: DISTANCE, building_margin_m: DISTANCE,
-      approach_m: DISTANCE, pickup_m: DISTANCE, snap_m: DISTANCE,
+      approach_m: DISTANCE, pickup_m: DISTANCE, snap_m: DISTANCE, unit_m: DISTANCE,
       large_building_m2: AREA, large_building_note_m2: AREA, neighbour_min_area_m2: AREA,
       neighbour_strip_min_area_m2: AREA, house_max_m2: AREA, small_building_m2: AREA,
       shared_lot_buildings: [1, 1_000, true], max_vertices: [4, 50, true], max_store_vertices: [3, 200, true],
       precision: [5, 15, true]
     }.freeze
     # Options where nil means "work it out" (by road class; halfway).
-    NIL_ALLOWED = %i[road_offset_m neighbour_gap_m approach_m pickup_m snap_m].freeze
+    NIL_ALLOWED = %i[road_offset_m neighbour_gap_m approach_m pickup_m snap_m unit_m].freeze
 
     module_function
 
@@ -247,7 +248,7 @@ module Curtilage
       premises = premises_xy(xy, target, opts, log)
       result.ring = ring_of(premises, pin, opts[:precision])
       if target && opts[:store_zone]
-        store = store_xy(target, premises, opts, log)
+        store = store_xy(target, premises, opts, log, features)
         result.store_ring = ring_of(store, pin, opts[:precision]) if store
       end
       result.validation = Validation.check(pin, result.ring, **opts[:validation])

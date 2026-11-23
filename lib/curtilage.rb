@@ -56,6 +56,7 @@ module Curtilage
     pin_moved: "The pin wasn't on a building and was moved onto the nearest one (snap_m:): check it's the right one.",
     fallback: "The main method failed validation; the building rectangle was used.",
     ml_footprint: "Built on a machine-learned footprint, not an OSM building.",
+    unit_estimated: "The store zone is an estimated unit of a large building (unit_m:): check it.",
     beyond_parcel: "The site's parking runs past the building's parcel (parcels supplied): check the property line.",
     no_data: "No map data covers the pin.",
     partial_data: "Part of the area around the pin is in a region that isn't built.",
@@ -395,6 +396,6 @@ module Curtilage
   end
 
   private_class_method :fetch_and_generate, :with_parcels, :checked_pins, :check_data, :check_generation_options,
-                       :generate_safely, :auto_plan, :build_and_read, :wait_quietly, :from_builds, :merge, :from_overture, :run_many,
-                       :preset_options, :generate_one, :partial_data, :no_data
+                       :generate_safely, :auto_plan, :build_and_read, :wait_quietly, :from_builds, :merge,
+                       :from_overture, :run_many, :preset_options, :generate_one, :partial_data, :no_data
 end
