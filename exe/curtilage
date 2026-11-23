@@ -1,6 +1,7 @@
 #!/usr/bin/env ruby
 # frozen_string_literal: true
 
+require "fileutils"
 require "optparse"
 require "json"
 require "tmpdir"
@@ -45,7 +46,7 @@ def generate_options(args, command)
 end
 
 def io_flags(o, opts, command)
-  o.on("--pin LNG,LAT", "A location; repeat for several") { |v| opts[:pins] << v.split(",").map { |n| Float(n) } }
+  o.on("--pin LNG,LAT", "A location; repeat for several") { |v| opts[:pins] << v }
   o.on("--in FILE", "Pins from a CSV (lng and lat columns, optional id) or GeoJSON (Point features)") do |v|
     opts[:in] = v
   end
@@ -64,7 +65,7 @@ end
 
 # [pins, ids] from --pin and --in.
 def read_sites(opts, command)
-  sites = opts[:pins].map.with_index(1) { |pin, i| { id: i.to_s, pin: pin } }
+  sites = opts[:pins].map.with_index(1) { |pin, i| { id: i.to_s, pin: Curtilage::Formats.pin_from_text(pin) } }
   sites += Curtilage::Formats.read_pins(opts[:in]) if opts[:in]
   abort "curtilage #{command}: give --pin LNG,LAT or --in FILE" if sites.empty?
   bad = sites.find { |s| !Curtilage::Formats.pin?(s[:pin]) }
@@ -102,14 +103,33 @@ def style_flags(o, opts)
   o.on("--[no-]store", "Include the store zone (default: yes)") { |v| opts[:store_zone] = v }
 end
 
+# Refuses an output path that's a symbolic link (it could point anywhere),
+# before any work is done.
+def check_out(path, command)
+  abort "curtilage #{command}: #{path} is a symbolic link; refusing to write through it" if path && File.symlink?(path)
+end
+
+# Writes next to the target and renames, so a reader never sees half a file
+# and an interrupted run leaves the old one in place.
+def write_out(path, text, command)
+  check_out(path, command)
+  part = File.join(File.dirname(File.expand_path(path)), ".#{File.basename(path)}.#{Process.pid}.part")
+  File.write(part, text)
+  File.rename(part, path)
+rescue SystemCallError => e
+  FileUtils.rm_f(part) if part
+  abort "curtilage #{command}: can't write #{path}: #{e.message}"
+end
+
 def generate(args)
   opts = generate_options(args, "generate")
   format = opts[:format] || Curtilage::Formats.format_of(opts[:out]) || :geojson
+  check_out(opts[:out], "generate")
   pins, ids = read_sites(opts, "generate")
   results = run(opts, pins)
   text = Curtilage::Formats.write(results, format, ids: ids, store: opts.fetch(:store_zone, true))
   if opts[:out]
-    File.write(opts[:out], text)
+    write_out(opts[:out], text, "generate")
     warn "#{results.count(&:ok?)} of #{results.size} ok; wrote #{opts[:out]}"
   else
     puts text
@@ -119,15 +139,16 @@ end
 
 def preview(args)
   opts = generate_options(args, "preview")
+  out = opts[:out] || "curtilage-preview.html"
+  check_out(out, "preview")
   pins, ids = read_sites(opts, "preview")
   results = run(opts, pins, keep_features: true)
-  out = opts[:out] || "curtilage-preview.html"
-  File.write(out, Curtilage::Preview.html(results, ids: ids, buffer_m: opts[:buffer]))
+  write_out(out, Curtilage::Preview.html(results, ids: ids, buffer_m: opts[:buffer]), "preview")
   puts "#{results.count(&:ok?)} of #{results.size} ok; open #{File.expand_path(out)}"
 end
 
-def build(args)
-  opts = { out: ".", work: File.join(Dir.tmpdir, "curtilage-build") }
+def build_options(args)
+  opts = { out: "." }
   OptionParser.new do |o|
     o.banner = "Usage: curtilage build REGION [options]"
     o.on("--out DIR", "Where to write REGION.parquet and REGION.json (default: .)") { |v| opts[:out] = v }
@@ -139,27 +160,56 @@ def build(args)
     end
     duckdb_flags(o, opts)
   end.parse!(args)
+  opts
+end
+
+def build(args)
+  opts = build_options(args)
   region = args.shift or abort "curtilage build: give a REGION, e.g. tennessee"
 
-  puts Curtilage::Build.run(region, out_dir: opts[:out], work_dir: opts[:work], date: opts[:date],
+  # Without --work, a fresh private folder (a fixed name in a shared /tmp
+  # could be someone else's), removed afterwards unless downloads are kept.
+  work = opts[:work] || Dir.mktmpdir("curtilage-build")
+  puts Curtilage::Build.run(region, out_dir: opts[:out], work_dir: work, date: opts[:date],
                                     ml_footprints: opts[:ml], keep_downloads: opts[:keep],
                                     **opts.slice(:duckdb, :extension_directory))
+  warn "downloads kept in #{work}" if opts[:keep] && !opts[:work]
+rescue Curtilage::Error, ArgumentError => e
+  abort "curtilage build: #{e.message}"
+ensure
+  FileUtils.rm_rf(work) if work && !opts[:work] && !opts[:keep]
 end
 
 def doctor(args)
   opts = {}
-  OptionParser.new { |o| duckdb_flags(o, opts) }.parse!(args)
-  settings = Curtilage.duckdb_options(opts)
+  OptionParser.new do |o|
+    o.on("--verify DIR", "Check each built file in DIR (catalogue or cache folder) against its recorded SHA256") do |v|
+      opts[:verify] = v
+    end
+    duckdb_flags(o, opts)
+  end.parse!(args)
+  settings = Curtilage.duckdb_options(opts.except(:verify))
   check_duckdb(settings)
   check_extensions(settings)
+  verify(opts[:verify]) if opts[:verify]
   puts "Ready."
+end
+
+def verify(dir)
+  catalogue = Curtilage::Catalogue.from_dir(dir)
+  problems = catalogue.verify
+  problems.each { |p| warn "  #{p}" }
+  abort "#{problems.size} built file(s) in #{dir} don't match their metadata: rebuild them" unless problems.empty?
+  puts "Built files: #{catalogue.regions.size} region(s) in #{dir} match their metadata"
+rescue Curtilage::Error => e
+  abort e.message
 end
 
 def check_duckdb(settings)
   version, err, status = Curtilage::DuckDB.capture(settings[:duckdb], "", "--version")
   abort "DuckDB (#{settings[:duckdb]}) failed to run: #{err.strip[0, 300]}" unless status.success?
 
-  puts "DuckDB: #{version.strip}"
+  puts "DuckDB: #{version.strip} (#{Curtilage::DuckDB.resolve(settings[:duckdb]) || settings[:duckdb]})"
 rescue Curtilage::Error => e
   abort e.message
 end
@@ -167,12 +217,14 @@ end
 def check_extensions(settings)
   dir = settings[:extension_directory]
   sql = [(Curtilage::DuckDB.extension_sql(dir, settings[:duckdb]) if dir),
-         "INSTALL spatial; LOAD spatial; INSTALL httpfs; LOAD httpfs;"].compact.join("\n")
-  _, err, status = Curtilage::DuckDB.capture(settings[:duckdb], sql)
-  abort "DuckDB extensions (spatial, httpfs) could not be installed or loaded: #{err.strip[0, 300]}" \
-    unless status.success?
+         Curtilage::DuckDB.load_sql("spatial", "httpfs")].compact.join("\n")
+  versions = Curtilage::DuckDB.extension_versions(settings[:duckdb], sql, %w[spatial httpfs])
+  abort "DuckDB extensions (spatial, httpfs) could not be loaded" unless versions.size == 2
 
-  puts "Extensions: spatial and httpfs ready"
+  puts "Extensions: #{versions.map { |name, v| "#{name} #{v}" }.join(", ")}" \
+       "#{" (offline: loaded, not installed)" if Curtilage.offline?}"
+rescue Curtilage::Error => e
+  abort e.message
 end
 
 case ARGV.shift

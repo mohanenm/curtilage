@@ -302,7 +302,7 @@ class GeneratorTest < Minitest::Test
   # Nothing bounds a 2 km grow to the north, so grow_trim fails validation
   # (too large) and the building fallback is used.
   def test_propose_falls_back_to_building_and_flags_it
-    result = Curtilage.generate(PIN, scene, grow_m: 2_000, parking_reach_m: -1)
+    result = Curtilage.generate(PIN, scene, grow_m: 1_000, parking_reach_m: 0)
 
     assert_equal :building, result.method_name
     assert_includes result.flags, :fallback
@@ -391,5 +391,33 @@ class GeneratorTest < Minitest::Test
 
     refute_predicate result, :ok?
     assert_includes result.validation.errors, "too_large"
+  end
+
+  def test_numeric_options_are_range_checked
+    [{ grow_m: -1 }, { grow_m: 1_001 }, { grow_m: Float::NAN }, { grow_m: "30" }, { max_vertices: 3 },
+     { max_vertices: 10.5 }, { house_max_m2: -5 }, { shared_lot_buildings: 0 }, { store_zone: "yes" },
+     { road_offset_m: -2 }].each do |bad|
+      assert_raises(ArgumentError, bad.inspect) { Curtilage.generate(PIN, scene, **bad) }
+    end
+    assert_predicate Curtilage.generate(PIN, scene, road_offset_m: nil, neighbour_gap_m: nil, grow_m: 0), :ok?
+  end
+
+  # A big-box store's whole lot passes 100,000 m2, the default error limit:
+  # by default it falls back to the building, with the limits raised it
+  # gets the whole lot. Bad limits are refused up front.
+  def test_validation_limits_can_be_raised_for_big_lots
+    big_box = [polygon("building", 1, -150, -100, 150, 100), polygon("parking", 2, -150, -170, 150, -101),
+               road(3, "primary", [[-400, -220], [400, -220]])]
+    default = Curtilage.generate(PIN, big_box)
+    raised = Curtilage.generate(PIN, big_box, validation: { max_area_m2: 200_000, max_area_error_m2: 300_000 })
+
+    assert_includes default.flags, :fallback
+    assert_equal :grow_trim, raised.method_name
+    assert_predicate raised, :ok?
+    assert_operator raised.validation.metrics[:area_m2], :>, 100_000
+    [{ max_area: 1 }, { max_area_error_m2: -5 }, { max_vertices: Float::NAN }].each do |bad|
+      assert_raises(ArgumentError, bad.inspect) { Curtilage.generate(PIN, big_box, validation: bad) }
+    end
+    assert_raises(ArgumentError) { Curtilage.generate(PIN, big_box, validation: 300_000) }
   end
 end

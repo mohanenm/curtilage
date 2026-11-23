@@ -126,4 +126,33 @@ class LookupTest < Minitest::Test
     assert_empty lists[0]
     assert_equal 5, lists[1].first["id"]
   end
+
+  # One site raising mid-batch gets an error result; the others are fine.
+  # Option mistakes still fail the call, before any data is read.
+  def test_one_failing_site_doesnt_abort_the_batch
+    Dir.mktmpdir do |dir|
+      fake = File.join(dir, "duckdb")
+      File.write(fake, "#!/bin/sh\ncat > /dev/null\nprintf '[]\\n'\n")
+      File.chmod(0o755, fake)
+      File.write(File.join(dir, "a.parquet"), "")
+      pins = [[-80.0, 35.0], [-80.01, 35.0], [-80.02, 35.0]]
+      flaky = lambda do |pin, features, **opts|
+        raise ZeroDivisionError, "boom" if pin == pins[1]
+
+        Curtilage::Generator.generate(:building, pin, features, **opts)
+      end
+      results = with_stub(Curtilage::Generator, :propose, flaky) do
+        Curtilage.generate_many(pins, parquet: File.join(dir, "a.parquet"), lookup: { duckdb: fake })
+      end
+
+      assert_equal [[], [:error], []], results.map(&:flags)
+      assert_includes results[1].problem, "ZeroDivisionError: boom"
+      refute_predicate results[1], :ok?
+      assert_equal pins[1], results[1].pin
+      assert_raises(ArgumentError) do
+        Curtilage.generate_many(pins, parquet: File.join(dir, "a.parquet"), lookup: { duckdb: fake }, grow_m: -1)
+      end
+      assert_raises(ArgumentError) { Curtilage.generate_many(pins, parquet: "x", preset: :nope) }
+    end
+  end
 end

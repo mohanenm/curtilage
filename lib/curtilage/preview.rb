@@ -1,6 +1,7 @@
 # frozen_string_literal: true
 
 require "cgi/escape"
+require "digest"
 
 module Curtilage
   # A self-contained HTML page for checking results by eye: one map per
@@ -165,11 +166,24 @@ module Curtilage
       %(<path d="#{d}" class="#{css}">#{tip}</path>)
     end
 
-    def h(text) = CGI.escapeHTML(text.to_s)
+    # Unicode direction controls can make text read differently from what it
+    # is (a name that seems to say one thing and says another); they never
+    # belong in a map label.
+    BIDI = /[\u061C\u200E\u200F\u202A-\u202E\u2066-\u2069]/
+
+    def h(text) = CGI.escapeHTML(text.to_s.gsub(BIDI, ""))
+
+    # Only the page's own inline style and script may run, by hash; nothing
+    # can be loaded from anywhere. A missed escape can't run script.
+    def csp
+      "default-src 'none'; style-src 'sha256-#{Digest::SHA256.base64digest(STYLE)}'; " \
+        "script-src 'sha256-#{Digest::SHA256.base64digest(SCRIPT)}'; img-src data:; base-uri 'none'; form-action 'none'"
+    end
 
     def page(title, cards, toolbar, credits, buffer_m)
       <<~HTML
         <!doctype html><html lang="en"><head><meta charset="utf-8">
+        <meta http-equiv="Content-Security-Policy" content="#{csp}">
         <meta name="viewport" content="width=device-width, initial-scale=1">
         <title>#{h(title)}</title><style>#{STYLE}</style></head><body>
         <h1>#{h(title)}</h1>#{toolbar}

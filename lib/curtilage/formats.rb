@@ -23,6 +23,8 @@ module Curtilage
     # Inputs are untrusted: cap what a file can ask for.
     MAX_PINS = 100_000
     MAX_BYTES = 50 * 1024 * 1024
+    MAX_FIELD_CHARS = 10_000
+    MAX_COLUMNS = 1_000
 
     CSV_COLUMNS = %w[id lng lat ok problem method flags errors building building_area_m2 parking_area_m2
                      parking_spaces_estimate frontage_m premises_area_m2 premises_wkt store_wkt attribution].freeze
@@ -51,6 +53,7 @@ module Curtilage
     end
 
     def parse_pins(text, format)
+      text = checked_text(text)
       sites = case format
               when :csv then csv_pins(text)
               when :geojson then geojson_pins(text)
@@ -58,7 +61,22 @@ module Curtilage
               end
       raise ArgumentError, "more than #{MAX_PINS} pins" if sites.size > MAX_PINS
 
-      sites.each.with_index(1) { |site, i| site[:id] ||= i.to_s }
+      sites.each.with_index(1) do |site, i|
+        site[:id] ||= i.to_s
+        raise ArgumentError, "#{site[:id]}: a pin is LNG,LAT (longitude first)" unless pin?(site[:pin])
+      end
+    end
+
+    # The text as valid UTF-8 without a byte-order mark, refused up front if
+    # it's too big, isn't UTF-8 or holds NUL bytes (a binary file, usually).
+    def checked_text(text)
+      raise ArgumentError, "the input is over #{MAX_BYTES / 1024 / 1024} MB" if text.bytesize > MAX_BYTES
+
+      text = text.dup.force_encoding(Encoding::UTF_8) unless text.encoding == Encoding::UTF_8
+      raise ArgumentError, "the input isn't valid UTF-8" unless text.valid_encoding?
+      raise ArgumentError, "the input contains a NUL byte: is it a text file?" if text.include?("\0")
+
+      text.delete_prefix("\uFEFF")
     end
 
     def csv_pins(text)
@@ -78,6 +96,7 @@ module Curtilage
       doc = JSON.parse(text, max_nesting: 20)
       features = doc.is_a?(Hash) && doc["type"] == "FeatureCollection" ? doc["features"] : [doc]
       raise ArgumentError, "expected GeoJSON Point features" unless features.is_a?(Array)
+      raise ArgumentError, "more than #{MAX_PINS} pins" if features.size > MAX_PINS
 
       features.each_with_index.map { |f, i| geojson_pin(f, "feature #{i + 1}") }
     rescue JSON::ParserError => e
@@ -159,38 +178,55 @@ module Curtilage
     # What to credit wherever this result is shown.
     def credits(result) = result.attribution || Result::OSM_ATTRIBUTION
 
-    # A field that a spreadsheet would run as a formula (=, +, -, @) gets a
-    # leading quote, unless it's a number.
+    # What a spreadsheet may run as a formula: =, +, -, @, | (DDE) or %, or
+    # their full-width forms, after any leading whitespace; or a leading tab
+    # or carriage return.
+    FORMULA = /\A(?:[\s\u3000]*[=+\-@|%\uFF1D\uFF0B\uFF0D\uFF20\uFF5C\uFF05]|[\t\r])/
+    PLAIN_NUMBER = /\A[+-]?\d+(\.\d+)?\z/
+
+    # Every CSV cell goes through here: one a spreadsheet would run as a
+    # formula gets a leading quote, unless it's a plain number.
     def csv_field(value)
       text = value.to_s
-      text = "'#{text}" if text.match?(/\A[=+\-@\t\r]/) && !text.match?(/\A[+-]?\d+(\.\d+)?\z/)
+      text = "'#{text}" if text.match?(FORMULA) && !text.match?(PLAIN_NUMBER)
       text.match?(/[",\r\n]/) ? "\"#{text.gsub('"', '""')}\"" : text
     end
 
     # RFC 4180: rows of fields; quoted fields may hold commas, quotes ("")
-    # and newlines. Blank lines are skipped.
-    def parse_csv(text)
+    # and newlines. Blank lines are skipped. Rows, columns and field length
+    # are capped as it reads, so an oversized file fails early.
+    def parse_csv(text, max_rows: MAX_PINS + 1)
       scanner = StringScanner.new(text)
       rows = []
       until scanner.eos?
         row = [csv_cell(scanner)]
-        row << csv_cell(scanner) while scanner.scan(",")
+        row << csv_cell(scanner) while scanner.scan(",") && row.size <= MAX_COLUMNS
+        raise ArgumentError, "line #{rows.size + 1} has more than #{MAX_COLUMNS} columns" if row.size > MAX_COLUMNS
+
         scanner.scan(/\r\n|\n|\r/)
         rows << row unless row == [""]
+        raise ArgumentError, "more than #{max_rows - 1} rows" if rows.size > max_rows
       end
       rows
     end
 
     def csv_cell(scanner)
-      return scanner.scan(/[^,\r\n]*/) unless scanner.scan('"')
+      value = if scanner.scan('"')
+                quoted = scanner.scan(/(?:[^"]|"")*/).gsub('""', '"')
+                scanner.scan('"') or raise ArgumentError, "a quoted CSV field is never closed"
+                quoted
+              else
+                scanner.scan(/[^,\r\n]*/)
+              end
+      raise ArgumentError, "a CSV field is over #{MAX_FIELD_CHARS} characters" if value.size > MAX_FIELD_CHARS
 
-      value = scanner.scan(/(?:[^"]|"")*/).gsub('""', '"')
-      scanner.scan('"') or raise ArgumentError, "a quoted CSV field is never closed"
       value
     end
 
     def present(value)
       text = value.to_s.strip
+      raise ArgumentError, "an id is over #{MAX_FIELD_CHARS} characters" if text.size > MAX_FIELD_CHARS
+
       text.empty? ? nil : text
     end
 
@@ -209,9 +245,17 @@ module Curtilage
     end
 
     def number(value, where)
-      Float(value.to_s.strip)
+      Validation.coordinate(value, [value])
     rescue ArgumentError
       raise ArgumentError, "#{where}: #{value.inspect} isn't a number"
+    end
+
+    # A pin from "LNG,LAT" text (the command line's --pin).
+    def pin_from_text(text, where = "--pin #{text}")
+      parts = text.to_s.split(",")
+      raise ArgumentError, "#{where}: a pin is LNG,LAT" unless parts.size == 2
+
+      parts.map { |v| number(v, where) }
     end
   end
 end

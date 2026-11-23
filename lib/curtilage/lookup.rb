@@ -18,6 +18,8 @@ module Curtilage
     # the lot and its bounding roads.
     DEFAULT_RADIUS_DEG = 0.004
     MAX_OUTPUT_BYTES = 200_000_000
+    # A lookup only reads the row groups near its pins: this is headroom.
+    DEFAULT_MEMORY = "1GB"
     # Each pin is one scan in a UNION ALL, and DuckDB refuses queries nested
     # more than 1,000 deep: larger batches take several calls.
     PINS_PER_CALL = 500
@@ -46,10 +48,12 @@ module Curtilage
 
     def read_batch(files, pins, options)
       sql = sql(files, pins, options[:extension_directory], options.fetch(:radius_deg, DEFAULT_RADIUS_DEG),
-                options[:setup_sql], duckdb: options.fetch(:duckdb, "duckdb"))
-      out, err, status = DuckDB.capture(options.fetch(:duckdb, "duckdb"), sql, "-json")
+                options[:setup_sql], duckdb: options.fetch(:duckdb, "duckdb"),
+                                     memory_limit: options.fetch(:memory_limit, DEFAULT_MEMORY))
+      out, err, status = DuckDB.capture(options.fetch(:duckdb, "duckdb"), sql, "-json",
+                                        timeout: options.fetch(:timeout, Curtilage.config.duckdb_timeout),
+                                        max_output: MAX_OUTPUT_BYTES)
       raise Error, "duckdb failed: #{err.strip[0, 500]}" unless status.success?
-      raise Error, "duckdb output too large" if out.bytesize > MAX_OUTPUT_BYTES
 
       group(out, pins.size)
     end
@@ -58,6 +62,7 @@ module Curtilage
       raise ArgumentError, "no parquet file given" if files.empty?
 
       files.each do |f|
+        Curtilage.online!("reading #{f}") if f.to_s.match?(REMOTE)
         next if f.to_s.match?(REMOTE)
         raise ArgumentError, "parquet file not found: #{f}" unless File.file?(f.to_s)
       end
@@ -78,17 +83,18 @@ module Curtilage
       lists
     end
 
-    def sql(files, pins, extension_directory, radius_deg, setup_sql = nil, duckdb: nil)
+    def sql(files, pins, extension_directory, radius_deg, setup_sql = nil, duckdb: nil, memory_limit: DEFAULT_MEMORY)
       r = Float(radius_deg)
       raise ArgumentError, "radius out of range" unless r.positive? && r <= 0.05
 
-      [setup(files, extension_directory, setup_sql, duckdb), query(files, pins, r)].join("\n")
+      [setup(files, extension_directory, setup_sql, duckdb, memory_limit), query(files, pins, r)].join("\n")
     end
 
-    def setup(files, extension_directory, setup_sql, duckdb)
+    def setup(files, extension_directory, setup_sql, duckdb, memory_limit)
       [(DuckDB.extension_sql(extension_directory, duckdb) if extension_directory),
-       "INSTALL spatial; LOAD spatial;",
-       ("INSTALL httpfs; LOAD httpfs;" if files.any? { |f| f.to_s.match?(REMOTE) }),
+       DuckDB.memory_limit(memory_limit),
+       DuckDB.load_sql("spatial"),
+       (DuckDB.load_sql("httpfs") if files.any? { |f| f.to_s.match?(REMOTE) }),
        setup_sql].compact.join("\n")
     end
 
@@ -109,17 +115,7 @@ module Curtilage
       "#{scans.join(" UNION ALL ")};"
     end
 
-    def checked(pin)
-      raise ArgumentError, "a pin is [lng, lat]: #{pin.inspect}" unless pin.is_a?(Array) && pin.size >= 2
-
-      lng = Float(pin[0])
-      lat = Float(pin[1])
-      raise ArgumentError, "pin out of range: #{pin.inspect}" unless lng.abs <= 180 && lat.abs <= 90
-
-      [lng, lat]
-    rescue TypeError
-      raise ArgumentError, "a pin is two numbers: #{pin.inspect}"
-    end
+    def checked(pin) = Validation.pin(pin)
 
     def quote(text) = DuckDB.quote(text)
   end

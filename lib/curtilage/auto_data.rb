@@ -26,9 +26,38 @@ module Curtilage
 
     def initialize(**options)
       @opts = OPTIONS.merge(options.compact)
+      check_options
       @temporary = @opts[:cache_dir].nil?
       @cache_dir = @opts[:cache_dir] || Dir.mktmpdir("curtilage")
-      FileUtils.mkdir_p(@cache_dir)
+      FileUtils.mkdir_p(@cache_dir, mode: 0o700)
+      problem = AutoData.cache_problem(File.stat(@cache_dir), @cache_dir)
+      raise Error, problem if problem
+    end
+
+    # Each build peaks near 600 MB; more than 8 at once would swamp most
+    # machines and Geofabrik.
+    MAX_PARALLEL_BUILDS = 8
+
+    def check_options
+      builds = @opts[:parallel_builds]
+      unless builds.is_a?(Integer) && builds.between?(1, MAX_PARALLEL_BUILDS)
+        raise ArgumentError, "parallel_builds must be a whole number from 1 to #{MAX_PARALLEL_BUILDS}: " \
+                             "#{builds.inspect}"
+      end
+
+      age = @opts[:max_age_days]
+      raise ArgumentError, "max_age_days must be a number of days from 0 to 3650: #{age.inspect}" \
+        unless age.is_a?(Numeric) && age.to_f.finite? && age.between?(0, 3650)
+    end
+
+    # DuckDB reads the cache's Parquet files and the gem trusts its
+    # metadata, so a cache someone else can write to is refused.
+    def self.cache_problem(stat, dir)
+      if stat.uid != Process.uid
+        "the cache folder #{dir} belongs to another user: use a folder you own"
+      elsif stat.mode.anybits?(0o002)
+        "the cache folder #{dir} is writable by every user: run `chmod 700 #{dir}` or use another folder"
+      end
     end
 
     # A Catalogue covering the pins, building what's missing first. Pins in
@@ -43,7 +72,7 @@ module Curtilage
       needed.each { |region| queue << region }
       # Closed, so pop returns nil once it's empty instead of waiting.
       queue.close
-      workers = Array.new(@opts[:parallel_builds].to_i.clamp(1, [needed.size, 1].max)) do
+      workers = Array.new(@opts[:parallel_builds].clamp(1, [needed.size, 1].max)) do
         Thread.new do
           Thread.current.report_on_exception = false
           while (region = queue.pop)
@@ -60,14 +89,6 @@ module Curtilage
 
     def cleanup
       FileUtils.rm_rf(@cache_dir) if @temporary
-    end
-
-    # Readers never see a half-written file, even with several processes
-    # sharing the cache.
-    def self.write_atomically(file, data)
-      part = "#{file}.#{Process.pid}.#{Thread.current.object_id}.part"
-      File.binwrite(part, data)
-      File.rename(part, file)
     end
 
     def regions
@@ -100,12 +121,18 @@ module Curtilage
                              **@opts.slice(:ml_footprints, :duckdb, :extension_directory, :log))
     end
 
+    # Built recently enough, with its Parquet file present at the size the
+    # metadata recorded: a missing, truncated or replaced file is rebuilt.
+    # (doctor --verify checks the full SHA256.)
     def fresh?(metadata_file)
       return false unless File.file?(metadata_file)
 
-      built = Time.parse(JSON.parse(File.read(metadata_file, encoding: "utf-8"))["built_at"].to_s)
-      Time.now - built < @opts[:max_age_days] * 86_400
-    rescue ArgumentError, JSON::ParserError
+      meta = JSON.parse(File.read(metadata_file, encoding: "utf-8"))
+      parquet = File.join(@cache_dir, File.basename(meta["parquet"].to_s))
+      built = Time.parse(meta["built_at"].to_s)
+      Time.now - built < @opts[:max_age_days] * 86_400 && File.file?(parquet) &&
+        File.size(parquet) == meta["parquet_bytes"]
+    rescue ArgumentError, TypeError, JSON::ParserError
       false
     end
 
@@ -126,7 +153,7 @@ module Curtilage
 
       json = Download.read(Regions::HOST, Regions::INDEX, max_bytes: Regions::MAX_INDEX_BYTES)
       regions = Regions.parse(json)
-      AutoData.write_atomically(file, json)
+      Curtilage.write_atomically(file, json)
       regions
     end
 

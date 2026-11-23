@@ -1,6 +1,7 @@
 # frozen_string_literal: true
 
 require "date"
+require "digest"
 require "fileutils"
 require "json"
 require "open3"
@@ -33,7 +34,7 @@ module Curtilage
     SQL_FILE = File.expand_path("../../sql/build_from_shapefiles.sql", __dir__)
 
     OPTIONS = {
-      date: nil, memory_limit: "400MB", threads: 1,
+      date: nil, memory_limit: "400MB", threads: 1, timeout: 3600,
       ml_footprints: nil, keep_downloads: false, name: nil, outline: nil, log: $stderr
     }.freeze
 
@@ -52,18 +53,29 @@ module Curtilage
       path = region_path(region)
       check_options(opts)
       FileUtils.mkdir_p([out_dir, work_dir])
-      fetched = PARTS.fetch(path, [path]).map { |part| fetch(part, opts[:date], work_dir, opts[:log]) }
-      dirs = fetched.map(&:first)
+      fetched = PARTS.fetch(path, [path]).map { |part| [part, *fetch(part, opts[:date], work_dir, opts[:log])] }
+      dirs = fetched.map { |_, dir, _| dir }
       opts = opts.merge(temp_directory: File.join(work_dir, "duckdb_tmp"))
       ml, ml_bbox = ml_files(dirs, work_dir, opts)
       out = File.join(out_dir, "#{output_name(path, opts[:name])}.parquet")
-      opts[:log].puts "building #{out}"
-      run_duckdb(sql(dirs, "#{out}.tmp", opts, ml_files: ml, ml_bbox: ml_bbox), opts[:duckdb])
-      File.rename("#{out}.tmp", out)
-      write_metadata(out, path, fetched.map(&:last), opts)
+      build_parquet(sql(dirs, "#{out}.tmp", opts, ml_files: ml, ml_bbox: ml_bbox), out, opts)
+      write_metadata(out, path, fetched.map(&:last), opts.merge(provenance(fetched, ml)))
       out
     ensure
       cleanup(work_dir, dirs, opts[:keep_downloads]) if dirs
+    end
+
+    # What was downloaded, for the metadata: each part's layer files and
+    # each footprint tile, with sizes and SHA256s.
+    def provenance(fetched, ml_files)
+      { sources: fetched.map { |part, dir, date| source_record(part, date, dir) },
+        ml_sources: ml_files.map { |f| record(f) } }
+    end
+
+    def build_parquet(sql, out, opts)
+      opts[:log].puts "building #{out}"
+      run_duckdb(sql, opts[:duckdb], timeout: opts[:timeout])
+      File.rename("#{out}.tmp", out)
     end
 
     def output_name(path, name)
@@ -109,6 +121,7 @@ module Curtilage
         Download.fetch(HOST, url_path(part, date), zip, max_bytes: MAX_DOWNLOAD_BYTES)
       end
       check_zip(zip)
+      ZipRange.check_local(zip, LAYER_PATTERNS, max_bytes: MAX_DOWNLOAD_BYTES)
       unzip_layers(zip, dir)
       [dir, date]
     end
@@ -153,7 +166,8 @@ module Curtilage
 
     def unzip_layers(zip, dir)
       FileUtils.mkdir_p(dir)
-      _, err, status = unzip("-oq", zip, *LAYER_PATTERNS, "-d", dir)
+      # -j: junk any folders in member names, so files land only in dir.
+      _, err, status = unzip("-joq", zip, *LAYER_PATTERNS, "-d", dir)
       raise Error, "unzip failed: #{err.strip[0, 200]}" unless status.success?
     end
 
@@ -173,7 +187,7 @@ module Curtilage
     def extent(dirs, opts)
       query = "SELECT min(ST_XMin(geom)) a, min(ST_YMin(geom)) b, max(ST_XMax(geom)) c, max(ST_YMax(geom)) d " \
               "FROM roads_src;"
-      out = run_duckdb([setup(opts), "INSTALL spatial; LOAD spatial;", layer_view("roads", dirs), query].join("\n"),
+      out = run_duckdb([setup(opts), DuckDB.load_sql("spatial"), layer_view("roads", dirs), query].join("\n"),
                        opts[:duckdb], "-json")
       row = JSON.parse(out).first
       %w[a b c d].map { |k| Float(row[k]) }
@@ -183,7 +197,7 @@ module Curtilage
     # (_1, _2, ...) and multi-part regions in several folders.
     def sql(dirs, out, opts, ml_files: [], ml_bbox: nil)
       views = LAYERS.map { |layer| layer_view(layer, dirs) }
-      [setup(opts), "INSTALL spatial; LOAD spatial;", *views, ml_view(ml_files, ml_bbox),
+      [setup(opts), DuckDB.load_sql("spatial"), *views, ml_view(ml_files, ml_bbox),
        "SET VARIABLE out_path = #{quote(out)};", File.read(SQL_FILE)].join("\n")
     end
 
@@ -211,13 +225,20 @@ module Curtilage
     def setup(opts)
       ext = opts[:extension_directory]
       [(DuckDB.extension_sql(ext, opts[:duckdb]) if ext),
-       "SET memory_limit = #{quote(opts[:memory_limit])};",
-       "SET threads = #{Integer(opts[:threads])};",
+       DuckDB.memory_limit(opts[:memory_limit]),
+       "SET threads = #{threads(opts[:threads])};",
        ("SET temp_directory = #{quote(opts[:temp_directory])};" if opts[:temp_directory])].compact.join("\n")
     end
 
-    def run_duckdb(sql, duckdb, *)
-      out, err, status = DuckDB.capture(duckdb, sql, *)
+    def threads(value)
+      count = Integer(value, exception: false)
+      raise ArgumentError, "threads must be a whole number from 1 to 64: #{value.inspect}" unless count&.between?(1, 64)
+
+      count
+    end
+
+    def run_duckdb(sql, duckdb, *, timeout: OPTIONS[:timeout])
+      out, err, status = DuckDB.capture(duckdb, sql, *, timeout: timeout)
       raise Error, "duckdb failed: #{err.strip[0, 500]}" unless status.success? && err.strip.empty?
 
       out
@@ -243,9 +264,16 @@ module Curtilage
                                        "max(max_lng) c, max(max_lat) d FROM read_parquet(#{quote(parquet)}) " \
                                        "GROUP BY feature;"].join("\n"), opts[:duckdb], "-json")
       rows = JSON.parse(stats)
-      opts = opts.merge(outline: opts[:outline] || outline(path, opts[:log]))
-      AutoData.write_atomically(parquet.sub(/\.parquet\z/, ".json"),
-                                JSON.pretty_generate(metadata(parquet, path, dates, rows, opts)))
+      loaded = "#{setup(opts)}\n#{DuckDB.load_sql("spatial")}"
+      opts = opts.merge(outline: opts[:outline] || outline(path, opts[:log]),
+                        duckdb_version: DuckDB.version(opts[:duckdb]),
+                        extensions: DuckDB.extension_versions(opts[:duckdb], loaded, %w[spatial]))
+      file = parquet.sub(/\.parquet\z/, ".json")
+      upstream_changes(previous_metadata(file), opts[:sources]).each do |name|
+        opts[:log].puts "warning: #{name} differs from the copy the last build of this region used " \
+                        "(republished upstream, or altered in transit): check before trusting either build"
+      end
+      Curtilage.write_atomically(file, JSON.pretty_generate(metadata(parquet, path, dates, rows, opts)))
     end
 
     def metadata(parquet, path, dates, rows, opts)
@@ -254,12 +282,47 @@ module Curtilage
         region: path, parquet: File.basename(parquet), format: 1,
         source: "Geofabrik OpenStreetMap shapefiles", source_dates: source_dates,
         built_at: Time.now.utc.iso8601, ml_footprints: opts[:ml_footprints],
-        bbox: [rows.map { |r| r["a"] }.min, rows.map { |r| r["b"] }.min, rows.map { |r| r["c"] }.max,
-               rows.map { |r| r["d"] }.max],
+        bbox: bbox_of(rows),
         counts: rows.to_h { |r| [r["feature"], r["n"]] },
         licence: "ODbL-1.0", attribution: attribution(opts[:ml_footprints]),
-        outline: rounded(opts[:outline])
-      }
+        outline: rounded(opts[:outline]), sources: opts[:sources], ml_sources: opts[:ml_sources],
+        parquet_bytes: File.size?(parquet), parquet_sha256: sha256(parquet), gem_version: VERSION,
+        duckdb_version: opts[:duckdb_version], extensions: opts[:extensions]
+      }.compact
+    end
+
+    # What was downloaded for one part: its dated zip's name and each layer
+    # file taken from it, with size and SHA256. Geofabrik publishes no
+    # checksums, so this is what a later build compares against.
+    def source_record(part, date, dir)
+      files = LAYER_PATTERNS.flat_map { |pattern| Dir.glob(File.join(dir, pattern)) }.sort
+      { "file" => File.basename(url_path(part, date)), "members" => files.to_h { |f| [File.basename(f), record(f)] } }
+    end
+
+    def record(file)
+      { "file" => File.basename(file), "bytes" => File.size(file), "sha256" => Digest::SHA256.file(file).hexdigest }
+    end
+
+    # Dated files whose contents differ from what the previous build of
+    # this region recorded under the same name: Geofabrik republished them,
+    # or something altered them on the way. Either way, worth a look.
+    def upstream_changes(previous, sources)
+      before = Array(previous && previous["sources"]).to_h { |s| [s["file"], s["members"]] }
+      Array(sources).filter_map { |s| s["file"] if before[s["file"]] && before[s["file"]] != s["members"] }
+    end
+
+    def previous_metadata(file)
+      File.file?(file) ? JSON.parse(File.read(file, encoding: "utf-8")) : nil
+    rescue JSON::ParserError
+      nil
+    end
+
+    def sha256(file)
+      File.file?(file) ? Digest::SHA256.file(file).hexdigest : nil
+    end
+
+    def bbox_of(rows)
+      %w[a b].map { |k| rows.map { |r| r[k] }.min } + %w[c d].map { |k| rows.map { |r| r[k] }.max }
     end
 
     def rounded(rings)

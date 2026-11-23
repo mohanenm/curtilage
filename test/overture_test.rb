@@ -67,4 +67,11 @@ class OvertureTest < Minitest::Test
     assert_equal O::ATTRIBUTION, O.attribution(Curtilage.generate(pin, [ml], buildings: :osm).features)
     assert_equal O::ATTRIBUTION, O.attribution(nil)
   end
+
+  def test_release_names_are_checked
+    assert_equal "2026-11-18.0", O.release(release: "2026-11-18.0")
+    ["../x", "2026-11-18.0/../../y", "latest", ""].each do |bad|
+      assert_raises(ArgumentError) { O.release(release: bad) } unless bad.empty?
+    end
+  end
 end

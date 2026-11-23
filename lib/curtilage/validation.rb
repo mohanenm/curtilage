@@ -25,11 +25,63 @@ module Curtilage
       swap_near_m: 1_000,
     }.freeze
 
+    # A number written as text: plain decimal, optionally with an exponent.
+    # Ruby's Float() also takes hex ("0x1A") and underscores ("1_0"), which
+    # in a pin list are mistakes, not numbers.
+    DECIMAL = /\A[+-]?(?:\d+(?:\.\d*)?|\.\d+)(?:[eE]([+-]?\d+))?\z/
+
     module_function
 
-    # pin: [lng, lat]. ring: [[lng, lat], ...], closed or not.
+    # The pin as [lng, lat] floats, or ArgumentError: two finite numbers (or
+    # decimal strings), longitude within 180 and latitude within 90. Every
+    # entry point checks pins through here.
+    def pin(pin)
+      raise ArgumentError, "a pin is [lng, lat]: #{pin.inspect}" unless pin.is_a?(Array) && pin.size >= 2
+
+      lng, lat = pin.first(2).map { |v| coordinate(v, pin) }
+      raise ArgumentError, "pin out of range (longitude first): #{pin.inspect}" unless lng.abs <= 180 && lat.abs <= 90
+
+      [lng, lat]
+    end
+
+    def coordinate(value, pin)
+      number = case value
+               when Numeric then value.to_f
+               when String then decimal(value.strip)
+               end
+      raise ArgumentError, "a pin is two numbers: #{pin.inspect}" unless number&.finite?
+
+      number
+    end
+
+    # A plain decimal string as a float, or nil. Exponents past 300 are
+    # refused before converting: no coordinate needs one, and Float() warns.
+    def decimal(text)
+      match = DECIMAL.match(text)
+      return nil unless match && match[1].to_i.abs <= 300
+
+      Float(text)
+    end
+
+    # The limits with options applied; unknown keys and values that aren't
+    # positive numbers are refused (a misspelt limit would be ignored).
+    def limits(options)
+      unknown = options.keys - DEFAULTS.keys
+      raise ArgumentError, "unknown validation limit(s): #{unknown.join(", ")} (have: #{DEFAULTS.keys.join(", ")})" \
+        if unknown.any?
+
+      options.each do |key, value|
+        next if value.is_a?(Numeric) && value.real? && value.to_f.finite? && value.positive? && value <= 1e9
+
+        raise ArgumentError, "validation limit #{key} must be a positive number: #{value.inspect}"
+      end
+      DEFAULTS.merge(options)
+    end
+
+    # pin: [lng, lat]. ring: [[lng, lat], ...], closed or not. options: the
+    # limits in DEFAULTS, e.g. max_area_error_m2: 300_000 for big lots.
     def check(pin, ring, **options)
-      opts = DEFAULTS.merge(options)
+      opts = limits(options)
       return Result.new(["missing"], [], {}) if ring.nil? || ring.empty?
       return Result.new(["invalid_coordinates"], [], {}) unless Geometry.valid_coordinates?(ring)
 

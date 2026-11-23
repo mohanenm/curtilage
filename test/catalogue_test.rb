@@ -90,4 +90,19 @@ class CatalogueTest < Minitest::Test
       assert_raises(Curtilage::Error) { Curtilage::Regions.parse(json) }
     end
   end
+
+  def test_verify_finds_altered_built_files
+    Dir.mktmpdir do |dir|
+      File.write(File.join(dir, "east.parquet"), "PAR1")
+      File.write(File.join(dir, "east.json"),
+                 JSON.generate(format: 1, region: "test/east", parquet: "east.parquet", bbox: [-85, 34, -80, 37],
+                               parquet_bytes: 4, parquet_sha256: Digest::SHA256.hexdigest("PAR1")))
+
+      assert_empty Curtilage::Catalogue.from_dir(dir).verify
+      File.write(File.join(dir, "east.parquet"), "PAR2")
+      assert_includes Curtilage::Catalogue.from_dir(dir).verify.first, "SHA256 differs"
+      File.write(File.join(dir, "east.parquet"), "PAR")
+      assert_includes Curtilage::Catalogue.from_dir(dir).verify.first, "3 bytes, expected 4"
+    end
+  end
 end

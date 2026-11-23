@@ -41,6 +41,7 @@ module Curtilage
     ml_footprint: "Built on a machine-learned footprint, not an OSM building.",
     no_data: "No map data covers the pin.",
     partial_data: "Part of the area around the pin is in a region that isn't built.",
+    error: "Generating this site raised an error (see its explanation); the rest of the batch went on.",
   }.freeze
 
   # Named styles; any option passed alongside a preset overrides it.
@@ -85,6 +86,10 @@ module Curtilage
   # already cached); fewer pins are cheaper to read from Overture. Measured:
   # Overture about 5.6 s a pin, a mid-size US state about 60-90 s to build.
   AUTO_BUILD_MIN_PINS = 10
+  # One call's worth: more is likely a mistake, and a bigger batch should be
+  # split so a failure costs less (max_pins: raises it).
+  MAX_PINS_PER_CALL = 100_000
+  DATA_OPTIONS = %i[max_age_days ml_footprints parallel_builds log auto_build_min_pins release].freeze
 
   # Results for many pins, in pin order, looking features up once per group
   # of pins that share data.
@@ -105,14 +110,59 @@ module Curtilage
   # puts; default $stderr), release: (Overture). keep_features: true keeps each
   # result's map data (Result#features, which Preview draws); by default it's
   # dropped to save memory. Other options go to generate.
-  def self.generate_many(pins, keep_features: false, **)
-    results = fetch_and_generate(pins, **)
+  def self.generate_many(pins, keep_features: false, max_pins: MAX_PINS_PER_CALL, **)
+    results = fetch_and_generate(checked_pins(pins, max_pins), **)
     results.each { |r| r.features = nil } unless keep_features
     results
   end
 
+  # Every pin checked before any data is fetched, so a bad one fails the
+  # call at once (naming it) rather than after builds have run.
+  def self.checked_pins(pins, max)
+    raise ArgumentError, "pins must be a list of [lng, lat] pins" unless pins.is_a?(Array)
+    raise ArgumentError, "#{pins.size} pins is more than max_pins (#{max}): split the batch" if pins.size > max
+
+    pins.each_with_index.map do |pin, i|
+      Validation.pin(pin)
+    rescue ArgumentError => e
+      raise ArgumentError, "pin #{i + 1}: #{e.message}"
+    end
+  end
+
+  # Options are checked once, before any work, so a mistake in them fails
+  # the call instead of turning every site into an error result.
+  def self.check_generation_options(options)
+    opts = preset_options(options[:preset]).merge(options.except(:preset))
+    method = opts.delete(:method)
+    raise ArgumentError, "unknown method #{method.inspect}" if method && !Generator::METHODS.include?(method)
+
+    Generator.checked_options(opts)
+  end
+
+  # One site's result, never an exception: a site whose generation raises
+  # gets an error result (flag :error) and the rest of the batch goes on.
+  def self.generate_safely(pin, features, options)
+    generate(pin, features, **options)
+  rescue StandardError => e
+    Result.new(method_name: nil, pin: pin, flags: [:error], building: nil,
+               explanation: ["generating this site failed: #{e.class}: #{e.message[0, 300]}"],
+               validation: Validation::Result.new(["error"], [], {}))
+  end
+
+  def self.check_data(data)
+    unknown = data.keys - DATA_OPTIONS
+    raise ArgumentError, "unknown data: option(s): #{unknown.join(", ")} (have: #{DATA_OPTIONS.join(", ")})" \
+      if unknown.any?
+
+    min_pins = data.fetch(:auto_build_min_pins, AUTO_BUILD_MIN_PINS)
+    raise ArgumentError, "auto_build_min_pins must be a whole number from 1: #{min_pins.inspect}" \
+      unless min_pins.is_a?(Integer) && min_pins >= 1
+  end
+
   def self.fetch_and_generate(pins, source: nil, catalogue: nil, parquet: nil, cache_dir: nil, lookup: {}, data: {},
                               **options)
+    check_data(data)
+    check_generation_options(options)
     lookup = duckdb_options(lookup)
     return run_many(pins, catalogue, parquet, lookup, options) if catalogue || parquet
 
@@ -186,7 +236,7 @@ module Curtilage
     lists = Overture.features_many(pins, **lookup.slice(:duckdb, :extension_directory, :radius_deg),
                                    **data.slice(:release))
     pins.zip(lists).map do |pin, features|
-      generate(pin, features, **options).tap do |r|
+      generate_safely(pin, features, options).tap do |r|
         r.attribution = Overture.attribution(r.features)
         r.explanation.unshift("map data: OpenStreetMap, read from Overture Maps")
       end
@@ -221,6 +271,14 @@ module Curtilage
     outcomes
   end
 
+  # Readers never see a half-written file, even with several processes
+  # sharing a folder: written under a unique name, then renamed into place.
+  def self.write_atomically(file, data)
+    part = "#{file}.#{Process.pid}.#{Thread.current.object_id}.part"
+    File.binwrite(part, data)
+    File.rename(part, file)
+  end
+
   def self.preset_options(preset)
     return {} if preset.nil?
 
@@ -230,7 +288,7 @@ module Curtilage
   end
 
   def self.generate_one(pin, features, files, catalogue, options)
-    result = generate(pin, features, **options)
+    result = generate_safely(pin, features, options)
     credits = catalogue&.attribution(files) || []
     result.attribution = credits unless credits.empty?
     if files.empty?
@@ -252,6 +310,7 @@ module Curtilage
     result.explanation.unshift("no map data covers this pin")
   end
 
-  private_class_method :fetch_and_generate, :auto_plan, :build_and_read, :wait_quietly, :from_builds, :merge,
-                       :from_overture, :run_many, :preset_options, :generate_one, :partial_data, :no_data
+  private_class_method :fetch_and_generate, :checked_pins, :check_data, :check_generation_options, :generate_safely,
+                       :auto_plan, :build_and_read, :wait_quietly, :from_builds, :merge, :from_overture, :run_many,
+                       :preset_options, :generate_one, :partial_data, :no_data
 end

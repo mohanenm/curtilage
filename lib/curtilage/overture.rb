@@ -32,6 +32,7 @@ module Curtilage
     # A list of feature lists, in pin order. options: duckdb:,
     # extension_directory:, radius_deg:, release: (default: the latest).
     def features_many(pins, **options)
+      Curtilage.online!("reading Overture Maps (use a catalogue or cached builds)")
       options = Curtilage.duckdb_options(options)
       radius = Float(options.fetch(:radius_deg, Lookup::DEFAULT_RADIUS_DEG))
       boxes = pins.map { |pin| box(pin, radius) }
@@ -46,11 +47,18 @@ module Curtilage
       end
     end
 
+    RELEASE = /\A\d{4}-\d{2}-\d{2}(\.\d+)?\z/
+
     def release(options)
-      return options[:release] if options[:release]
+      if options[:release]
+        raise ArgumentError, "an Overture release looks like 2026-11-18.0: #{options[:release].inspect}" \
+          unless options[:release].to_s.match?(RELEASE)
+
+        return options[:release].to_s
+      end
 
       latest = JSON.parse(Download.read(STAC_HOST, CATALOG, max_bytes: 1_000_000))["latest"].to_s
-      raise Error, "no latest Overture release in the catalog" unless latest.match?(/\A[\d.-]+\z/)
+      raise Error, "no latest Overture release in the catalog" unless latest.match?(RELEASE)
 
       latest
     end
@@ -157,13 +165,14 @@ module Curtilage
 
     def setup(options, remote:)
       ext = options[:extension_directory]
-      [(DuckDB.extension_sql(ext, options.fetch(:duckdb, "duckdb")) if ext), "INSTALL spatial; LOAD spatial;",
+      [(DuckDB.extension_sql(ext, options.fetch(:duckdb, "duckdb")) if ext),
+       DuckDB.memory_limit(options.fetch(:memory_limit, Lookup::DEFAULT_MEMORY)), DuckDB.load_sql("spatial"),
        # Pins in the same files share one read of each file's metadata.
        (if remote
           # A region-only secret (no keys, so reads stay anonymous): DuckDB 2.0
           # deprecates SET s3_region and warns about it inside -json output.
           # CREATE SECRET prints a result row of its own, so it goes nowhere.
-          "INSTALL httpfs; LOAD httpfs;\n.output #{File::NULL}\nCREATE TEMPORARY SECRET overture (TYPE s3, " \
+          "#{DuckDB.load_sql("httpfs")}\n.output #{File::NULL}\nCREATE TEMPORARY SECRET overture (TYPE s3, " \
             "REGION 'us-west-2', SCOPE 's3://overturemaps-us-west-2');\n.output\n" \
             "SET parquet_metadata_cache = true; SET enable_http_metadata_cache = true;"
         end)].compact.join("\n")
@@ -172,13 +181,14 @@ module Curtilage
     # Remote reads occasionally stall and DuckDB exits without a message;
     # one retry gets past that.
     def run(sql, options, attempts: 2)
-      out, err, status = DuckDB.capture(options.fetch(:duckdb, "duckdb"), sql, "-json")
+      out, err, status = DuckDB.capture(options.fetch(:duckdb, "duckdb"), sql, "-json",
+                                        timeout: options.fetch(:timeout, Curtilage.config.duckdb_timeout),
+                                        max_output: MAX_OUTPUT_BYTES)
       unless status.success?
         return run(sql, options, attempts: attempts - 1) if err.strip.empty? && attempts > 1
 
         raise Error, "duckdb failed: #{err.strip.empty? ? "no message (network?)" : err.strip[0, 500]}"
       end
-      raise Error, "duckdb output too large" if out.bytesize > MAX_OUTPUT_BYTES
 
       out.strip.empty? ? [] : JSON.parse(out)
     end

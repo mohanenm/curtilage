@@ -88,6 +88,7 @@ end
 - Styles: `preset: :whole_lot` (default), `:tight` (building plus a small margin) or `:centre`. `store_zone: false` skips the store zone. Every rule's distance is an option ([reference](docs/reference.md#generation-options)).
 - Built ahead of time, for instant lookups: `curtilage build tennessee`, then `generate_many(pins, catalogue: Curtilage::Catalogue.from_dir("."))`. Files can also live in a bucket (`s3://`, `gs://`, `https://`).
 - Just the building at a pin: `Curtilage.building_at(pin)`.
+- Big sites (a big-box store's lot can pass 100,000 m2, where validation stops by default): raise the limits, e.g. `validation: { max_area_m2: 200_000, max_area_error_m2: 300_000 }` ([reference](docs/reference.md#validation-limits)).
 - Check a polygon someone already drew: `Curtilage::Audit.check(pin, ring, features)` returns `:ok`, `:review` (with reasons) or `:invalid`.
 
 ### What each result holds
@@ -157,6 +158,7 @@ The current folder is mounted at `/work`, so file names are relative to it. The 
 | `partial_data` | Part of the area around the pin is in a region that isn't built |
 | `ml_footprint` | Built on a machine-learned footprint, not an OSM building |
 | `no_data` | No map data covers the pin |
+| `error` | Generating this site raised an error (see its explanation); the rest of the batch went on |
 
 ### Speed
 
@@ -175,6 +177,7 @@ Rules on open map data go a long way, but some sites need a person. These are th
 - **Dense rowhouse blocks.** Cuts toward many close neighbours can leave a thin sliver.
 - **`near_houses` is noisy in dense urban areas,** where almost every site borders homes. It's more meaningful in suburbs.
 - **The polygon is always convex,** so entrance notches and L-shaped lots are approximated.
+- **Sites within about 100 m of the antimeridian** (180° longitude: parts of Fiji, Chukotka, the Aleutians) get no polygon: premises can't cross that line, so validation refuses them.
 
 ## Building footprints: OSM, or OSM plus machine-learned
 
@@ -197,6 +200,7 @@ Pins never leave the machine as coordinates: they aren't put in any URL or reque
 - **For a sensitive list of locations, use `source: :geofabrik`** (or `CURTILAGE_SOURCE=geofabrik`): hosts then learn only which regions you build. `:auto` reads scattered pins from Overture.
 - The gem's own downloads go only to Geofabrik, Overture's catalogue and Microsoft's footprint host, and anything else is refused. DuckDB reads Overture's storage, your bucket and its extension repository itself.
 - If a DuckDB query fails, its error message can quote part of the query, including the coordinates of the box around a pin. That stays on your machine unless your app forwards errors to an outside service.
+- To guarantee nothing leaves the machine, set `CURTILAGE_OFFLINE=1` and use prebuilt files or a cache: downloads, extension installs and Overture or bucket reads are then refused.
 - The preview page loads nothing from the internet. Building the Docker image fetches DuckDB from its GitHub releases and its extensions from DuckDB's repository.
 
 ## Layout
@@ -255,4 +259,4 @@ The gem itself is plain Ruby with no runtime gem dependencies. Getting data need
 - The code is MIT-licensed (see `LICENSE.txt`); results keep the map data's licence ([Data licence](#data-licence)).
 - Downloaded files and built Parquet files are OSM-derived data. They're never committed to this repository (see `.gitignore`).
 - This repository must never contain real site locations, private data or credentials. Tests and examples use made-up coordinates.
-- Security issues: see `SECURITY.md` (report privately through GitHub).
+- Security issues: see `SECURITY.md` (report privately through GitHub); the threat model is in [docs/security.md](docs/security.md).

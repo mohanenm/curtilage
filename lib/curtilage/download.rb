@@ -1,5 +1,6 @@
 # frozen_string_literal: true
 
+require "fileutils"
 require "net/http"
 require "English"
 require "openssl"
@@ -45,11 +46,14 @@ module Curtilage
 
     # Writes to dest.part, then renames, so a dest file is always complete.
     def fetch(host, path, dest, max_bytes:)
+      part = "#{dest}.part"
       with_retries("downloading https://#{host}#{path}") do
-        curl ? curl_fetch(host, path, "#{dest}.part", max_bytes) : http_fetch(host, path, "#{dest}.part", max_bytes)
+        curl ? curl_fetch(host, path, part, max_bytes) : http_fetch(host, path, part, max_bytes)
       end
-      File.rename("#{dest}.part", dest)
+      File.rename(part, dest)
       dest
+    ensure
+      FileUtils.rm_f(part) if part && File.exist?(part) # failed or interrupted: no half file left behind
     end
 
     def read(host, path, max_bytes:)
@@ -162,6 +166,7 @@ module Curtilage
     end
 
     def allowed!(host)
+      Curtilage.online!("downloading from #{host}")
       raise Error, "not an allowed download host: #{host}" unless ALLOWED_HOSTS.include?(host)
     end
 

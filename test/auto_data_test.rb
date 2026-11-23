@@ -35,13 +35,54 @@ class AutoDataTest < Minitest::Test
     assert_equal 2, regions.around([-80.0, 35.0], 0.01).size
   end
 
+  # What a build leaves: a Parquet file and metadata recording its size.
+  def fake_build(dir, name, region)
+    File.write(File.join(dir, "#{name}.parquet"), "PAR1")
+    File.write(File.join(dir, "#{name}.json"),
+               JSON.generate(format: 1, region: region.path, parquet: "#{name}.parquet", bbox: region.bbox,
+                             built_at: Time.now.utc.iso8601, parquet_bytes: 4))
+  end
+
+  def test_a_missing_or_altered_parquet_file_is_rebuilt
+    built = []
+    builder = lambda do |region, dir, name|
+      built << region.path
+      fake_build(dir, name, region)
+    end
+    Dir.mktmpdir do |dir|
+      run = lambda do
+        Curtilage::AutoData.new(cache_dir: dir, regions: Curtilage::Regions.parse(index), builder: builder,
+                                log: StringIO.new).catalogue_for([[-75.0, 35.0]])
+      end
+      run.call
+      File.write(File.join(dir, "test-big-east.parquet"), "PAR1 and more")
+      run.call
+      File.delete(File.join(dir, "test-big-east.parquet"))
+      run.call
+
+      assert_equal ["test/big/east"] * 3, built
+    end
+  end
+
+  def test_a_cache_others_can_write_to_is_refused
+    Dir.mktmpdir do |dir|
+      fresh = File.join(dir, "new-cache")
+      Curtilage::AutoData.new(cache_dir: fresh, log: StringIO.new)
+
+      assert_equal 0o700, File.stat(fresh).mode & 0o777
+      File.chmod(0o777, fresh)
+      error = assert_raises(Curtilage::Error) { Curtilage::AutoData.new(cache_dir: fresh, log: StringIO.new) }
+      assert_includes error.message, "chmod 700"
+    end
+    other = Struct.new(:uid, :mode).new(Process.uid + 1, 0o40700)
+    assert_includes Curtilage::AutoData.cache_problem(other, "/x"), "another user"
+  end
+
   def test_builds_each_missing_region_once_then_reuses_it
     built = []
     builder = lambda do |region, dir, name|
       built << region.path
-      File.write(File.join(dir, "#{name}.json"),
-                 JSON.generate(format: 1, region: region.path, parquet: "#{name}.parquet", bbox: region.bbox,
-                               built_at: Time.now.utc.iso8601))
+      fake_build(dir, name, region)
     end
     Dir.mktmpdir do |dir|
       2.times do
@@ -61,9 +102,7 @@ class AutoDataTest < Minitest::Test
     builder = lambda do |region, dir, name|
       sleep 0.05
       built << region.path
-      File.write(File.join(dir, "#{name}.json"),
-                 JSON.generate(format: 1, region: region.path, parquet: "#{name}.parquet", bbox: region.bbox,
-                               built_at: Time.now.utc.iso8601))
+      fake_build(dir, name, region)
     end
     Dir.mktmpdir do |dir|
       auto = Curtilage::AutoData.new(cache_dir: dir, regions: Curtilage::Regions.parse(index), builder: builder,
@@ -148,6 +187,19 @@ class AutoDataTest < Minitest::Test
         refute_nil regions.for([-75.0, 35.0])
       end
       assert_equal index, File.read(File.join(dir, "geofabrik-index.json"))
+    end
+  end
+
+  # Batch input is checked before any data is fetched.
+  def test_batch_input_is_checked_up_front
+    error = assert_raises(ArgumentError) { Curtilage.generate_many([[-80.0, 35.0], ["0x1A", 35.0]], source: :overture) }
+    assert_includes error.message, "pin 2:"
+    assert_raises(ArgumentError) { Curtilage.generate_many(Array.new(3) { [-80.0, 35.0] }, max_pins: 2) }
+    assert_raises(ArgumentError) { Curtilage.generate_many("-80,35") }
+    assert_raises(ArgumentError) { Curtilage.generate_many([[-80.0, 35.0]], data: { parallel_build: 2 }) }
+    assert_raises(ArgumentError) { Curtilage.generate_many([[-80.0, 35.0]], data: { auto_build_min_pins: 0 }) }
+    [{ parallel_builds: 9 }, { parallel_builds: "2" }, { max_age_days: -1 }].each do |bad|
+      assert_raises(ArgumentError, bad.inspect) { Curtilage::AutoData.new(**bad, log: StringIO.new) }
     end
   end
 end

@@ -4,6 +4,7 @@
 
 ### Added
 
+- A `validation:` option raises or lowers the validation limits for generated polygons (e.g. `{ max_area_error_m2: 300_000 }` for a big-box store's lot, which could only ever get the fallback before). The limits are documented in the reference.
 - CSV output has an `attribution` column, and KML credits every source in the document's description.
 - A "Data licence" section in the README and the reference: what the ODbL asks of results (attribution, derivative databases, produced works), with links.
 - A "Privacy" section in the README: what each data source and mode reveals, and to which host.
@@ -12,6 +13,23 @@
 ### Security
 
 - Downloads refuse any host but Geofabrik, Overture's catalogue and Microsoft's footprint host.
+- One pin check for every entry point: coordinates must be finite plain decimals in range. Hexadecimal (`0x1A`) and underscores (`1_0`) used to be read as numbers from pin files and `--pin`, out-of-range values from files reached the results, and `Curtilage.generate` didn't check its pin. A bad `--pin` now gives a message instead of a stack trace.
+- Pin files are refused up front if they aren't valid UTF-8 or contain NUL bytes, and capped as they're read (field length, columns, rows, GeoJSON features), so an oversized file fails early with a clear message.
+- Generation options are range-checked (no negative or kilometre-scale distances, whole-number vertex counts), and an Overture `release:` must look like a release name (it goes into a URL path).
+- DuckDB queries have a timeout (600 s for lookups and Overture reads, `CURTILAGE_DUCKDB_TIMEOUT` or `lookup: { timeout: }`; 3600 s for builds), after which DuckDB and anything it started are stopped. Output is read as it arrives and DuckDB is stopped once it passes the cap, instead of reading 200 MB before checking. Lookups and Overture reads cap DuckDB at 1 GB of memory (`lookup: { memory_limit: }`). Error messages no longer quote the failed query, which could include the box around a pin. `doctor` shows the path of the DuckDB binary it runs.
+- The preview page carries a Content-Security-Policy that allows only its own inline style and script, by hash, and no loads, so a missed escape couldn't run script; Unicode direction controls are dropped from the names it shows.
+- CSV output guards more ways a spreadsheet runs a cell as a formula: a leading `|` or `%`, full-width forms, and any of them after leading whitespace, in every column.
+- `--out` files are written atomically, and a symbolic link at the target is refused before any work starts.
+- Fuzz tests for the CSV and GeoJSON readers, map-data parsing, geometry on degenerate input, validation, and generation near the poles and the antimeridian (`FUZZ_ITERATIONS` for longer runs). They found no crash; sites on the antimeridian get no polygon (now a known limitation).
+- Zip extraction caps what the layers may inflate to (20 GB in all, 200 times per member), and a whole zip downloaded when a server can't serve ranges gets the same name and size checks before `unzip`, which now drops folder paths.
+- Builds record the size and SHA256 of every file they download in the region's metadata, and warn when a rebuild finds Geofabrik's file for the same date has changed.
+- The cache folder is created readable only by you, and one that another user owns or everyone can write to is refused. Builds record their Parquet file's size and SHA256; a cached file that's missing or the wrong size is rebuilt (caches built by earlier versions rebuild once), and `curtilage doctor --verify DIR` checks every file's hash.
+- Interrupting a run (Ctrl-C) stops DuckDB too; it has its own process group, so before this the caller waited for the query to finish. A failed or interrupted download leaves no `.part` file, and `curtilage build` without `--work` uses a private temporary folder instead of a fixed name in `/tmp`.
+- Offline mode (`CURTILAGE_OFFLINE=1`): extensions are loaded but never installed, and downloads, Overture reads and bucket reads are refused. `doctor` prints the extension versions it loads, and builds record the DuckDB and `spatial` versions. A test checks that no SQL the gem builds relaxes extension signature checks. `curtilage build` reports errors as a message instead of a stack trace.
+- `generate_many` checks every pin before fetching any data (a bad pin used to fail the batch after builds had run), takes at most 100,000 pins per call (`max_pins:`), refuses unknown `data:` options, and checks `parallel_builds` (1 to 8), `max_age_days` and `auto_build_min_pins`.
+- In a batch, a site whose generation raises gets a result flagged `error` (with the error in its explanation) instead of aborting every other site; generation options are checked once, before any data is fetched.
+- The Docker image pins its base image by digest, checks the DuckDB download against a pinned SHA256, leaves curl and unzip out of the image that runs, and works offline and with a read-only root filesystem. CI actions are pinned to commit SHAs; CodeQL and `bundler-audit` run in CI, and CI builds the image and runs it with no network.
+- Text placed into DuckDB SQL (paths, bucket URLs, folders) may not contain line breaks or NUL bytes, `memory_limit` must look like `"400MB"`, and `threads` must be 1 to 64. Tests push crafted values through every path into SQL.
 
 ### Fixed
 

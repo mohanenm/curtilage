@@ -1,6 +1,7 @@
 # frozen_string_literal: true
 
 require_relative "test_helper"
+require "tmpdir"
 
 class DownloadTest < Minitest::Test
   D = Curtilage::Download
@@ -58,6 +59,23 @@ class DownloadTest < Minitest::Test
     assert_raises(D::Error) { D.curl_args("example.com", "/x") }
     [Curtilage::Regions::HOST, Curtilage::Build::HOST, Curtilage::Overture::STAC_HOST,
      Curtilage::Footprints::MICROSOFT_HOST].each { |host| assert_includes D::ALLOWED_HOSTS, host }
+  end
+
+  def test_a_failed_download_leaves_no_partial_file
+    Dir.mktmpdir do |dir|
+      dest = File.join(dir, "region.zip")
+      half = lambda do |_host, _path, part, _max|
+        File.write(part, "half")
+        raise D::Error, "connection lost"
+      end
+      with_stub(D, :curl, -> {}) do
+        with_stub(D, :http_fetch, half) do
+          assert_raises(D::Error) { D.fetch("download.geofabrik.de", "/x.zip", dest, max_bytes: 10) }
+        end
+      end
+
+      assert_empty Dir.children(dir)
+    end
   end
 
   def test_curl_can_be_turned_off

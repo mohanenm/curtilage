@@ -21,6 +21,44 @@ class PreviewTest < Minitest::Test
     refute_match(/(src|href)=|url\(|@import/, html)
   end
 
+  # Only the page's own style and script may run, and it names no URL.
+  def test_content_security_policy_allows_only_the_pages_own_code
+    html = Curtilage::Preview.html([Curtilage.generate(PIN, scene)])
+    policy = html[/<meta http-equiv="Content-Security-Policy" content="([^"]+)"/, 1]
+
+    assert_includes policy, "default-src 'none'"
+    # The page's only inline code is these two constants, exactly; the
+    # policy allows each by its hash, and nothing else.
+    style = Curtilage::Preview::STYLE
+    script = Curtilage::Preview::SCRIPT
+    assert_includes html, "<style>#{style}</style>"
+    assert_includes html, "<script>#{script}</script>"
+    assert_includes policy, "'sha256-#{Digest::SHA256.base64digest(style)}'"
+    assert_includes policy, "'sha256-#{Digest::SHA256.base64digest(script)}'"
+    assert_equal 1, html.scan(/<script\b/i).size
+    refute_match(%r{https?://}, html)
+  end
+
+  # Names come from map data, which anyone can edit, and ids from input
+  # files: each hostile one, as a road name and as an id, stays text.
+  def test_hostile_map_names_are_inert
+    hostile = ["<script>alert(1)</script>", "\"><img src=x onerror=alert(1)>", "javascript:alert(1)",
+               "Main St\u202Eevil"]
+    results = hostile.map do |name|
+      Curtilage.generate(PIN, scene.map { |f| f["feature"] == "road" ? f.merge("name" => name) : f })
+    end
+    html = Curtilage::Preview.html(results, ids: hostile)
+    tags = html.scan(/<([a-z0-9]+)/i).flatten.map(&:downcase).uniq
+
+    assert_empty tags - %w[html head meta title style body h1 p label select option span main section h2 svg path
+                           title circle g text i details summary ol li script]
+    assert_equal 1, html.scan(/<script\b/i).size
+    refute_includes html, "\u202E"
+    assert_includes html, "&lt;script&gt;alert(1)&lt;/script&gt;"
+    assert_includes html, "&quot;&gt;&lt;img src=x onerror=alert(1)&gt;"
+    assert_includes html, "trimmed at &lt;script&gt;alert(1)&lt;/script&gt; (secondary)"
+  end
+
   def test_entrances_buffer_site_building_and_flag_help
     drive = scene + [road(9, "service", [[-30, -15], [-30, -40]])]
     result = Curtilage.generate(PIN, drive).tap { |r| r.flags << :near_houses }
@@ -56,6 +94,11 @@ class PreviewTest < Minitest::Test
 
       refute_predicate status, :success?
       assert_includes err, "x: a pin is LNG,LAT"
+      _, err, status = Open3.capture3("ruby", "-I", lib, exe, "generate", "--pin", "0x1A,35")
+      assert_includes err, "isn't a number"
+      refute status.success?
+      refute_includes err, ".rb:" # a message, not a stack trace
+
       _, err, = Open3.capture3("ruby", "-I", lib, exe, "generate", "--in", File.join(dir, "missing.csv"))
 
       assert_includes err, "No such file"
@@ -63,6 +106,26 @@ class PreviewTest < Minitest::Test
   end
 
   # A fake DuckDB that finds nothing: runs the whole command line, offline.
+  def test_cli_refuses_bad_builds_and_symlinked_output_with_a_message
+    exe = File.expand_path("../exe/curtilage", __dir__)
+    lib = File.expand_path("../lib", __dir__)
+    _, err, status = Open3.capture3("ruby", "-I", lib, exe, "build", "Not A Region!")
+
+    assert_includes err, "curtilage build: unknown region"
+    refute status.success?
+    refute_includes err, ".rb:"
+    Dir.mktmpdir do |dir|
+      target = File.join(dir, "elsewhere.geojson")
+      File.symlink(target, File.join(dir, "link.geojson"))
+      _, err, status = Open3.capture3("ruby", "-I", lib, exe, "generate", "--pin", "-80,35",
+                                      "--out", File.join(dir, "link.geojson"))
+
+      assert_includes err, "symbolic link"
+      refute status.success?
+      refute_path_exists target
+    end
+  end
+
   def test_cli_writes_each_format_and_the_page
     exe = File.expand_path("../exe/curtilage", __dir__)
     lib = File.expand_path("../lib", __dir__)

@@ -84,4 +84,30 @@ class ZipRangeTest < Minitest::Test
   def test_crc_mismatch_is_caught
     assert_raises(Z::Corrupt) { extract(zip_bytes(corrupt: true), 64) { nil } }
   end
+
+  def entry(name, compressed, uncompressed)
+    Z::Entry.new(name: name, compression: 8, crc: 0, compressed_size: compressed, uncompressed_size: uncompressed,
+                 offset: 0)
+  end
+
+  def test_decompression_bombs_and_odd_names_are_refused
+    ok = [entry("a/gis_osm_roads_free_1.shp", 1_000_000, 8_000_000)]
+
+    assert_equal ok, Z.choose(ok, ["gis_osm_roads_free_*"], 10**9)
+    assert_raises(Z::Corrupt) { Z.choose([entry("gis_osm_roads_free_1.shp", 1_000, 50_000_000)], ["gis_*"], 10**9) }
+    huge = Array.new(3) { |i| entry("gis_osm_roads_free_#{i}.shp", 5 * (10**9), 9 * (10**9)) }
+    assert_raises(Z::Corrupt) { Z.choose(huge, ["gis_*"], 10**11) }
+    assert_raises(Z::Corrupt) { Z.choose([entry("a/gis_osm roads.shp", 10, 10)], ["gis_*"], 10**9) }
+    assert_raises(Z::Unsupported) { Z.choose(ok, ["nothing_*"], 10**9) }
+  end
+
+  def test_a_zip_on_disk_gets_the_same_checks
+    Dir.mktmpdir do |dir|
+      path = File.join(dir, "region.shp.zip")
+      File.binwrite(path, zip_bytes)
+
+      assert_equal 2, Z.check_local(path, ["gis_osm_roads_free_*"], max_bytes: 10**9).size
+      assert_raises(Z::Unsupported) { Z.check_local(path, ["gis_osm_roads_free_*"], max_bytes: 10) }
+    end
+  end
 end

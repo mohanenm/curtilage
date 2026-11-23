@@ -99,4 +99,38 @@ class FormatsTest < Minitest::Test
     assert F.pin?([-80, 35])
     refute F.pin?([35, -120])
   end
+
+  def test_pin_files_are_checked_before_and_while_parsing
+    assert_raises(ArgumentError) { F.parse_pins("lng,lat\n-80,35\0\n", :csv) }
+    assert_raises(ArgumentError) { F.parse_pins("lng,lat\n-80,35\xFF\n".b, :csv) }
+    assert_equal [-80.0, 35.0], F.parse_pins("\uFEFFlng,lat\n-80,35\n", :csv).first[:pin]
+    assert_raises(ArgumentError) { F.parse_pins("lng,lat,id\n-80,35,#{"x" * (F::MAX_FIELD_CHARS + 1)}\n", :csv) }
+    assert_raises(ArgumentError) { F.parse_csv("#{"a," * (F::MAX_COLUMNS + 1)}a\n") }
+    assert_raises(ArgumentError) { F.parse_csv("a\nb\nc\n", max_rows: 2) }
+    assert_equal [%w[a], %w[b]], F.parse_csv("a\nb\n", max_rows: 2)
+    many = { type: "FeatureCollection", features: Array.new(F::MAX_PINS + 1) { {} } }
+    assert_raises(ArgumentError) { F.parse_pins(JSON.generate(many), :geojson) }
+    deep = "#{"[" * 30}#{"]" * 30}"
+    assert_raises(ArgumentError) { F.parse_pins(deep, :geojson) }
+  end
+
+  def test_formula_guard_covers_every_way_a_spreadsheet_runs_a_cell
+    ["=cmd", "+cmd", "-cmd", "@cmd", "|cmd", "%cmd", " =cmd", "\t=cmd", "\u3000=cmd", "\uFF1Dcmd", "\uFF0Bcmd",
+     "\uFF0Dcmd", "\uFF20cmd", "\uFF5Ccmd", "\uFF05cmd", "\tcmd", "\rcmd"].each do |cell|
+      assert F.csv_field(cell).delete_prefix('"').start_with?("'"), cell.inspect
+    end
+    ["-80.25", "35", "+1.5", "POLYGON ((1 2))", "plain"].each { |cell| refute F.csv_field(cell).start_with?("'"), cell }
+  end
+
+  def test_every_csv_column_is_guarded
+    result = Curtilage.generate(PIN, scene).tap do |r|
+      r.building = "=HYPERLINK(1)"
+      r.attribution = ["@evil"]
+    end
+    row = F.parse_csv(F.write([result], :csv, ids: ["|cmd"]))[1]
+
+    assert_equal "'|cmd", row[F::CSV_COLUMNS.index("id")]
+    assert_equal "'=HYPERLINK(1)", row[F::CSV_COLUMNS.index("building")]
+    assert_equal "'@evil", row[F::CSV_COLUMNS.index("attribution")]
+  end
 end
