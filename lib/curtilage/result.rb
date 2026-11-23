@@ -14,10 +14,10 @@ module Curtilage
   # provenance: what the result was made from and with (gem version, data
   # source and release, options, a hash of the map data), so it can be
   # reproduced; it holds no timestamps, so the same inputs give the same
-  # output byte for byte.
+  # output byte for byte. h3: { resolution:, cells: } when H3.cover was run.
   Result = Struct.new(:method_name, :pin, :ring, :store_ring, :explanation, :flags, :validation, :building,
                       :details, :attribution, :features, :provenance, :steps, :approach_ring, :pickup_ring,
-                      :staging_point, :pin_quality, :candidates, keyword_init: true) do
+                      :staging_point, :pin_quality, :candidates, :h3, keyword_init: true) do
     def ok?
       !ring.nil? && validation.ok?
     end
@@ -46,17 +46,8 @@ module Curtilage
     # store's geometry is nil without a store zone). properties.role tells
     # them apart: premises, store, approach or pickup.
     def geojson_features(attribution: self.attribution || Result::OSM_ATTRIBUTION, properties: {})
-      premises = {
-        type: "Feature",
-        geometry: Result.polygon(ring),
-        properties: properties.merge(
-          role: "premises", ok: ok?, pin_quality: pin_quality, confidence: confidence,
-          confidence_factors: confidence_factors,
-          method: method_name, flags: flags, building: building, details: details,
-          errors: validation.errors, warnings: validation.warnings, metrics: validation.metrics,
-          explanation: explanation, steps: steps || [], attribution: attribution, provenance: provenance
-        ),
-      }
+      premises = { type: "Feature", geometry: Result.polygon(ring),
+                   properties: properties.merge(premises_properties(attribution)) }
       store = { type: "Feature", geometry: Result.polygon(store_ring),
                 properties: properties.merge(role: "store", building: building, attribution: attribution) }
       [premises, store] + zone_features(properties.merge(attribution: attribution)) + candidate_features(properties)
@@ -129,8 +120,56 @@ module Curtilage
       grown = buffered_xy(xy, metres)
       return nil if grown.nil? || grown.size < 3 || Geometry.area(grown) < 1
 
-      out = Geometry.lnglat(Geometry.clean(grown), pin, provenance&.dig(:options, :precision) || 7)
+      out = Geometry.lnglat(Geometry.clean(grown), pin, precision)
       out << out.first
+    end
+
+    def premises_properties(attribution)
+      { role: "premises", ok: ok?, pin_quality: pin_quality, confidence: confidence,
+        confidence_factors: confidence_factors, method: method_name, flags: flags, building: building,
+        details: details, errors: validation.errors, warnings: validation.warnings, metrics: validation.metrics,
+        explanation: explanation, steps: steps || [], attribution: attribution, provenance: provenance,
+        enclosing_circle: enclosing_circle, fit_circle: fit_circle, **(h3 ? { h3: h3 } : {}) }
+    end
+
+    # Circles, for geofences that take only circles (Android's Geofencing
+    # API, iOS's CLCircularRegion): { centre: [lng, lat], radius_m: }, or nil
+    # without premises. enclosing_circle is the smallest circle holding the
+    # whole premises (its radius rounded up, allowing for the centre's
+    # rounding); fit_circle has the premises' area, centred on it.
+    def enclosing_circle
+      xy = local_xy or return nil
+
+      centre, radius = Geometry.enclosing_circle(xy)
+      circle(centre, radius + Generator.store_margin(precision), :ceil)
+    end
+
+    def fit_circle
+      xy = local_xy or return nil
+
+      circle(Geometry.area_centroid(xy), Math.sqrt(Geometry.area(xy) / Math::PI), :round)
+    end
+
+    # The premises with at most max corners, for platforms with a vertex
+    # limit: corners are dropped only while the pin and the store zone stay
+    # inside and the outline stays simple, so it may keep more than max when
+    # that can't be done. [[lng, lat], ...] closed, or nil without premises.
+    def simplified(max)
+      raise ArgumentError, "simplified needs at least 3 corners: #{max.inspect}" unless max.is_a?(Integer) && max >= 3
+
+      xy = local_xy or return nil
+      margin = Generator.store_margin(precision)
+      keep = [[[-0.05, -0.05], [0.05, -0.05], [0.05, 0.05], [-0.05, 0.05]]]
+      keep << Geometry.counter_clockwise(Geometry.open_ring(Geometry.project(store_ring, pin))) if store_ring
+      out = Geometry.lnglat(Geometry.simplify_around(xy, max, keep, margin), pin, precision)
+      out << out.first
+    end
+
+    def local_xy = ring && Geometry.counter_clockwise(Geometry.open_ring(Geometry.project(ring, pin)))
+    def precision = provenance&.dig(:options, :precision) || 7
+
+    def circle(centre, radius, rounding)
+      { centre: Geometry.lnglat([centre], pin, precision).first, radius_m: (radius * 10).send(rounding) / 10.0 }
     end
 
     def buffered_xy(xy, metres)

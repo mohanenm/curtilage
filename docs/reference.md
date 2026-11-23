@@ -43,6 +43,14 @@ places = Curtilage.places(region: "delaware", category: "pharmacy", min_confiden
 results = Curtilage.generate_many(places.map { |p| p[:pin] })
 ```
 
+### `Curtilage.point_in_premises?(ring, point) → true or false`
+
+Whether a `[lng, lat]` point (a device's location) is inside a premises ring as you stored it (`[[lng, lat], ...]`, closed or not); on the edge counts as inside. Plain Ruby, no database needed. For PostGIS, see [the PostGIS recipe](recipes/postgis.md).
+
+### `Curtilage::H3.cover(results, resolution, **lookup) → results`
+
+Sets `result.h3 = { resolution:, cells: [...] }` on each result with premises: the H3 cells (resolution 0-15) the premises touch, so even a small site gets at least one. Also `--h3 RES` on the command line; the cells appear in GeoJSON/NDJSON (`properties.h3`), CSV (`h3_cells`, `;`-separated) and the GIS formats. It uses DuckDB's **community** `h3` extension, installed on first use from DuckDB's community repository (built and signed by DuckDB from third-party code); with `CURTILAGE_OFFLINE=1` it must be installed already. The extension isn't published for every DuckDB release (at the time of writing: 1.4 LTS yes, 2.0.1 no); where it's missing, a `DependencyError` says so.
+
 ### `Curtilage.generate(pin, features, **options) → Result`
 
 Premises from features you already have (from `Curtilage::Lookup.features` or `Curtilage::Overture.features_many`), with the same `preset:`, `method:` and generation options.
@@ -75,6 +83,8 @@ Premises from features you already have (from `Curtilage::Lookup.features` or `C
 | `features` | The map data it was made from (`Curtilage::Features`, in metres around the pin), or `nil` unless `keep_features: true`. |
 | `to_geojson(include_store: false, properties: {})` | A GeoJSON Feature (premises) with everything above in its properties, including the attribution to show; with `include_store: true`, a FeatureCollection of premises and store zone (`properties.role`). `properties:` are merged into each feature's properties (your own id, say). |
 | `to_wkt`, `store_wkt`, `approach_wkt`, `pickup_wkt`, `staging_wkt` | The premises and store zone as well-known text (`POLYGON ((lng lat, ...))`), for databases and spreadsheets. |
+| `enclosing_circle`, `fit_circle` | Circles for geofences that take only circles (Android's Geofencing API, iOS's `CLCircularRegion`): `{ centre: [lng, lat], radius_m: }`. `enclosing_circle` is the smallest circle holding the whole premises (radius rounded up); `fit_circle` has the premises' area, centred on them. `nil` without premises. Also in GeoJSON properties and CSV columns. |
+| `simplified(max)` | The premises with at most `max` corners (3 or more) for platforms with a vertex limit, dropping corners only while the pin and store zone stay inside and the outline stays simple: it may keep more when that can't be done. `nil` without premises. |
 | `buffered(metres)` | The premises grown (positive) or shrunk (negative) evenly, as a closed ring: a geofence with a margin. Corners are rounded when growing. `nil` if there are no premises or they shrink away. Non-convex premises (`entrances: :all`) are buffered on a half-metre to two-metre grid, keeping the part round the pin. |
 
 `provenance`:
@@ -136,7 +146,7 @@ All distances in metres, areas in square metres. These are `Curtilage::Generator
 | Option | Default | What |
 |---|---|---|
 | `store_zone` | `true` | Also return the building's outline as the store zone. |
-| `buildings` | `:osm` | `:osm`, `:osm_or_ml` (OSM alone unless no OSM building is under the pin or within `building_max_distance_m`; then as `:osm_filled`, so only sites missing from OSM change), `:osm_filled` (machine-learned footprints added wherever they don't overlap an OSM building) or `:ml`. The footprints have to be in the data: a build with `--ml-footprints microsoft`, or Overture's non-OSM buildings. |
+| `buildings` | `:osm` (`:osm_or_ml` for Overture reads) | Sites read from Overture (`source: :overture`, and `:auto`'s scattered pins) default to `:osm_or_ml`, since Overture's non-OSM buildings come with the data; pass `buildings: :osm` to turn that off. Choices: `:osm`, `:osm_or_ml` (OSM alone unless no OSM building is under the pin or within `building_max_distance_m`; then as `:osm_filled`, so only sites missing from OSM change), `:osm_filled` (machine-learned footprints added wherever they don't overlap an OSM building) or `:ml`. The footprints have to be in the data: a build with `--ml-footprints microsoft`, or Overture's non-OSM buildings. |
 | `scope` | `:site` | `:site`, or `:centre` for the whole shopping centre when on a shared lot. |
 | `grow_m` | `30` | How far the building's rectangle grows toward its lot before trimming. |
 | `road_offset_m` | `nil` | How far short of road centrelines to stop; `nil` uses half a typical road width by class. |
@@ -312,6 +322,10 @@ Reading pins:
 
 Writing results: `Formats.write(results, format, ids: nil, store: true)` returns text.
 
+#### GIS formats
+
+GeoParquet (`.parquet`, GeoParquet 1.0 metadata), GeoPackage (`.gpkg`) and FlatGeobuf (`.fgb`) are binary files, written by the command line (`--out FILE`) or `Curtilage::Batch.new(format: :gpkg, out: path, duckdb: {})` then `add` and `finish`. The run streams NDJSON into `OUT.part` (so `--resume` works) and DuckDB converts it at the end, beside the target, then renames it into place. One row a site, in EPSG:4326 ([lng, lat]): `id`, `ok`, `method`, `flags` (`;`-separated), `confidence`, `building`, `area_m2`, `attribution`, `gem_version`, `data_source`, `features_sha256`, `provenance` (the full record as JSON), `store_wkt`, and the premises as `geometry` (null without premises). FlatGeobuf, meant for web maps, holds only the sites with premises: its spatial index can't take an empty geometry. Needs DuckDB's `spatial` extension (GDAL is built into it).
+
 | Format | What |
 |---|---|
 | `:geojson` | One FeatureCollection: for each pin, its premises, (unless `store: false`) its store zone, and any [zones](#zones) asked for, with `properties.id`, `properties.role` and everything `to_geojson` carries. |
@@ -384,9 +398,11 @@ curtilage doctor
 
 - `generate`: premises and store zones for one or more pins.
   - Pins: `--pin LNG,LAT` (repeat for several; ids 1, 2, ...) and/or `--in FILE` (CSV, GeoJSON or NDJSON; see [Files](#files-curtilageformats)). `--in -` reads standard input, as NDJSON unless `--in-format csv|geojson|ndjson` says otherwise; `--in-format` also overrides a file's extension.
-  - Output: printed as GeoJSON, or `--out FILE` in the format its extension names (`.geojson`/`.json`, `.ndjson`/`.jsonl`, `.csv`, `.kml`). `--format geojson|ndjson|csv|kml` overrides. The file is written whole (to a temporary name, then renamed) and replaces any file there; a symbolic link at that path is refused.
+  - Output: printed as GeoJSON, or `--out FILE` in the format its extension names (`.geojson`/`.json`, `.ndjson`/`.jsonl`, `.csv`, `.kml`, `.parquet`, `.gpkg`, `.fgb`). `--format geojson|ndjson|csv|kml|geoparquet|gpkg|fgb` overrides; the last three need `--out` ([GIS formats](#gis-formats)). The file is written whole (to a temporary name, then renamed) and replaces any file there; a symbolic link at that path is refused.
   - Data: `--source auto|geofabrik|overture` (default auto), `--cache-dir DIR`, `--catalogue DIR`, `--parquet FILE`.
   - Style: `--preset whole_lot|tight|centre` or a profile name with `--profiles FILE`, `--buildings osm|osm_or_ml|osm_filled|ml`, `--[no-]store`, `--entrances near|all` (`entrances:`).
+  - H3: `--h3 RES` lists the H3 cells each premises touches ([H3](#curtilageh3coverresults-resolution-lookup--results)).
+  - Geofences: `--simplify N` keeps at most N corners per premises, never dropping the pin or store zone (`Result#simplified`). Every GeoJSON/NDJSON premises carries `enclosing_circle` and `fit_circle`; CSV has `circle_*` and `fit_*` columns.
   - Parcels: `--parcels FILE` clips premises to your property lines ([Parcels](#parcels)).
   - Corrections: `--corrections FILE` uses your polygons for sites with the same id ([Corrections](#corrections-and-comparing-runs)).
   - Ambiguous sites: `--candidates N` (1 to 5) adds up to N other premises ([Candidates](#candidates)).
@@ -400,6 +416,7 @@ curtilage doctor
 - `diff OLD NEW`: compares two result files ([Comparing runs](#corrections-and-comparing-runs)). `--threshold IOU` (default 0.9), `--out FILE`, `--format csv|ndjson`. Exits 1 when any site needs review.
 - `places (--region NAME | --bbox W,S,E,N) (--category NAME | --brand NAME | --place-id ID ...)`: pins from Overture Maps places (`Curtilage.places`), as CSV (default), NDJSON or GeoJSON, printed or `--out FILE`. Also `--min-confidence N`, `--release NAME`, the DuckDB and log flags. Its output feeds `generate --in` directly: `curtilage places --region delaware --category pharmacy | curtilage generate --in - --in-format csv`.
 - `build REGION` writes `REGION.parquet` and `REGION.json`. REGION is a US state (`tennessee`, `new-york`) or a Geofabrik path (`europe/germany/bayern`). Options: `--out DIR` (default `.`), `--work DIR` (default: a private temporary folder, removed afterwards), `--date YYMMDD`, `--keep-downloads`, `--ml-footprints microsoft`, `--duckdb`, `--extension-directory`.
+- `serve`: an HTTP API ([HTTP server](#http-server-curtilage-serve)).
 - `doctor` checks everything the gem needs outside Ruby, with a fix for each problem: the DuckDB binary (its path and version; a warning, not a failure, outside the tested 1.4 LTS and 2.0), its `spatial` and `httpfs` extensions (with versions), and the cache folder's permissions when one is configured. `--verify DIR` also checks every built file in a catalogue or cache folder against the SHA256 its build recorded; `--network` checks that Geofabrik and Overture's catalogue answer (no locations are sent); `--json` prints the report for scripts. It exits 0 when ready, 1 if not. It prints the DuckDB version and the path of the binary that runs: `CURTILAGE_DUCKDB` runs whatever it names, so it's trusted configuration.
 
 Run `curtilage COMMAND --help` for the same list.
@@ -416,6 +433,16 @@ Standard output carries only results (`generate` without `--out`, and the file p
 | 70 | An unexpected error (a bug: please report it with the message). |
 
 `doctor` keeps its own codes: 0 ready, 1 not.
+
+### HTTP server: `curtilage serve`
+
+`curtilage serve` answers HTTP on the standard library alone (no server gem), so any language can ask for premises. The spec is [docs/openapi.yaml](openapi.yaml).
+
+- `GET /health`: `{"status":"ok"}`, no token needed. `GET /version`: the gem, DuckDB and the default data source.
+- `POST /premises`: `{"pins": [[lng, lat], ...] or [{"id": ..., "pin": [lng, lat]}], "options": {...}}`, a GeoJSON FeatureCollection of points, or NDJSON (`Content-Type: application/x-ndjson`). Answers a GeoJSON FeatureCollection, or NDJSON (one site per line, [schema](schema/site-v1.json)) with `Accept: application/x-ndjson`. A request may set generation options only (and `preset`, `candidates`, `method`); where map data comes from is fixed at start (`--source`, `--catalogue`, `--parquet`, `--cache-dir`), so a request can't point the server at files.
+- **Safe by default.** Listens on 127.0.0.1 unless `--host`. With a token in `$CURTILAGE_SERVE_TOKEN` (or the variable `--token-env` names; never on the command line, where the process list shows it) every endpoint but `/health` needs `Authorization: Bearer TOKEN`, compared in constant time; a warning is printed when listening beyond this machine without one. Limits: `--max-body` (1,000,000 bytes, 413 over), `--max-pins` (100 a request, 413), `--timeout` (120 s a request, 504), `--concurrency` (4 requests at once, 503 beyond), headers 16 KB, 10 s to send a request (408); bodies need `Content-Length` (411 for chunked). No CORS headers unless `--cors-origin ORIGIN`. Errors are `{"error": "..."}`, never a stack trace. The log has one line a request (method, path, status, time) and never the pins, unless `--log-pins`.
+- **TLS:** it speaks plain HTTP. To serve beyond this machine, put a reverse proxy in front and keep the server on 127.0.0.1, e.g. with Caddy (`reverse_proxy 127.0.0.1:8754` in a site block gets certificates itself) or nginx (`proxy_pass http://127.0.0.1:8754;` in a `server` block with `ssl_certificate`). Set a token too: the proxy only adds encryption.
+- **Docker:** `docker run --rm -p 127.0.0.1:8754:8754 -e CURTILAGE_SERVE_TOKEN -v curtilage-cache:/cache curtilage serve --host 0.0.0.0` (inside the container it must listen on all addresses; publish the port on 127.0.0.1 or behind your proxy). The image has a health check on `/health`.
 
 ### Docker
 

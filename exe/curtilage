@@ -15,6 +15,7 @@ USAGE = <<~TEXT
     curtilage diff OLD NEW [--threshold IOU] [--out FILE]
     curtilage build REGION [options]
     curtilage doctor
+    curtilage serve [--host HOST] [--port PORT] [options]
 
   generate   The premises (and store zone) for one or more pins, as GeoJSON,
              NDJSON, CSV or KML. Pins from --pin, a CSV/GeoJSON/NDJSON file or
@@ -29,6 +30,8 @@ USAGE = <<~TEXT
   build      Build a region's map data ahead of time (a US state such as
              "tennessee", or a Geofabrik path such as "europe/germany/bayern").
   doctor     Check that DuckDB and its extensions are ready.
+  serve      An HTTP API (POST /premises, GET /health, GET /version) on
+             127.0.0.1 unless --host; token from $CURTILAGE_SERVE_TOKEN.
 
   Run "curtilage COMMAND --help" for a command's options. Results go to
   standard output, everything else to standard error.
@@ -125,7 +128,8 @@ end
 
 def output_flags(o, opts)
   o.on("--out FILE", "Write here instead of printing; the format follows the extension") { |v| opts[:out] = v }
-  o.on("--format NAME", Curtilage::Formats::OUTPUTS.map(&:to_s), "geojson (default), ndjson, csv or kml") do |v|
+  o.on("--format NAME", Curtilage::Formats::OUTPUTS.map(&:to_s),
+       "geojson (default), ndjson, csv, kml, or with --out: geoparquet, gpkg, fgb") do |v|
     opts[:format] = v.to_sym
   end
   o.on("--min-confidence N", Float, "Leave out results with confidence below N (0 to 1)") do |v|
@@ -226,6 +230,13 @@ def style_flags(o, opts)
 end
 
 def zone_flags(o, opts)
+  o.on("--h3 RES", Integer, "Also list the H3 cells (0-15) the premises touch (installs DuckDB's community h3 " \
+                            "extension)") { |v| opts[:h3] = v }
+  o.on("--simplify N", Integer, "At most N corners per premises (3+), keeping the pin and store zone inside") do |v|
+    raise ArgumentError, "--simplify needs 3 or more" if v < 3
+
+    opts[:simplify] = v
+  end
   o.on("--approach [METRES]", Float, "Add an approach zone: the premises grown by METRES " \
                                      "(default #{Curtilage::Generator::DEFAULT_APPROACH_M})") do |v|
     opts[:approach_m] = v || Curtilage::Generator::DEFAULT_APPROACH_M
@@ -272,7 +283,8 @@ end
 def open_batch(opts, format, ids)
   raise ArgumentError, "--resume needs unique site ids" if opts[:resume] && ids.uniq.size != ids.size
 
-  Curtilage::Batch.new(format: format, out: opts[:out], store: opts.fetch(:store_zone, true), resume: opts[:resume])
+  Curtilage::Batch.new(format: format, out: opts[:out], store: opts.fetch(:store_zone, true), resume: opts[:resume],
+                       duckdb: opts.slice(:duckdb, :extension_directory))
 end
 
 def run_batch(opts, sites, todo, fixes, batch)
@@ -281,8 +293,7 @@ def run_batch(opts, sites, todo, fixes, batch)
   progress = Curtilage::Batch::Progress.new(todo.size) if opts[:progress] || ($stderr.tty? && !opts[:quiet])
   with_run_cache(opts, todo.size) do |cache|
     todo.each_slice(Curtilage::Batch::CHUNK) do |chunk|
-      local = chunk.each_with_index.filter_map { |g, i| [i, fixes[g]] if fixes[g] }.to_h
-      results = run(opts.merge(cache_dir: cache), pins.values_at(*chunk), corrections: local)
+      results = run_chunk(opts.merge(cache_dir: cache), pins.values_at(*chunk), chunk.map { |g| fixes[g] })
       batch.add(*confident(results, ids.values_at(*chunk), opts[:min_confidence]))
       count(totals, results, opts[:min_confidence])
       progress&.step(chunk.size)
@@ -290,6 +301,28 @@ def run_batch(opts, sites, todo, fixes, batch)
   end
   progress&.finish
   totals
+end
+
+# fixes: a correction or nil for each pin.
+def run_chunk(opts, pins, fixes)
+  local = fixes.each_with_index.filter_map { |fix, i| [i, fix] if fix }.to_h
+  run(opts, pins, corrections: local).tap do |results|
+    results.each { |r| simplify(r, opts[:simplify]) } if opts[:simplify]
+    Curtilage::H3.cover(results, opts[:h3], **opts.slice(:duckdb, :extension_directory)) if opts[:h3]
+  end
+end
+
+# --simplify N: at most N corners, keeping the pin and store zone inside
+# (Result#simplified), validated again.
+def simplify(result, max)
+  return unless result.ring
+
+  before = result.ring.size - 1
+  result.ring = result.simplified(max)
+  result.validation = Curtilage::Validation.check(result.pin, result.ring)
+  text = "simplified #{before} corners to #{result.ring.size - 1} for --simplify #{max}"
+  result.explanation << text
+  (result.steps ||= []) << { step: "simplify", text: text, rule: "simplify" }
 end
 
 def count(totals, results, min)
@@ -462,7 +495,57 @@ def doctor(args)
   exit(report["ok"] ? 0 : 1)
 end
 
-COMMANDS = %w[generate preview places diff build doctor].freeze
+# A token on the command line would show in the process list: it comes
+# from an environment variable (CURTILAGE_SERVE_TOKEN unless --token-env).
+def serve(args)
+  opts, limits = serve_flags(args)
+  token = ENV.fetch(opts[:token_env], nil)
+  server = Curtilage::Server.new(**opts.slice(:host, :port, :cors_origin, :log_pins),
+                                 token: token, log: LOG, options: serve_options(opts), **limits)
+  warn_open(opts, server)
+  # A signal handler can't close a socket another thread is blocked on.
+  %w[INT TERM].each { |signal| trap(signal) { Thread.new { server.stop } } }
+  server.run
+  LOG.puts "curtilage serve: stopped"
+end
+
+def serve_flags(args)
+  opts = { token_env: "CURTILAGE_SERVE_TOKEN" }
+  limits = {}
+  OptionParser.new do |o|
+    o.on("--host HOST", "Address to listen on (default 127.0.0.1: this machine only)") { |v| opts[:host] = v }
+    o.on("--port PORT", Integer, "Port (default 8754)") { |v| opts[:port] = v }
+    o.on("--token-env NAME", "Require the bearer token in this environment variable") { |v| opts[:token_env] = v }
+    o.on("--cors-origin ORIGIN", "Allow browser calls from this origin (default: none)") { |v| opts[:cors_origin] = v }
+    o.on("--log-pins", "Log request bodies, pins included (default: never)") { opts[:log_pins] = true }
+    serve_limit_flags(o, limits)
+    data_flags(o, opts)
+    duckdb_flags(o, opts)
+  end.parse!(args)
+  [opts, limits]
+end
+
+def serve_limit_flags(o, limits)
+  o.on("--max-pins N", Integer, "Pins per request (default 100)") { |v| limits[:max_pins] = v }
+  o.on("--max-body BYTES", Integer, "Request body size (default 1000000)") { |v| limits[:max_body_bytes] = v }
+  o.on("--timeout SECONDS", Float, "Time per request (default 120)") { |v| limits[:timeout_s] = v }
+  o.on("--concurrency N", Integer, "Requests at once (default 4)") { |v| limits[:max_concurrent] = v }
+end
+
+def serve_options(opts)
+  catalogue = opts[:catalogue] && Curtilage::Catalogue.from_dir(opts[:catalogue])
+  { catalogue: catalogue, **opts.slice(:parquet, :source, :cache_dir),
+    lookup: opts.slice(:duckdb, :extension_directory), data: { log: LOG } }.compact
+end
+
+def warn_open(opts, server)
+  return if server.instance_variable_get(:@token) || [nil, "127.0.0.1", "localhost", "::1"].include?(opts[:host])
+
+  LOG.puts("warning: listening on #{opts[:host]} with no token: anyone who can reach it can use it " \
+           "(set $#{opts[:token_env]})")
+end
+
+COMMANDS = %w[generate preview places diff build doctor serve].freeze
 
 def exit_code(error)
   case error

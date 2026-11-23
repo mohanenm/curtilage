@@ -17,7 +17,7 @@ module Curtilage
   # fields, doubled quotes, commas and newlines inside quotes).
   module Formats
     INPUTS = %i[csv geojson ndjson].freeze
-    OUTPUTS = %i[geojson ndjson csv kml].freeze
+    OUTPUTS = %i[geojson ndjson csv kml geoparquet gpkg fgb].freeze
     LNG_COLUMNS = %w[lng lon long longitude].freeze
     LAT_COLUMNS = %w[lat latitude].freeze
     ID_COLUMNS = %w[id site_id name].freeze
@@ -32,7 +32,8 @@ module Curtilage
     CSV_COLUMNS = %w[id lng lat ok problem method flags errors building building_area_m2 parking_area_m2
                      parking_spaces_estimate frontage_m premises_area_m2 premises_wkt store_wkt attribution
                      gem_version data_source data_release features_sha256 confidence approach_wkt pickup_wkt
-                     staging_wkt pin_quality candidates].freeze
+                     staging_wkt pin_quality candidates circle_lng circle_lat circle_radius_m fit_lng fit_lat
+                     fit_radius_m h3_cells].freeze
 
     module_function
 
@@ -44,6 +45,7 @@ module Curtilage
       when ".geojson", ".json" then :geojson
       when ".ndjson", ".jsonl" then :ndjson
       when ".kml" then :kml
+      else GisFormats.format_of(path)
       end
     end
 
@@ -235,6 +237,7 @@ module Curtilage
       when :ndjson then ndjson(results, ids, store)
       when :csv then csv(results, ids)
       when :kml then kml(results, ids, store)
+      when *GisFormats::FORMATS then raise ArgumentError, "#{format} needs a file: give --out (Batch writes it)"
       else raise ArgumentError, "unknown output format #{format.inspect} (have: #{OUTPUTS.join(", ")})"
       end
     end
@@ -282,7 +285,9 @@ module Curtilage
     # Columns added after the first release, in order.
     def later_columns(result)
       [result.confidence, result.approach_wkt, result.pickup_wkt, result.staging_wkt,
-       result.pin_quality&.dig(:quality), result.candidates&.size]
+       result.pin_quality&.dig(:quality), result.candidates&.size,
+       *[result.enclosing_circle, result.fit_circle].flat_map { |c| c ? [*c[:centre], c[:radius_m]] : [nil] * 3 },
+       result.h3&.dig(:cells)&.join(";")]
     end
 
     # gem_version, data_source, data_release, features_sha256 (the full

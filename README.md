@@ -120,8 +120,17 @@ end
 - **GeoJSON** (`.geojson`): one FeatureCollection, the premises and store zone of each pin, with the id in each feature's properties.
 - **NDJSON** (`.ndjson`, or `--format ndjson`): one GeoJSON Feature per site per line, with a [versioned schema](docs/schema/site-v1.json). For scripts in any language, and for GDAL, QGIS or DuckDB.
 - **KML** (`.kml`): for Google Earth, with the attribution in its description.
+- **GeoParquet** (`.parquet`), **GeoPackage** (`.gpkg`) and **FlatGeobuf** (`.fgb`), with `--out`: for analytics, QGIS and web maps. Written through DuckDB, one row a site with the premises as the geometry, the store zone as WKT, and the flags, confidence, attribution and provenance as columns. FlatGeobuf holds only the sites with premises.
 
 From Ruby, `Curtilage::Formats` does the same ([reference](docs/reference.md#files-curtilageformats)).
+
+### Recipes
+
+PostGIS, geofences on your own server, circles for mobile geofences, geofence platforms, QGIS, DuckDB, GeoPandas and Rails: [docs/recipes](docs/recipes/README.md), each with made-up data.
+
+### HTTP API
+
+`curtilage serve` runs a small HTTP API on this machine (127.0.0.1:8754): `POST /premises` with `{"pins": [[-80.0, 35.0]]}` answers GeoJSON (or NDJSON), for apps in any language. Set `CURTILAGE_SERVE_TOKEN` to require a bearer token; requests, pins and time are capped, and pins are never logged. Put a reverse proxy in front for TLS. Details and the OpenAPI spec: [reference](docs/reference.md#http-server-curtilage-serve).
 
 ### Checking results by eye
 
@@ -186,7 +195,7 @@ The current folder is mounted at `/work`, so file names are relative to it. The 
 
 | What goes wrong | Flag | What helps |
 |---|---|---|
-| **The building isn't in OpenStreetMap** (about 3-8% of sites tested): nothing is generated. | (no premises) | `buildings: :osm_or_ml` uses machine-learned footprints only for those sites; on a private test set it rescued 2 of 5. |
+| **The building isn't in OpenStreetMap** (about 3-8% of sites tested): nothing is generated. | (no premises) | Sites read from Overture (the default for scattered pins) fall back to its machine-learned footprints for those sites, flagged `ml_footprint`. Elsewhere, `buildings: :osm_or_ml` with a build made `--ml-footprints microsoft`; on a private test set it rescued 2 of 5. |
 | **Premises fall short of the whole lot.** On the public benchmark's labelled points the default takes in 44% of what should be in, but almost nothing (under 1%) of what should stay out: unmapped forecourts and parking, lots reaching past 60 m from the building, and **entrances** (missed at 8 of 9 labelled sites). | | `entrances: :all` follows mapped driveways to every entrance (12 of 24 labelled entrances, from 5); `parking_max_extent_m` for deep lots; `lot_split: :voronoi` on shared lots. All experimental, off by default. |
 | **A store that's one unit of a large building** (strip malls, urban blocks): the store zone is the whole building, the premises its whole lot. | `store_may_be_unit`, `large_building` | `unit_m: 15` estimates the unit round the pin (flag `unit_estimated`); `preset: :tight`, or `scope: :centre` for the whole centre. |
 | **Shopping centres.** A shared lot is split by nearest building; a centre's internal roads tagged as public streets (ring roads, "Plaza" streets) cut a store off from its car park; a building at an angle to its lot gets an oversized rectangle. | `store_may_be_unit` | `lot_split: :voronoi`, `scope: :centre`, `candidates: 3`. Internal roads mapped as public streets have no fix yet. |
@@ -199,7 +208,7 @@ The current folder is mounted at `/work`, so file names are relative to it. The 
 
 ## Building footprints: OSM, or OSM plus machine-learned
 
-By default all buildings come from OpenStreetMap. Where OSM is missing buildings, you can opt in to [Microsoft's Global ML Building Footprints](https://github.com/microsoft/GlobalMLBuildingFootprints) (CDLA Permissive 2.0): build with `--ml-footprints microsoft` (or `ml_footprints: "microsoft"`), then generate with `buildings: :osm_or_ml` (only where OSM has no building near the pin), `:osm_filled` or `:ml`. With `source: :overture`, Overture's non-OSM buildings play the same role. Results built on one carry the `ml_footprint` flag, and their attribution credits the footprints' source.
+By default all buildings come from OpenStreetMap. Where OSM is missing buildings, you can opt in to [Microsoft's Global ML Building Footprints](https://github.com/microsoft/GlobalMLBuildingFootprints) (CDLA Permissive 2.0): build with `--ml-footprints microsoft` (or `ml_footprints: "microsoft"`), then generate with `buildings: :osm_or_ml` (only where OSM has no building near the pin), `:osm_filled` or `:ml`. With Overture reads (`source: :overture`, and `:auto` for scattered pins), Overture's non-OSM buildings play the same role and are used by default where OSM has no building near the pin (`buildings: :osm_or_ml`; pass `buildings: :osm` to turn that off). Results built on one carry the `ml_footprint` flag, and their attribution credits the footprints' source.
 
 ## Privacy
 
@@ -215,6 +224,7 @@ Pins never leave the machine as coordinates: they aren't put in any URL or reque
 | ... in your bucket (`s3://`, `gs://`, `https://`) | your bucket's host | The parts of files read: roughly where each pin is. |
 | Microsoft footprints in a build (opt-in) | Microsoft's footprint host | Which tiles cover the region you build. |
 | First run, or `curtilage doctor` | DuckDB's extension repository | That you install the `spatial` and `httpfs` extensions, and your DuckDB version and platform. |
+| `--h3` / `Curtilage::H3` (opt-in) | DuckDB's community extension repository | That you install the community `h3` extension, and your DuckDB version and platform. |
 
 - **For a sensitive list of locations, use `source: :geofabrik`** (or `CURTILAGE_SOURCE=geofabrik`): hosts then learn only which regions you build. `:auto` reads scattered pins from Overture.
 - The gem's own downloads go only to Geofabrik, Overture's catalogue and Microsoft's footprint host, and anything else is refused. DuckDB reads Overture's storage, your bucket and its extension repository itself.
@@ -250,7 +260,8 @@ Pins never leave the machine as coordinates: they aren't put in any URL or reque
 | `lib/curtilage/config.rb` | Shared settings (`Curtilage.configure`, environment variables) |
 | `lib/curtilage/duckdb.rb` | Runs the DuckDB CLI |
 | `lib/curtilage/error.rb` | `Curtilage::Error`, the base of every error the gem raises |
-| `exe/curtilage` | `curtilage generate`, `preview`, `build` and `doctor` |
+| `exe/curtilage` | `curtilage generate`, `preview`, `places`, `diff`, `build`, `doctor` and `serve` |
+| `lib/curtilage/server.rb` | The HTTP API (`curtilage serve`) |
 | `Dockerfile` | The gem with DuckDB, ready to run |
 | `docs/reference.md` | Every option, setting, flag and command |
 | `sql/build_from_shapefiles.sql` | DuckDB query: shapefiles to a features Parquet file |

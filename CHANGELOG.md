@@ -4,6 +4,11 @@
 
 ### Added
 
+- H3 cells: `--h3 RES` / `Curtilage::H3.cover(results, res)` lists the cells each premises touches, in every output, through DuckDB's community `h3` extension (opt-in; installed only when used; published for DuckDB 1.4 LTS at the time of writing).
+- `Curtilage.point_in_premises?(ring, point)`: the geofence check on a stored ring.
+- `curtilage serve`: an HTTP API (`POST /premises`, `GET /health`, `GET /version`) on the standard library, spec in `docs/openapi.yaml`. Binds 127.0.0.1 unless `--host`; optional bearer token from an environment variable; body, pin, time and concurrency limits; no CORS unless configured; pins never logged unless `--log-pins`. The Docker image exposes 8754 with a health check.
+- GeoParquet, GeoPackage and FlatGeobuf output (`--out FILE.parquet|.gpkg|.fgb`, or `--format`), written through DuckDB with attribution and provenance as columns; `--resume` works for them.
+- Geofence shapes: `Result#enclosing_circle` and `#fit_circle` (also in GeoJSON/NDJSON properties and new CSV columns), and `Result#simplified(max)` / `--simplify N`, which never drops the pin or store zone.
 - `entrances: :all` (experimental, off by default): follows the mapped service roads from the lot to every entrance on a public road and adds a corridor along each, up to the kerb. The premises are then usually not convex. On the public benchmark's labels it takes in 12 of 24 labelled entrances (5 by default) without taking in more of what should stay out.
 - Parcels you supply (`parcels:` on `generate_many`, `--parcels FILE`, or `"parcel"` features): premises are clipped to the building's parcel, keeping the site's parking where it clearly runs past it (flag `beyond_parcel`). GeoJSON or GeoParquet, local or at a URL; nothing is fetched on its own.
 - `unit_m:` (off by default): the store zone of a large, shared building estimated as that much of its frontage round the pin (flag `unit_estimated`).
@@ -14,6 +19,7 @@
 
 ### Changed
 
+- Sites read from Overture (`source: :overture`, and `:auto`'s scattered pins) now default to `buildings: :osm_or_ml`: where OpenStreetMap has no building near the pin, Overture's machine-learned footprints are used (flagged `ml_footprint`). Every site with an OSM building comes out as before. Pass `buildings: :osm` for the old behaviour.
 - Everything that reads premises (store and pickup zones, `details`, `Audit`, `Diff`, `Result#buffered`) works on non-convex shapes. `Diff` compares a hand-drawn non-convex polygon exactly instead of by its convex outline. Convex results are unchanged.
 
 ## [0.4.0] - 2026-11-23

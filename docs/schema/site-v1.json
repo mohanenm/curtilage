@@ -317,6 +317,75 @@
               }
             }
           }
+        },
+        "enclosing_circle": {
+          "type": [
+            "object",
+            "null"
+          ],
+          "required": [
+            "centre",
+            "radius_m"
+          ],
+          "properties": {
+            "centre": {
+              "type": "array",
+              "minItems": 2,
+              "maxItems": 2,
+              "items": {
+                "type": "number"
+              }
+            },
+            "radius_m": {
+              "type": "number"
+            }
+          },
+          "description": "The smallest circle holding the whole premises ([lng, lat] centre, radius in metres, rounded up), for geofences that take only circles; null without premises."
+        },
+        "fit_circle": {
+          "type": [
+            "object",
+            "null"
+          ],
+          "required": [
+            "centre",
+            "radius_m"
+          ],
+          "properties": {
+            "centre": {
+              "type": "array",
+              "minItems": 2,
+              "maxItems": 2,
+              "items": {
+                "type": "number"
+              }
+            },
+            "radius_m": {
+              "type": "number"
+            }
+          },
+          "description": "The circle with the premises' area, centred on them; null without premises."
+        },
+        "h3": {
+          "type": "object",
+          "required": [
+            "resolution",
+            "cells"
+          ],
+          "properties": {
+            "resolution": {
+              "type": "integer",
+              "minimum": 0,
+              "maximum": 15
+            },
+            "cells": {
+              "type": "array",
+              "items": {
+                "type": "string"
+              }
+            }
+          },
+          "description": "H3 cells the premises touch, at that resolution; only with --h3."
         }
       }
     }

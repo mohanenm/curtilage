@@ -110,4 +110,17 @@ class BatchTest < Minitest::Test
       assert_includes err, "unique site ids"
     end
   end
+
+  # GeoParquet, GeoPackage and FlatGeobuf are files written at the end.
+  def test_gis_formats_need_a_file
+    assert_raises(ArgumentError) { Curtilage::Batch.new(format: :gpkg) }
+    assert_raises(ArgumentError) { Curtilage::Formats.write([], :fgb) }
+    assert_equal :geoparquet, Curtilage::Formats.format_of("out.parquet")
+    assert_equal :gpkg, Curtilage::Formats.format_of("OUT.GPKG")
+    assert_equal :fgb, Curtilage::Formats.format_of("out.fgb")
+    sql = Curtilage::GisFormats.copy_sql("in.ndjson", "out.fgb", :fgb)
+
+    assert_includes sql, "WHERE json_type(geometry) = 'OBJECT'"
+    refute_includes Curtilage::GisFormats.copy_sql("in.ndjson", "out.gpkg", :gpkg), "WHERE"
+  end
 end

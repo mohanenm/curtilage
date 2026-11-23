@@ -44,7 +44,9 @@ COPY curtilage.gemspec README.md CHANGELOG.md LICENSE.txt SECURITY.md ./
 COPY lib lib
 COPY sql sql
 COPY exe exe
-COPY docs/reference.md docs/security.md docs/
+# The whole folder: the gemspec picks the docs it ships (the image that
+# runs only gets the installed gem).
+COPY docs docs
 RUN gem build curtilage.gemspec \
  && gem install --no-document curtilage-*.gem
 
@@ -67,5 +69,10 @@ RUN curtilage doctor
 
 VOLUME ["/cache"]
 WORKDIR /work
+# For "serve --host 0.0.0.0": the API's port, and a health check that only
+# a server passes (a one-off generate exits long before it matters).
+EXPOSE 8754
+HEALTHCHECK --interval=30s --timeout=5s --start-period=20s \
+  CMD ruby -rnet/http -e 'exit Net::HTTP.get_response(URI("http://127.0.0.1:8754/health")).code == "200"'
 ENTRYPOINT ["curtilage"]
 CMD ["--help"]

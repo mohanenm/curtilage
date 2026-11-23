@@ -18,10 +18,13 @@ What curtilage trusts, what it doesn't, who might attack it, and how each attack
 | Map data (Geofabrik, Overture, Microsoft, your own catalogue files) | No | At most 20,000 features per pin and 5,000 vertices per ring; empty, self-intersecting or invalid geometry dropped; names and ids escaped in every output; DuckDB output capped at 200 MB; values from map data never become SQL. |
 | The DuckDB binary (`CURTILAGE_DUCKDB`, or `duckdb` on the `PATH`) | **Yes**: trusted configuration | It runs with your user's rights. Point it only at a DuckDB you installed. `curtilage doctor` shows which one runs. |
 | DuckDB's extensions | Through DuckDB's signature checks | Installed from DuckDB's repository on first use, or with `CURTILAGE_OFFLINE=1` only loaded from a pre-populated folder (the Docker image ships one). The gem never turns signature checks off or allows unsigned extensions (a test checks every SQL it builds). `doctor` and each build's metadata record the versions loaded. |
+| DuckDB's community `h3` extension (`--h3`) | Through DuckDB's signature checks, one step down | Opt-in: installed only when H3 is asked for, from DuckDB's community repository, built and signed by DuckDB from third-party code. No other path loads it. |
 | `setup_sql:` (lookup option) | **Yes** | Passed to DuckDB as written, for statements such as `CREATE SECRET`. Never fill it from untrusted input. |
 | Environment variables (`CURTILAGE_*`) and `Curtilage.configure` | **Yes**: configuration | Values that reach SQL are quoted (`DuckDB.quote`) or converted to numbers first. |
 | Catalogue folders and bucket URLs | The location is configuration; the files are map data | Paths and URLs are quoted in SQL; what they contain is treated like any map data. |
 | The cache folder | Only if nobody else can write to it | DuckDB reads its Parquet files and the gem trusts its metadata. A new cache folder is created `0700`; one another user owns, or everyone can write to, is refused. Each built file's size and SHA256 are recorded; a missing or wrong-sized file is rebuilt, and `curtilage doctor --verify DIR` checks the hashes. |
+| `curtilage serve` requests | No (and anyone who can reach the port) | Listens on 127.0.0.1 unless `--host`; an optional bearer token (from an environment variable, compared in constant time); body (1 MB), headers (16 KB), pins (100), time (120 s, and 10 s to send the request) and concurrency (4) capped; only generation options accepted per request, never data sources, paths or SQL; pins checked like any input; errors carry a message, never a stack trace; no CORS unless configured; pins logged only with `--log-pins`. Plain HTTP: TLS is a reverse proxy's job. |
+| Parcels you supply (`parcels:`) | No: map data | GeoJSON capped at 100 MB and read near the pins only; GeoParquet read through DuckDB with the path quoted; each parcel parsed like map data. |
 | Upstream hosts | No | HTTPS with certificate checks, to a fixed list of hosts; no redirects followed; sizes capped while streaming. |
 
 ## Who might attack, and the defences
@@ -61,7 +64,7 @@ DuckDB's extensions come from its own repository, signed, and their versions fol
 
 ## Known gaps
 
-None open from this review. Planned: release signing and provenance (see the release plan), and the HTTP server's limits when it exists.
+None open from this review. Planned: release signing and provenance (see the release plan). The HTTP server has no rate limit per client beyond its concurrency cap: put it behind a proxy that limits rates if it faces untrusted clients.
 
 
 ## Out of scope
