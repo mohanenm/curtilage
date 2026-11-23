@@ -102,4 +102,15 @@ class DuckDBTest < Minitest::Test
     assert_raises(ArgumentError) { Curtilage.seconds("-1") }
     assert_in_delta 90.0, Curtilage.seconds("90")
   end
+
+  def test_versions_of_duckdb_and_its_extensions
+    Dir.mktmpdir do |dir|
+      cli = fake(dir, "case \"$1\" in --version) printf 'v9.9.9 (Test) abc\\n';; " \
+                      "*) cat > /dev/null; printf '[{\"name\":\"spatial\",\"version\":\"v9.9.9\"}]\\n';; esac")
+
+      assert_equal "v9.9.9 (Test) abc", D.version(cli)
+      assert_equal 9, D.major_version(cli)
+      assert_equal({ "spatial" => "v9.9.9" }, D.extension_versions(cli, "LOAD spatial;", %w[spatial]))
+    end
+  end
 end

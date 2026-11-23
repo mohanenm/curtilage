@@ -95,14 +95,6 @@ class PreviewTest < Minitest::Test
       refute status.success?
       refute_includes err, ".rb:" # a message, not a stack trace
 
-      target = File.join(dir, "elsewhere.geojson")
-      File.symlink(target, File.join(dir, "link.geojson"))
-      _, err, status = Open3.capture3("ruby", "-I", lib, exe, "generate", "--pin", "-80,35",
-                                      "--out", File.join(dir, "link.geojson"))
-      assert_includes err, "symbolic link"
-      refute status.success?
-      refute_path_exists target
-
       _, err, = Open3.capture3("ruby", "-I", lib, exe, "generate", "--in", File.join(dir, "missing.csv"))
 
       assert_includes err, "No such file"
@@ -110,6 +102,26 @@ class PreviewTest < Minitest::Test
   end
 
   # A fake DuckDB that finds nothing: runs the whole command line, offline.
+  def test_cli_refuses_bad_builds_and_symlinked_output_with_a_message
+    exe = File.expand_path("../exe/curtilage", __dir__)
+    lib = File.expand_path("../lib", __dir__)
+    _, err, status = Open3.capture3("ruby", "-I", lib, exe, "build", "Not A Region!")
+
+    assert_includes err, "curtilage build: unknown region"
+    refute status.success?
+    refute_includes err, ".rb:"
+    Dir.mktmpdir do |dir|
+      target = File.join(dir, "elsewhere.geojson")
+      File.symlink(target, File.join(dir, "link.geojson"))
+      _, err, status = Open3.capture3("ruby", "-I", lib, exe, "generate", "--pin", "-80,35",
+                                      "--out", File.join(dir, "link.geojson"))
+
+      assert_includes err, "symbolic link"
+      refute status.success?
+      refute_path_exists target
+    end
+  end
+
   def test_cli_writes_each_format_and_the_page
     exe = File.expand_path("../exe/curtilage", __dir__)
     lib = File.expand_path("../lib", __dir__)

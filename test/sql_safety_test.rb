@@ -67,4 +67,33 @@ class SqlSafetyTest < Minitest::Test
       assert_includes Curtilage::DuckDB.memory_limit(ok), "SET memory_limit"
     end
   end
+
+  # Signature checks on extensions are never relaxed, online or offline.
+  def test_no_sql_ever_allows_unsigned_extensions
+    box = Curtilage::Overture.box(PIN, 0.004)
+    build = { memory_limit: "400MB", threads: 1, extension_directory: "/ext" }
+    [false, true].each do |offline|
+      Curtilage.config.offline = offline
+      sqls = [Curtilage::Lookup.sql(["s3://b/x.parquet"], [PIN], "/ext", 0.004),
+              Curtilage::Overture.data_sql([box], { [0, "building"] => ["s3://overturemaps-x/a.parquet"] }, {}),
+              Curtilage::Build.setup(build) + Curtilage::Build.ml_view([], nil), Curtilage::DuckDB.load_sql("spatial")]
+      sqls.each { |sql| refute_match(/unsigned|allow_community|signature/i, sql) }
+    end
+    refute_match(/unsigned|allow_community/i, File.read(File.expand_path("../exe/curtilage", __dir__)))
+  ensure
+    Curtilage.reset_config!
+  end
+
+  def test_offline_mode_loads_but_never_installs_or_downloads
+    Curtilage.config.offline = true
+
+    assert_equal "SET autoinstall_known_extensions = false; LOAD spatial;", Curtilage::DuckDB.load_sql("spatial")
+    refute_includes Curtilage::Lookup.sql(["x.parquet"], [PIN], nil, 0.004), "INSTALL"
+    assert_raises(Curtilage::Error) { Curtilage::Download.read("download.geofabrik.de", "/index-v1.json", max_bytes: 10) }
+    assert_raises(Curtilage::Error) { Curtilage::Overture.features_many([PIN]) }
+    error = assert_raises(Curtilage::Error) { Curtilage::Lookup.check_files(["s3://bucket/x.parquet"]) }
+    assert_includes error.message, "offline"
+  ensure
+    Curtilage.reset_config!
+  end
 end

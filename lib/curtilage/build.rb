@@ -187,7 +187,7 @@ module Curtilage
     def extent(dirs, opts)
       query = "SELECT min(ST_XMin(geom)) a, min(ST_YMin(geom)) b, max(ST_XMax(geom)) c, max(ST_YMax(geom)) d " \
               "FROM roads_src;"
-      out = run_duckdb([setup(opts), "INSTALL spatial; LOAD spatial;", layer_view("roads", dirs), query].join("\n"),
+      out = run_duckdb([setup(opts), DuckDB.load_sql("spatial"), layer_view("roads", dirs), query].join("\n"),
                        opts[:duckdb], "-json")
       row = JSON.parse(out).first
       %w[a b c d].map { |k| Float(row[k]) }
@@ -197,7 +197,7 @@ module Curtilage
     # (_1, _2, ...) and multi-part regions in several folders.
     def sql(dirs, out, opts, ml_files: [], ml_bbox: nil)
       views = LAYERS.map { |layer| layer_view(layer, dirs) }
-      [setup(opts), "INSTALL spatial; LOAD spatial;", *views, ml_view(ml_files, ml_bbox),
+      [setup(opts), DuckDB.load_sql("spatial"), *views, ml_view(ml_files, ml_bbox),
        "SET VARIABLE out_path = #{quote(out)};", File.read(SQL_FILE)].join("\n")
     end
 
@@ -264,7 +264,10 @@ module Curtilage
                                        "max(max_lng) c, max(max_lat) d FROM read_parquet(#{quote(parquet)}) " \
                                        "GROUP BY feature;"].join("\n"), opts[:duckdb], "-json")
       rows = JSON.parse(stats)
-      opts = opts.merge(outline: opts[:outline] || outline(path, opts[:log]))
+      loaded = "#{setup(opts)}\n#{DuckDB.load_sql("spatial")}"
+      opts = opts.merge(outline: opts[:outline] || outline(path, opts[:log]),
+                        duckdb_version: DuckDB.version(opts[:duckdb]),
+                        extensions: DuckDB.extension_versions(opts[:duckdb], loaded, %w[spatial]))
       file = parquet.sub(/\.parquet\z/, ".json")
       upstream_changes(previous_metadata(file), opts[:sources]).each do |name|
         opts[:log].puts "warning: #{name} differs from the copy the last build of this region used " \
@@ -283,7 +286,8 @@ module Curtilage
         counts: rows.to_h { |r| [r["feature"], r["n"]] },
         licence: "ODbL-1.0", attribution: attribution(opts[:ml_footprints]),
         outline: rounded(opts[:outline]), sources: opts[:sources], ml_sources: opts[:ml_sources],
-        parquet_bytes: File.size?(parquet), parquet_sha256: sha256(parquet), gem_version: VERSION
+        parquet_bytes: File.size?(parquet), parquet_sha256: sha256(parquet), gem_version: VERSION,
+        duckdb_version: opts[:duckdb_version], extensions: opts[:extensions]
       }.compact
     end
 

@@ -177,6 +177,7 @@ Set once instead of passing on every call. Defaults come from the environment.
 | `extension_directory` | `CURTILAGE_EXTENSIONS` | DuckDB's own |
 | `cache_dir` | `CURTILAGE_CACHE_DIR` | none (temporary folders) |
 | `source` | `CURTILAGE_SOURCE` | `auto` |
+| `offline` | `CURTILAGE_OFFLINE` | off. `1`: never use the network: extensions are loaded but not installed (populate the folder first, e.g. with `curtilage doctor`), every download is refused, and so are Overture and bucket reads; prebuilt catalogues and cached builds still work |
 | `duckdb_timeout` | `CURTILAGE_DUCKDB_TIMEOUT` | `600` seconds per lookup or Overture query; DuckDB is then stopped, with anything it started |
 | | `CURTILAGE_CURL` | Downloads use the `curl` command when installed (much faster); `0` forces Ruby's own HTTP client |
 
@@ -207,7 +208,7 @@ curtilage doctor
   - Exits 1 if any result isn't usable, so scripts can tell.
 - `preview`: generates the same way (same options, except `--format`), then writes the page described under [Preview](#preview-curtilagepreview). `--out FILE` (default `curtilage-preview.html`); `--buffer METRES` also draws the premises grown by that much.
 - `build REGION` writes `REGION.parquet` and `REGION.json`. REGION is a US state (`tennessee`, `new-york`) or a Geofabrik path (`europe/germany/bayern`). Options: `--out DIR` (default `.`), `--work DIR` (default: a private temporary folder, removed afterwards), `--date YYMMDD`, `--keep-downloads`, `--ml-footprints microsoft`, `--duckdb`, `--extension-directory`.
-- `doctor` checks that DuckDB runs and its extensions load, and says what to install if not. `--verify DIR` also checks every built file in a catalogue or cache folder against the SHA256 its build recorded. It prints the DuckDB version and the path of the binary that runs: `CURTILAGE_DUCKDB` runs whatever it names, so it's trusted configuration.
+- `doctor` checks that DuckDB runs and its extensions load (printing their versions), and says what to install if not. `--verify DIR` also checks every built file in a catalogue or cache folder against the SHA256 its build recorded. It prints the DuckDB version and the path of the binary that runs: `CURTILAGE_DUCKDB` runs whatever it names, so it's trusted configuration.
 
 Run `curtilage COMMAND --help` for the same list.
 

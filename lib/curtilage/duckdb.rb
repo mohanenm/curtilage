@@ -1,5 +1,6 @@
 # frozen_string_literal: true
 
+require "json"
 require "open3"
 
 module Curtilage
@@ -111,12 +112,42 @@ module Curtilage
       "SET extension_directory = #{folder};"
     end
 
-    # The CLI's major version (1 if it can't tell), asked once per binary.
-    def major_version(duckdb)
-      (@major_versions ||= {})[duckdb] ||= begin
+    # The CLI's version line ("v2.0.1 (Cyanoptera) 8d78114e90"), or nil;
+    # asked once per binary.
+    def version(duckdb)
+      (@versions ||= {}).fetch(duckdb) do
         out, _, status = capture(duckdb, "", "--version")
-        status.success? && out[/\Av?(\d+)\./, 1] ? Integer(Regexp.last_match(1)) : 1
+        @versions[duckdb] = status.success? ? out.strip : nil
       end
+    end
+
+    # The CLI's major version (1 if it can't tell).
+    def major_version(duckdb)
+      version(duckdb).to_s[/\Av?(\d+)\./, 1]&.then { |major| Integer(major) } || 1
+    end
+
+    # { "spatial" => "v1.4.4", ... }: the versions of the extensions loaded
+    # after setup (SQL that loads them), for doctor and build metadata.
+    def extension_versions(duckdb, setup, names)
+      list = names.map { |n| quote(n) }.join(", ")
+      query = "SELECT extension_name AS name, extension_version AS version FROM duckdb_extensions() " \
+              "WHERE loaded AND extension_name IN (#{list});"
+      out, err, status = capture(duckdb, "#{setup}\n#{query}", "-json")
+      raise Error, "DuckDB extensions (#{names.join(", ")}) could not be loaded: #{err.strip[0, 300]}" \
+        unless status.success?
+
+      JSON.parse(out).to_h { |row| [row["name"], row["version"]] }
+    end
+
+    # SQL that makes the extensions available: installed if missing, then
+    # loaded. Offline, only loaded (from a pre-populated extension folder),
+    # with DuckDB's own automatic installs turned off. Signature checks are
+    # never relaxed (no allow_unsigned_extensions).
+    def load_sql(*names)
+      return (["SET autoinstall_known_extensions = false;"] + names.map { |n| "LOAD #{n};" }).join(" ") \
+        if Curtilage.offline?
+
+      names.map { |n| "INSTALL #{n}; LOAD #{n};" }.join(" ")
     end
 
     # A SQL string literal. Line breaks and NUL bytes are refused: no real

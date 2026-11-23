@@ -32,6 +32,7 @@ module Curtilage
     # A list of feature lists, in pin order. options: duckdb:,
     # extension_directory:, radius_deg:, release: (default: the latest).
     def features_many(pins, **options)
+      Curtilage.online!("reading Overture Maps (use a catalogue or cached builds)")
       options = Curtilage.duckdb_options(options)
       radius = Float(options.fetch(:radius_deg, Lookup::DEFAULT_RADIUS_DEG))
       boxes = pins.map { |pin| box(pin, radius) }
@@ -165,13 +166,13 @@ module Curtilage
     def setup(options, remote:)
       ext = options[:extension_directory]
       [(DuckDB.extension_sql(ext, options.fetch(:duckdb, "duckdb")) if ext),
-       DuckDB.memory_limit(options.fetch(:memory_limit, Lookup::DEFAULT_MEMORY)), "INSTALL spatial; LOAD spatial;",
+       DuckDB.memory_limit(options.fetch(:memory_limit, Lookup::DEFAULT_MEMORY)), DuckDB.load_sql("spatial"),
        # Pins in the same files share one read of each file's metadata.
        (if remote
           # A region-only secret (no keys, so reads stay anonymous): DuckDB 2.0
           # deprecates SET s3_region and warns about it inside -json output.
           # CREATE SECRET prints a result row of its own, so it goes nowhere.
-          "INSTALL httpfs; LOAD httpfs;\n.output #{File::NULL}\nCREATE TEMPORARY SECRET overture (TYPE s3, " \
+          "#{DuckDB.load_sql("httpfs")}\n.output #{File::NULL}\nCREATE TEMPORARY SECRET overture (TYPE s3, " \
             "REGION 'us-west-2', SCOPE 's3://overturemaps-us-west-2');\n.output\n" \
             "SET parquet_metadata_cache = true; SET enable_http_metadata_cache = true;"
         end)].compact.join("\n")

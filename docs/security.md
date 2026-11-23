@@ -17,7 +17,7 @@ What curtilage trusts, what it doesn't, who might attack it, and how each attack
 | Pin files (CSV, GeoJSON) | No | Capped at 50 MB and 100,000 pins; fields and ids at 10,000 characters, rows at 1,000 columns, JSON nesting at 20, all enforced while reading; must be UTF-8 without NUL bytes; CSV parsed by a strict quoted-field reader; every pin checked as finite plain decimals in range. |
 | Map data (Geofabrik, Overture, Microsoft, your own catalogue files) | No | At most 20,000 features per pin and 5,000 vertices per ring; empty, self-intersecting or invalid geometry dropped; names and ids escaped in every output; DuckDB output capped at 200 MB; values from map data never become SQL. |
 | The DuckDB binary (`CURTILAGE_DUCKDB`, or `duckdb` on the `PATH`) | **Yes**: trusted configuration | It runs with your user's rights. Point it only at a DuckDB you installed. `curtilage doctor` shows which one runs. |
-| DuckDB's extensions | Through DuckDB's signature checks | Installed from DuckDB's repository on first use. The gem never turns signature checks off or allows unsigned extensions. |
+| DuckDB's extensions | Through DuckDB's signature checks | Installed from DuckDB's repository on first use, or with `CURTILAGE_OFFLINE=1` only loaded from a pre-populated folder (the Docker image ships one). The gem never turns signature checks off or allows unsigned extensions (a test checks every SQL it builds). `doctor` and each build's metadata record the versions loaded. |
 | `setup_sql:` (lookup option) | **Yes** | Passed to DuckDB as written, for statements such as `CREATE SECRET`. Never fill it from untrusted input. |
 | Environment variables (`CURTILAGE_*`) and `Curtilage.configure` | **Yes**: configuration | Values that reach SQL are quoted (`DuckDB.quote`) or converted to numbers first. |
 | Catalogue folders and bucket URLs | The location is configuration; the files are map data | Paths and URLs are quoted in SQL; what they contain is treated like any map data. |
@@ -53,11 +53,14 @@ What curtilage trusts, what it doesn't, who might attack it, and how each attack
 - **Fuzz tests** (`test/fuzz_test.rb`, plain Ruby, fixed seed): the CSV and GeoJSON readers, map-data parsing, geometry on degenerate input (repeated, lined-up and coincident points), validation, and generation near the poles and the antimeridian. `FUZZ_ITERATIONS=5000` runs a longer pass.
 - **Docker**: the image runs as a non-root user.
 
+## Extension versions
+
+DuckDB's extensions come from its own repository, signed, and their versions follow the DuckDB version. The gem doesn't pin the repository or an extension version: that would mean running an unsigned or custom repository, or holding back security fixes. To control exactly which extension binaries run, populate an extension folder once (`curtilage doctor`, or the Docker image) and run with `CURTILAGE_OFFLINE=1`: nothing is installed or downloaded after that, and the versions are recorded.
+
 ## Known gaps
 
 Being worked on; this list shrinks as they're fixed.
 
-- There's no offline mode that guarantees no network use.
 - A site that raises during generation aborts its whole batch; there's no cap on pins per call.
 - CI actions aren't pinned to commit SHAs; the Docker image downloads DuckDB without a checksum and isn't pinned to a base-image digest.
 

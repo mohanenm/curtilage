@@ -174,6 +174,8 @@ def build(args)
                                     ml_footprints: opts[:ml], keep_downloads: opts[:keep],
                                     **opts.slice(:duckdb, :extension_directory))
   warn "downloads kept in #{work}" if opts[:keep] && !opts[:work]
+rescue Curtilage::Error, ArgumentError => e
+  abort "curtilage build: #{e.message}"
 ensure
   FileUtils.rm_rf(work) if work && !opts[:work] && !opts[:keep]
 end
@@ -215,12 +217,14 @@ end
 def check_extensions(settings)
   dir = settings[:extension_directory]
   sql = [(Curtilage::DuckDB.extension_sql(dir, settings[:duckdb]) if dir),
-         "INSTALL spatial; LOAD spatial; INSTALL httpfs; LOAD httpfs;"].compact.join("\n")
-  _, err, status = Curtilage::DuckDB.capture(settings[:duckdb], sql)
-  abort "DuckDB extensions (spatial, httpfs) could not be installed or loaded: #{err.strip[0, 300]}" \
-    unless status.success?
+         Curtilage::DuckDB.load_sql("spatial", "httpfs")].compact.join("\n")
+  versions = Curtilage::DuckDB.extension_versions(settings[:duckdb], sql, %w[spatial httpfs])
+  abort "DuckDB extensions (spatial, httpfs) could not be loaded" unless versions.size == 2
 
-  puts "Extensions: spatial and httpfs ready"
+  puts "Extensions: #{versions.map { |name, v| "#{name} #{v}" }.join(", ")}" \
+       "#{" (offline: loaded, not installed)" if Curtilage.offline?}"
+rescue Curtilage::Error => e
+  abort e.message
 end
 
 case ARGV.shift

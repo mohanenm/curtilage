@@ -166,6 +166,7 @@ module Curtilage
     end
 
     def allowed!(host)
+      Curtilage.online!("downloading from #{host}")
       raise Error, "not an allowed download host: #{host}" unless ALLOWED_HOSTS.include?(host)
     end
 

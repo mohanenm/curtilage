@@ -62,6 +62,7 @@ module Curtilage
       raise ArgumentError, "no parquet file given" if files.empty?
 
       files.each do |f|
+        Curtilage.online!("reading #{f}") if f.to_s.match?(REMOTE)
         next if f.to_s.match?(REMOTE)
         raise ArgumentError, "parquet file not found: #{f}" unless File.file?(f.to_s)
       end
@@ -92,8 +93,8 @@ module Curtilage
     def setup(files, extension_directory, setup_sql, duckdb, memory_limit)
       [(DuckDB.extension_sql(extension_directory, duckdb) if extension_directory),
        DuckDB.memory_limit(memory_limit),
-       "INSTALL spatial; LOAD spatial;",
-       ("INSTALL httpfs; LOAD httpfs;" if files.any? { |f| f.to_s.match?(REMOTE) }),
+       DuckDB.load_sql("spatial"),
+       (DuckDB.load_sql("httpfs") if files.any? { |f| f.to_s.match?(REMOTE) }),
        setup_sql].compact.join("\n")
     end
 

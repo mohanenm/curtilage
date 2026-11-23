@@ -24,6 +24,7 @@
 - Builds record the size and SHA256 of every file they download in the region's metadata, and warn when a rebuild finds Geofabrik's file for the same date has changed.
 - The cache folder is created readable only by you, and one that another user owns or everyone can write to is refused. Builds record their Parquet file's size and SHA256; a cached file that's missing or the wrong size is rebuilt (caches built by earlier versions rebuild once), and `curtilage doctor --verify DIR` checks every file's hash.
 - Interrupting a run (Ctrl-C) stops DuckDB too; it has its own process group, so before this the caller waited for the query to finish. A failed or interrupted download leaves no `.part` file, and `curtilage build` without `--work` uses a private temporary folder instead of a fixed name in `/tmp`.
+- Offline mode (`CURTILAGE_OFFLINE=1`): extensions are loaded but never installed, and downloads, Overture reads and bucket reads are refused. `doctor` prints the extension versions it loads, and builds record the DuckDB and `spatial` versions. A test checks that no SQL the gem builds relaxes extension signature checks. `curtilage build` reports errors as a message instead of a stack trace.
 - Text placed into DuckDB SQL (paths, bucket URLs, folders) may not contain line breaks or NUL bytes, `memory_limit` must look like `"400MB"`, and `threads` must be 1 to 64. Tests push crafted values through every path into SQL.
 
 ### Fixed

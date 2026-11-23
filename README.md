@@ -198,6 +198,7 @@ Pins never leave the machine as coordinates: they aren't put in any URL or reque
 - **For a sensitive list of locations, use `source: :geofabrik`** (or `CURTILAGE_SOURCE=geofabrik`): hosts then learn only which regions you build. `:auto` reads scattered pins from Overture.
 - The gem's own downloads go only to Geofabrik, Overture's catalogue and Microsoft's footprint host, and anything else is refused. DuckDB reads Overture's storage, your bucket and its extension repository itself.
 - If a DuckDB query fails, its error message can quote part of the query, including the coordinates of the box around a pin. That stays on your machine unless your app forwards errors to an outside service.
+- To guarantee nothing leaves the machine, set `CURTILAGE_OFFLINE=1` and use prebuilt files or a cache: downloads, extension installs and Overture or bucket reads are then refused.
 - The preview page loads nothing from the internet. Building the Docker image fetches DuckDB from its GitHub releases and its extensions from DuckDB's repository.
 
 ## Layout
