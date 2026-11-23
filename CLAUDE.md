@@ -8,7 +8,7 @@ If `data/AGENT_NOTES.md` exists, read it too.
 
 - Tests and lint: `bundle exec rake` (Minitest, then RuboCop). Tests only: `bundle exec rake test`.
 - Build a region's features file: `bundle exec exe/curtilage build <state or geofabrik/path> --out data/features [--ml-footprints microsoft]`. It finds the newest dated Geofabrik extract, range-downloads only the layers it uses, and writes `data/features/<region>.parquet` and `.json` with memory capped at 400 MB. Point `CURTILAGE_DUCKDB` and `CURTILAGE_EXTENSIONS` at a DuckDB CLI and extension folder if they aren't in the default places; on macOS the extension folder must be an absolute path.
-- `bundle exec exe/curtilage doctor` checks that DuckDB and its extensions are ready.
+- `bundle exec exe/curtilage doctor` checks that DuckDB and its extensions are ready (`--json`, `--network`, `--verify DIR`). Integration tests (`test/integration_test.rb`) run against a real DuckDB when one is installed, on a made-up region from `test/fixtures/make_fixture.rb`.
 - Public benchmark: `bundle exec rake benchmark`, `rake "benchmark:compare[OLD,NEW]"` ([benchmark/README.md](benchmark/README.md)). Run it before and after any change to the rules.
 
 ## Conventions

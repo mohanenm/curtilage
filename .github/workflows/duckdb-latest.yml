@@ -1,0 +1,47 @@
+name: DuckDB latest
+
+# Weekly, and on demand: the DuckDB-dependent tests against the newest
+# DuckDB release, so a break shows up before users hit it. Never blocks a
+# pull request.
+on:
+  schedule:
+    - cron: "23 5 * * 1"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  latest:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: ruby/setup-ruby@be3c7df29b3349ec6bcfc6b4792f1cf9f5237d18 # v1.343.0
+        with:
+          ruby-version: "3.4"
+          bundler-cache: true
+      - name: Install the newest DuckDB, checked against GitHub's published digest
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          curl -fsSL -H "Authorization: Bearer $GH_TOKEN" -o "$RUNNER_TEMP/release.json" \
+            https://api.github.com/repos/duckdb/duckdb/releases/latest
+          ruby -rjson -e '
+            release = JSON.parse(File.read(ARGV[0]))
+            asset = release["assets"].find { |a| a["name"] == "duckdb_cli-linux-amd64.zip" }
+            abort "no linux-amd64 CLI in #{release["tag_name"]}" unless asset && asset["digest"].to_s.start_with?("sha256:")
+            puts "Testing DuckDB #{release["tag_name"]}"
+            File.write(ENV["GITHUB_ENV"], "DUCKDB_URL=#{asset["browser_download_url"]}\nDUCKDB_SHA256=#{asset["digest"].delete_prefix("sha256:")}\n", mode: "a")
+          ' "$RUNNER_TEMP/release.json"
+      - name: Download and verify it
+        run: |
+          curl -fsSL -o "$RUNNER_TEMP/duckdb.zip" "$DUCKDB_URL"
+          echo "${DUCKDB_SHA256}  $RUNNER_TEMP/duckdb.zip" | sha256sum -c -
+          unzip -q "$RUNNER_TEMP/duckdb.zip" -d "$RUNNER_TEMP/duckdb"
+          echo "CURTILAGE_DUCKDB=$RUNNER_TEMP/duckdb/duckdb" >> "$GITHUB_ENV"
+      - name: Run the tests with it
+        env:
+          CURTILAGE_INTEGRATION: "1"
+        run: bundle exec rake test

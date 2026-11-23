@@ -246,7 +246,7 @@ bundle exec rake        # tests and RuboCop
 bundle exec rake benchmark   # the public benchmark (see benchmark/README.md)
 ```
 
-The gem itself is plain Ruby with no runtime gem dependencies. Getting data needs the [DuckDB](https://duckdb.org/) CLI (1.4 LTS or 2.0); its `spatial` and `httpfs` extensions install themselves on first use. Point `CURTILAGE_DUCKDB` and `CURTILAGE_EXTENSIONS` at them if they aren't in the default places (`curtilage doctor` checks). `unzip` is only needed if a server can't serve byte ranges.
+No Ruby gem dependencies. Getting data needs the [DuckDB](https://duckdb.org/) CLI (1.4 LTS or 2.0 are tested; `curtilage doctor` checks it and says how to install it); its `spatial` and `httpfs` extensions install themselves on first use. Point `CURTILAGE_DUCKDB` and `CURTILAGE_EXTENSIONS` at them if they aren't in the default places (`curtilage doctor` checks). Nothing else is needed: `curl` is used when it's installed, as a faster download path.
 
 ## Versioning
 

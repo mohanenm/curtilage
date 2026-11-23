@@ -4,6 +4,7 @@
 
 ### Added
 
+- `curtilage doctor` checks everything the gem needs outside Ruby with a fix for each problem (DuckDB version, with a warning outside the tested 1.4 and 2.0; extensions; the cache folder), and takes `--network` (are the map-data hosts reachable) and `--json`; it exits 1 when something's missing.
 - A `validation:` option raises or lowers the validation limits for generated polygons (e.g. `{ max_area_error_m2: 300_000 }` for a big-box store's lot, which could only ever get the fallback before). The limits are documented in the reference.
 - CSV output has an `attribution` column, and KML credits every source in the document's description.
 - A "Data licence" section in the README and the reference: what the ODbL asks of results (attribution, derivative databases, produced works), with links.
@@ -29,6 +30,8 @@
 - `generate_many` checks every pin before fetching any data (a bad pin used to fail the batch after builds had run), takes at most 100,000 pins per call (`max_pins:`), refuses unknown `data:` options, and checks `parallel_builds` (1 to 8), `max_age_days` and `auto_build_min_pins`.
 - In a batch, a site whose generation raises gets a result flagged `error` (with the error in its explanation) instead of aborting every other site; generation options are checked once, before any data is fetched.
 - The Docker image pins its base image by digest, checks the DuckDB download against a pinned SHA256, leaves curl and unzip out of the image that runs, and works offline and with a read-only root filesystem. CI actions are pinned to commit SHAs; CodeQL and `bundler-audit` run in CI, and CI builds the image and runs it with no network.
+- Downloads honour `HTTPS_PROXY` and `NO_PROXY` without `curl` too (Ruby's client read `http_proxy` instead).
+- `unzip` is no longer needed: a zip downloaded whole (when a server can't serve byte ranges) is read by the gem itself, with the same name, size and CRC checks as range downloads.
 - Text placed into DuckDB SQL (paths, bucket URLs, folders) may not contain line breaks or NUL bytes, `memory_limit` must look like `"400MB"`, and `threads` must be 1 to 64. Tests push crafted values through every path into SQL.
 
 ### Fixed

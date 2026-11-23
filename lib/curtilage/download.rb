@@ -162,7 +162,16 @@ module Curtilage
 
     def start(host, &)
       allowed!(host)
-      Net::HTTP.start(host, 443, use_ssl: true, open_timeout: 30, read_timeout: 120, &)
+      proxy = proxy_for(host)
+      Net::HTTP.start(host, 443, proxy&.host, proxy&.port, proxy&.user, proxy&.password,
+                      use_ssl: true, open_timeout: 30, read_timeout: 120, &)
+    end
+
+    # The proxy for an HTTPS download, as curl picks it: https_proxy (or
+    # HTTPS_PROXY) unless no_proxy covers the host. Net::HTTP on its own
+    # would read http_proxy instead.
+    def proxy_for(host)
+      URI("https://#{host}").find_proxy
     end
 
     def allowed!(host)

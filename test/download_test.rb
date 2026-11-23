@@ -78,6 +78,25 @@ class DownloadTest < Minitest::Test
     end
   end
 
+  # Ruby's client follows the same proxy settings curl does for HTTPS.
+  def test_https_downloads_use_the_https_proxy
+    saved = ENV.to_h.slice("https_proxy", "HTTPS_PROXY", "no_proxy", "NO_PROXY", "http_proxy")
+    %w[https_proxy HTTPS_PROXY no_proxy NO_PROXY http_proxy].each { |k| ENV.delete(k) }
+    ENV["http_proxy"] = "http://wrong.example:1"
+
+    assert_nil D.proxy_for("download.geofabrik.de")
+    ENV["https_proxy"] = "http://user:pass@proxy.example:3128"
+    proxy = D.proxy_for("download.geofabrik.de")
+
+    assert_equal ["proxy.example", 3128, "user"], [proxy.host, proxy.port, proxy.user]
+    ENV["no_proxy"] = ".geofabrik.de"
+
+    assert_nil D.proxy_for("download.geofabrik.de")
+  ensure
+    %w[https_proxy HTTPS_PROXY no_proxy NO_PROXY http_proxy].each { |k| ENV.delete(k) }
+    saved&.each { |k, v| ENV[k] = v }
+  end
+
   def test_curl_can_be_turned_off
     ENV["CURTILAGE_CURL"] = "0"
 
