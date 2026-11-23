@@ -14,7 +14,8 @@ module Curtilage
     MAX_VERTICES = 5_000
 
     # category: the building type from OSM (house, parking, roof, ...), or nil.
-    Polygon = Struct.new(:id, :kind, :name, :xy, :area, :category, keyword_init: true) do
+    # source: where a non-OSM building came from (Overture's dataset name).
+    Polygon = Struct.new(:id, :kind, :name, :xy, :area, :category, :source, keyword_init: true) do
       def hull
         @hull ||= Geometry.convex_hull(xy)
       end
@@ -104,7 +105,7 @@ module Curtilage
       category = field(feature, :highway).to_s
       polygon = Polygon.new(id: field(feature, :id), kind: kind, name: field(feature, :name),
                             xy: Geometry.counter_clockwise(ring), area: area,
-                            category: category.empty? ? nil : category)
+                            category: category.empty? ? nil : category, source: field(feature, :source))
       case kind
       when "building" then @buildings << polygon
       when "ml_building" then @ml_buildings << polygon

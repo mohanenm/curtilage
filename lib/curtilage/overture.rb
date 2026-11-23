@@ -107,8 +107,9 @@ module Curtilage
       envelope = [group.map { |b| b[0] }.min, group.map { |b| b[1] }.min, group.map { |b| b[2] }.max,
                   group.map { |b| b[3] }.max]
       any = group.map { |b| "(#{box_filter("bbox", b)})" }.join(" OR ")
-      "SELECT p.pin_index, d.id, d.feature, d.highway, d.name, d.geometry FROM (SELECT #{columns(collection)}, " \
-        "bbox AS box FROM read_parquet([#{files.map { |f| quote(f) }.join(", ")}]) " \
+      "SELECT p.pin_index, d.id, d.feature, d.highway, d.name, d.source, d.geometry " \
+        "FROM (SELECT #{columns(collection)}, bbox AS box " \
+        "FROM read_parquet([#{files.map { |f| quote(f) }.join(", ")}]) " \
         "WHERE #{box_filter("bbox", envelope)} AND (#{any}) AND #{filter(collection)}) d " \
         "JOIN boxes p ON p.pin_index IN (#{indexes.join(", ")}) AND d.box.xmin <= p.x1 AND d.box.xmax >= p.x0 " \
         "AND d.box.ymin <= p.y1 AND d.box.ymax >= p.y0"
@@ -125,14 +126,16 @@ module Curtilage
       case collection
       when "building"
         "id, CASE WHEN sources[1].dataset = 'OpenStreetMap' THEN 'building' ELSE 'ml_building' END AS feature, " \
-        "class AS highway, names.\"primary\" AS name, ST_AsGeoJSON(geometry)::VARCHAR AS geometry"
+        "class AS highway, names.\"primary\" AS name, sources[1].dataset AS source, " \
+        "ST_AsGeoJSON(geometry)::VARCHAR AS geometry"
       when "segment"
         rail = RAIL_CLASSES.map { |k, v| "WHEN #{quote(k)} THEN #{quote(v)}" }.join(" ")
         "id, CASE subtype WHEN 'road' THEN 'road' ELSE 'railway' END AS feature, " \
           "CASE WHEN subtype = 'rail' THEN (CASE class #{rail} END) WHEN subclass = 'link' THEN class || '_link' " \
-          "ELSE class END AS highway, names.\"primary\" AS name, ST_AsGeoJSON(geometry)::VARCHAR AS geometry"
+          "ELSE class END AS highway, names.\"primary\" AS name, NULL AS source, " \
+          "ST_AsGeoJSON(geometry)::VARCHAR AS geometry"
       else
-        "id, 'parking' AS feature, NULL AS highway, names.\"primary\" AS name, " \
+        "id, 'parking' AS feature, NULL AS highway, names.\"primary\" AS name, NULL AS source, " \
         "ST_AsGeoJSON(geometry)::VARCHAR AS geometry"
       end
     end
@@ -178,6 +181,15 @@ module Curtilage
       raise Error, "duckdb output too large" if out.bytesize > MAX_OUTPUT_BYTES
 
       out.strip.empty? ? [] : JSON.parse(out)
+    end
+
+    # OSM and Overture, plus a line for each other source whose buildings
+    # the result could use (buildings: :osm_filled or :ml). The source names
+    # come from the data, so they're cleaned and capped like any map text.
+    def attribution(features)
+      used = features ? features.buildings.select { |b| b.kind == "ml_building" } : []
+      sources = used.filter_map { |b| b.source.to_s.gsub(/[[:cntrl:]]/, "").strip[0, 80] }.reject(&:empty?)
+      ATTRIBUTION + sources.uniq.sort.map { |s| "Building footprints: #{s} (via Overture Maps)" }
     end
 
     def quote(text) = DuckDB.quote(text)

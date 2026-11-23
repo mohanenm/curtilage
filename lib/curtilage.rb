@@ -187,7 +187,7 @@ module Curtilage
                                    **data.slice(:release))
     pins.zip(lists).map do |pin, features|
       generate(pin, features, **options).tap do |r|
-        r.attribution = Overture::ATTRIBUTION
+        r.attribution = Overture.attribution(r.features)
         r.explanation.unshift("map data: OpenStreetMap, read from Overture Maps")
       end
     end
@@ -231,6 +231,8 @@ module Curtilage
 
   def self.generate_one(pin, features, files, catalogue, options)
     result = generate(pin, features, **options)
+    credits = catalogue&.attribution(files) || []
+    result.attribution = credits unless credits.empty?
     if files.empty?
       no_data(result)
     elsif catalogue && catalogue.coverage(pin) == :partial

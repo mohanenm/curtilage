@@ -4,7 +4,11 @@
 
 Generates a site's **premises polygon** (the building plus its customer-facing lot) and a **store zone** (the building's own outline) from free map data, so nobody has to draw them by hand.
 
-**Status:** 0.3.0. Tested on over 200 real store sites around the US, plus some in South America and Europe. The rules were tuned on 20 of them and checked on the rest, which they had never seen; on the largest batch, 97% got a valid polygon, and nearly all the misses were buildings absent from OpenStreetMap. Results were reviewed against hand-drawn premises and by eye on aerial imagery. The API may still change before 1.0.
+**Status:** 0.3, rule-based; the API may change before 1.0. How it's been checked so far, on private sets of real sites that can't be published:
+
+- On 164 sites the rules had never seen, 159 (97%) got a polygon that passed the gem's own validation (pin inside, closed, no self-intersection, plausible size). Nearly all five misses were buildings missing from OpenStreetMap. Passing validation means usable, not necessarily right.
+- Against hand-drawn premises for those sites, the median overlap (IoU) was 0.47. Hand-drawn polygons often hug the building more tightly than the whole lot this gem aims for, so IoU undersells generous but correct results.
+- The 20 sites used to tune the rules were also reviewed by eye on aerial imagery, which is a subjective check. An earlier version gave similar validity on 51 sites in the US, Brazil and Hungary (47 of 51).
 
 ## Quick start
 
@@ -39,6 +43,16 @@ store-2,-80.1,35.2
 ```
 
 That's all the setup: map data is fetched as needed. No Ruby? Use [Docker](#docker). Everything else (every option, flag and command) is in the [reference](docs/reference.md).
+
+## Data licence
+
+The code is MIT-licensed; the polygons are not. Every result is derived from [OpenStreetMap](https://www.openstreetmap.org/copyright) data, which is available under the [Open Database License (ODbL) 1.0](https://opendatacommons.org/licenses/odbl/1-0/):
+
+- **Credit OpenStreetMap wherever results are shown or shared**, and make clear the data is under the ODbL ([OSMF attribution guidelines](https://osmfoundation.org/wiki/Licence/Attribution_Guidelines)). Every output carries what to credit: `attribution` in GeoJSON properties and in CSV, the KML description, the preview page.
+- **Storing or publishing many results** can make a *derivative database*. If you use one publicly, the ODbL asks you to offer it under the ODbL too (section 4.4).
+- **A map image or similar *produced work*** made from results needs a notice that it contains data from OpenStreetMap under the ODbL (section 4.3); the image itself doesn't have to be ODbL.
+- Overture data is also credited to the Overture Maps Foundation, and Overture's non-OSM buildings to their source, when a result could use them. Microsoft's footprints are under [CDLA Permissive 2.0](https://cdla.dev/permissive-2-0/).
+- The OSMF [community guidelines](https://osmfoundation.org/wiki/Licence/Community_Guidelines) cover the common cases (produced works, what counts as substantial, collective databases, geocoding). This section is a summary, not legal advice.
 
 ## How it works
 
@@ -87,14 +101,15 @@ end
 | `details` | The building (id, name, type, area, outline), mapped parking inside the premises and an estimate of spaces, street frontage, and where driveways meet the street. Rough, like the map data. |
 | `buffered(15)` | The premises grown 15 m (rounded corners), e.g. for a geofence with a margin; negative shrinks. |
 | `to_geojson`, `to_wkt` | Ready to draw or store. GeoJSON carries everything above and the attribution to show. |
+| `attribution` | What to credit wherever the result is shown ([Data licence](#data-licence)). |
 
 ### Files
 
 `curtilage generate --in FILE --out FILE` reads pins from a CSV (as above) or a GeoJSON file of points, and writes:
 
-- **CSV** (`.csv`): one row per pin with its id, `ok`, flags, the details and the polygons as WKT. Opens in any spreadsheet.
+- **CSV** (`.csv`): one row per pin with its id, `ok`, flags, the details, the polygons as WKT and the attribution. Opens in any spreadsheet.
 - **GeoJSON** (`.geojson`): one FeatureCollection, the premises and store zone of each pin, with the id in each feature's properties.
-- **KML** (`.kml`): for Google Earth.
+- **KML** (`.kml`): for Google Earth, with the attribution in its description.
 
 From Ruby, `Curtilage::Formats` does the same ([reference](docs/reference.md#files-curtilageformats)).
 
@@ -163,11 +178,26 @@ Rules on open map data go a long way, but some sites need a person. These are th
 
 ## Building footprints: OSM, or OSM plus machine-learned
 
-By default all buildings come from OpenStreetMap. Where OSM is missing buildings, you can opt in to [Microsoft's Global ML Building Footprints](https://github.com/microsoft/GlobalMLBuildingFootprints) (ODbL, like OSM): build with `--ml-footprints microsoft` (or `ml_footprints: "microsoft"`), then generate with `buildings: :osm_filled` or `:ml`. With `source: :overture`, Overture's non-OSM buildings play the same role. Results built on one carry the `ml_footprint` flag.
+By default all buildings come from OpenStreetMap. Where OSM is missing buildings, you can opt in to [Microsoft's Global ML Building Footprints](https://github.com/microsoft/GlobalMLBuildingFootprints) (CDLA Permissive 2.0): build with `--ml-footprints microsoft` (or `ml_footprints: "microsoft"`), then generate with `buildings: :osm_filled` or `:ml`. With `source: :overture`, Overture's non-OSM buildings play the same role. Results built on one carry the `ml_footprint` flag, and their attribution credits the footprints' source.
 
-## Network access
+## Privacy
 
-The gem only talks to public map-data hosts, and only when it needs data: Geofabrik (region index and extracts), Overture Maps (file index and data), Microsoft's footprint files (opt-in), and your own bucket if you point it at one. Reading Overture by area tells its host roughly which few-km areas you read (never the pin or what it's for); Geofabrik builds only reveal the region. Use `source: :geofabrik` if that matters to you. Nothing else is sent anywhere: the preview page loads nothing, and building the Docker image only fetches DuckDB from its GitHub releases and extensions repository.
+Pins never leave the machine as coordinates: they aren't put in any URL or request, and appear only in your own outputs and local error messages. What hosts can learn depends on the data source:
+
+| When | Host | What it learns |
+|---|---|---|
+| Geofabrik build (`source: :geofabrik`, or `:auto` where 10+ pins share a region or it's cached) | `download.geofabrik.de` | Which region(s) you build, from the region index and the region's file. Not where in the region. |
+| Overture read (`source: :overture`, or `:auto` for scattered pins) | `stac.overturemaps.org` | Which Overture release you use. Nothing about the pins. |
+| | Overture's storage (Amazon S3, `overturemaps-us-west-2`) | Which files and parts of files are read: roughly where each pin is, to within a few km. |
+| Your own built files (`catalogue:`, `parquet:`) on disk | none | Nothing. |
+| ... in your bucket (`s3://`, `gs://`, `https://`) | your bucket's host | The parts of files read: roughly where each pin is. |
+| Microsoft footprints in a build (opt-in) | Microsoft's footprint host | Which tiles cover the region you build. |
+| First run, or `curtilage doctor` | DuckDB's extension repository | That you install the `spatial` and `httpfs` extensions, and your DuckDB version and platform. |
+
+- **For a sensitive list of locations, use `source: :geofabrik`** (or `CURTILAGE_SOURCE=geofabrik`): hosts then learn only which regions you build. `:auto` reads scattered pins from Overture.
+- The gem's own downloads go only to Geofabrik, Overture's catalogue and Microsoft's footprint host, and anything else is refused. DuckDB reads Overture's storage, your bucket and its extension repository itself.
+- If a DuckDB query fails, its error message can quote part of the query, including the coordinates of the box around a pin. That stays on your machine unless your app forwards errors to an outside service.
+- The preview page loads nothing from the internet. Building the Docker image fetches DuckDB from its GitHub releases and its extensions from DuckDB's repository.
 
 ## Layout
 
@@ -218,11 +248,9 @@ The gem itself is plain Ruby with no runtime gem dependencies. Getting data need
 - Until 1.0, a minor release (0.x) may change the public API. Every such change is listed under **Breaking** in [CHANGELOG.md](CHANGELOG.md), with how to update. Patch releases don't change it.
 - Rule improvements can change the polygons a release produces; the changelog says when they do.
 
-## Data and licensing
+## This repository
 
-- Map data © [OpenStreetMap contributors](https://www.openstreetmap.org/copyright), available under the [ODbL](https://opendatacommons.org/licenses/odbl/). Show this attribution wherever generated premises are displayed; results carry it (`to_geojson`).
-- With `source: :overture`: also © Overture Maps Foundation. With ML footprints: also Microsoft Global ML Building Footprints (ODbL).
+- The code is MIT-licensed (see `LICENSE.txt`); results keep the map data's licence ([Data licence](#data-licence)).
 - Downloaded files and built Parquet files are OSM-derived data. They're never committed to this repository (see `.gitignore`).
 - This repository must never contain real site locations, private data or credentials. Tests and examples use made-up coordinates.
-- The code is MIT-licensed (see `LICENSE.txt`). The map data keeps its own licence (ODbL).
 - Security issues: see `SECURITY.md` (report privately through GitHub).

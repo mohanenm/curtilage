@@ -25,7 +25,7 @@ module Curtilage
     MAX_BYTES = 50 * 1024 * 1024
 
     CSV_COLUMNS = %w[id lng lat ok problem method flags errors building building_area_m2 parking_area_m2
-                     parking_spaces_estimate frontage_m premises_area_m2 premises_wkt store_wkt].freeze
+                     parking_spaces_estimate frontage_m premises_area_m2 premises_wkt store_wkt attribution].freeze
 
     module_function
 
@@ -116,7 +116,8 @@ module Curtilage
       [id, *result.pin, result.ok?, result.problem, result.method_name, result.flags.join(";"),
        result.validation.errors.join(";"), result.building, d.dig(:building, :area_m2), d[:parking_area_m2],
        d[:parking_spaces_estimate],
-       d[:frontage_m], result.validation.metrics[:area_m2]&.round, result.to_wkt, result.store_wkt]
+       d[:frontage_m], result.validation.metrics[:area_m2]&.round, result.to_wkt, result.store_wkt,
+       credits(result).join("; ")]
     end
 
     def kml(results, ids, store)
@@ -128,6 +129,7 @@ module Curtilage
         <?xml version="1.0" encoding="UTF-8"?>
         <kml xmlns="http://www.opengis.net/kml/2.2"><Document>
         <name>curtilage</name>
+        <description>#{xml("Map data: #{results.flat_map { |r| credits(r) }.uniq.join("; ")}")}</description>
         <Style id="premises"><LineStyle><color>ff4a9a1a</color><width>2</width></LineStyle><PolyStyle><color>334a9a1a</color></PolyStyle></Style>
         <Style id="store"><LineStyle><color>ff111111</color><width>2</width></LineStyle><PolyStyle><fill>0</fill></PolyStyle></Style>
         #{marks.join("\n")}
@@ -148,11 +150,14 @@ module Curtilage
     def kml_description(result)
       parts = [result.problem || "ok"]
       parts << "flags: #{result.flags.join(", ")}" if result.flags.any?
-      parts << (result.attribution || Result::OSM_ATTRIBUTION).join("; ")
+      parts << credits(result).join("; ")
       parts.join("\n")
     end
 
     def xml(text) = CGI.escapeHTML(text.to_s)
+
+    # What to credit wherever this result is shown.
+    def credits(result) = result.attribution || Result::OSM_ATTRIBUTION
 
     # A field that a spreadsheet would run as a formula (=, +, -, @) gets a
     # leading quote, unless it's a number.

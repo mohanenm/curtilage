@@ -18,7 +18,7 @@ Premises for many pins, in pin order. Pins that share map data share the work.
 
 | Option | Default | What |
 |---|---|---|
-| `source:` | `Curtilage.config.source` (`:auto`) | `:auto`: build a Geofabrik region when enough pins share it (`data: { auto_build_min_pins: 10 }`) or it's already cached, and read scattered pins from Overture Maps. `:geofabrik`: always build the pins' regions (the host learns only the region). `:overture`: always read Overture Maps in place. |
+| `source:` | `Curtilage.config.source` (`:auto`) | `:auto`: build a Geofabrik region when enough pins share it (`data: { auto_build_min_pins: 10 }`) or it's already cached, and read scattered pins from Overture Maps. `:geofabrik`: always build the pins' regions (the host learns only the region; use this for sensitive location lists). `:overture`: always read Overture Maps in place (its storage host learns roughly where each pin is). See the README's [Privacy](../README.md#privacy) section. |
 | `cache_dir:` | `Curtilage.config.cache_dir` (none) | Keep on-demand builds here and reuse them for a month. Without it, builds go to a temporary folder deleted afterwards. |
 | `catalogue:` | none | A `Curtilage::Catalogue` of regions built ahead of time (overrides `source:`). |
 | `parquet:` | none | One built file, or a list, local or `s3://`, `gs://`, `https://` (overrides `source:`). |
@@ -46,6 +46,7 @@ Premises from features you already have (from `Curtilage::Lookup.features` or `C
 | `validation` | `errors`, `warnings` and `metrics` (area, rectangularity, pin inside, distances). |
 | `method_name` | `:grow_trim`, or `:building` after a fallback. |
 | `building` | The id of the building used. |
+| `attribution` | What to credit wherever the result is shown: OpenStreetMap, plus Overture, Overture's non-OSM building sources or Microsoft's footprints when the result could use them. `nil` means OpenStreetMap only (`Result::OSM_ATTRIBUTION`). |
 | `pin` | The pin it was made for. |
 | `details` | Facts about the site, rough by nature (open map data); `nil` when no premises were made. See below. |
 | `features` | The map data it was made from (`Curtilage::Features`, in metres around the pin), or `nil` unless `keep_features: true`. |
@@ -137,8 +138,8 @@ Writing results: `Formats.write(results, format, ids: nil, store: true)` returns
 | Format | What |
 |---|---|
 | `:geojson` | One FeatureCollection: for each pin, its premises and (unless `store: false`) its store zone, with `properties.id`, `properties.role` and everything `to_geojson` carries. |
-| `:csv` | One row per pin. Columns: `id`, `lng`, `lat`, `ok`, `problem`, `method`, `flags` and `errors` (`;`-separated), `building`, `building_area_m2`, `parking_area_m2`, `parking_spaces_estimate`, `frontage_m`, `premises_area_m2`, `premises_wkt`, `store_wkt`. Cells a spreadsheet would run as a formula get a leading `'`. |
-| `:kml` | A placemark per polygon (premises and store zone), with the flags and attribution in its description, for Google Earth. |
+| `:csv` | One row per pin. Columns: `id`, `lng`, `lat`, `ok`, `problem`, `method`, `flags` and `errors` (`;`-separated), `building`, `building_area_m2`, `parking_area_m2`, `parking_spaces_estimate`, `frontage_m`, `premises_area_m2`, `premises_wkt`, `store_wkt`, `attribution` (`; `-separated). Cells a spreadsheet would run as a formula get a leading `'`. |
+| `:kml` | A placemark per polygon (premises and store zone), with the flags and attribution in its description, and every source credited in the document's description, for Google Earth. |
 
 `Formats.format_of(path)` names the format a file extension stands for.
 
@@ -160,6 +161,10 @@ The surroundings come from `Result#features`, so pass results from `generate_man
 - `Curtilage::Catalogue.from_dir(dir, base_url: nil)`: the regions built into a folder; `base_url:` when the Parquet files live in a bucket. It uses each region's recorded outline to decide which files cover a pin, and `coverage(pin)` says whether that's `:full`, `:partial` or `:none`.
 - `Curtilage::Lookup.features(parquet:, pin:)` / `features_many(parquet:, pins:)`: the map features around pins, from built files.
 - `Curtilage::Overture.features_many(pins)`: the map features around pins, from Overture Maps.
+
+## Data licence
+
+Results are derived from OpenStreetMap data under the [ODbL 1.0](https://opendatacommons.org/licenses/odbl/1-0/), so they keep its terms, not the code's MIT licence. Credit OpenStreetMap wherever results are shown ([OSMF attribution guidelines](https://osmfoundation.org/wiki/Licence/Attribution_Guidelines)); every output carries what to credit (`Result#attribution`, the GeoJSON `attribution` property, the CSV `attribution` column, the KML description, the preview page). Storing or publishing many results can make a derivative database with ODbL share-alike obligations (section 4.4); a map image or other produced work needs a notice (section 4.3). Overture data also credits the Overture Maps Foundation and, when used, Overture's non-OSM building sources; Microsoft's footprints are under [CDLA Permissive 2.0](https://cdla.dev/permissive-2-0/). See the README's [Data licence](../README.md#data-licence) section and the OSMF [community guidelines](https://osmfoundation.org/wiki/Licence/Community_Guidelines). Not legal advice.
 
 ## Configuration
 

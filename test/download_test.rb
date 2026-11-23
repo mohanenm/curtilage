@@ -52,6 +52,14 @@ class DownloadTest < Minitest::Test
     assert_includes error.message, "over 5 bytes"
   end
 
+  def test_only_allowed_hosts_are_contacted
+    error = assert_raises(D::Error) { D.start("example.com") { flunk "connected" } }
+    assert_includes error.message, "example.com"
+    assert_raises(D::Error) { D.curl_args("example.com", "/x") }
+    [Curtilage::Regions::HOST, Curtilage::Build::HOST, Curtilage::Overture::STAC_HOST,
+     Curtilage::Footprints::MICROSOFT_HOST].each { |host| assert_includes D::ALLOWED_HOSTS, host }
+  end
+
   def test_curl_can_be_turned_off
     ENV["CURTILAGE_CURL"] = "0"
 

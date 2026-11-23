@@ -25,6 +25,10 @@ module Curtilage
                         Errno::ECONNABORTED, Errno::EPIPE, Errno::ETIMEDOUT, EOFError, OpenSSL::SSL::SSLError,
                         SocketError].freeze
     ATTEMPTS = 3
+    # Every host the gem itself downloads from; anything else is refused.
+    # (DuckDB's own reads of Overture's storage, your bucket and its
+    # extension repository don't go through here.)
+    ALLOWED_HOSTS = %w[download.geofabrik.de stac.overturemaps.org minedbuildings.z5.web.core.windows.net].freeze
 
     module_function
 
@@ -120,6 +124,7 @@ module Curtilage
     end
 
     def curl_args(host, path)
+      allowed!(host)
       [curl, "--silent", "--show-error", "--fail", "--proto", "=https", "--connect-timeout", "30",
        "--speed-limit", "1000", "--speed-time", "60", "https://#{host}#{path}"]
     end
@@ -152,7 +157,12 @@ module Curtilage
     end
 
     def start(host, &)
+      allowed!(host)
       Net::HTTP.start(host, 443, use_ssl: true, open_timeout: 30, read_timeout: 120, &)
+    end
+
+    def allowed!(host)
+      raise Error, "not an allowed download host: #{host}" unless ALLOWED_HOSTS.include?(host)
     end
 
     # The path of an https URL on host, or nil for anything else.

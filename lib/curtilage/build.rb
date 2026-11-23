@@ -267,7 +267,8 @@ module Curtilage
     end
 
     def attribution(ml_footprints)
-      ["© OpenStreetMap contributors", ("Microsoft Global ML Building Footprints" if ml_footprints)].compact
+      ["© OpenStreetMap contributors",
+       ("Microsoft Global ML Building Footprints (CDLA Permissive 2.0)" if ml_footprints)].compact
     end
 
     def cleanup(work_dir, dirs, keep_downloads)

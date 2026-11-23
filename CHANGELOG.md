@@ -2,7 +2,20 @@
 
 ## [Unreleased]
 
+### Added
+
+- CSV output has an `attribution` column, and KML credits every source in the document's description.
+- A "Data licence" section in the README and the reference: what the ODbL asks of results (attribution, derivative databases, produced works), with links.
+- A "Privacy" section in the README: what each data source and mode reveals, and to which host.
+
+### Security
+
+- Downloads refuse any host but Geofabrik, Overture's catalogue and Microsoft's footprint host.
+
 ### Fixed
+
+- Results from catalogues and Geofabrik builds carry the build's attribution, so builds with Microsoft footprints credit Microsoft (they credited only OpenStreetMap). Overture results that can use non-OSM buildings credit each source used.
+- Microsoft's Global ML Building Footprints are under CDLA Permissive 2.0, not ODbL as the docs and build metadata said.
 
 - Text is read as UTF-8 whatever the system locale. Under `LANG=C` (common in containers and cron jobs), a map feature with a non-ASCII name (such as "Café") made lookups raise an encoding error, and so did a data catalogue whose attribution contained `©`.
 - Works with DuckDB 2.0 (what Homebrew installs) as well as 1.4: it renamed the extension folder setting and deprecated `s3_region` (both warned inside the JSON output), dropped the `->` lambda syntax and reads stored geometry as bytes (1.4 reads it as a geometry; a cast suits both). Run from an AI coding tool, DuckDB 2.0's "agent mode" is turned off for the gem's own calls, since it changes the output.
