@@ -339,7 +339,7 @@ GeoParquet (`.parquet`, GeoParquet 1.0 metadata), GeoPackage (`.gpkg`) and FlatG
 
 ### Preview: `Curtilage::Preview`
 
-`Preview.html(results, ids: nil, title: "curtilage preview", buffer_m: nil)` returns a self-contained HTML page with a card per result:
+`Preview.html(results, ids: nil, title: "curtilage preview", buffer_m: nil, notes: nil)` returns a self-contained HTML page with a card per result (`notes:`: one line of text per result, or nil, shown under its heading):
 
 - A map 240 m across, north up, with a 50 m scale bar: the premises, store zone and pin; the site's building (darker) and other buildings, mapped parking, public roads (hover for the name), service roads and driveways, railways; driveway entrances (blue dots); with `buffer_m:`, the premises grown by that much (dashed).
 - Under it: the flags (hover for their meaning), the building and premises areas, parking area and estimated spaces, street frontage, the number of entrances, and the step-by-step explanation. Invalid results say why.
@@ -394,6 +394,7 @@ curtilage places (--region NAME | --bbox W,S,E,N) (--category NAME | --brand NAM
 curtilage diff OLD NEW [--threshold IOU] [--out FILE]
 curtilage build REGION [options]
 curtilage doctor
+curtilage missing-buildings (--pin LNG,LAT ... | --in FILE|-) [--out FILE] [--maproulette] [--with-ids]
 ```
 
 - `generate`: premises and store zones for one or more pins.
@@ -417,6 +418,7 @@ curtilage doctor
 - `places (--region NAME | --bbox W,S,E,N) (--category NAME | --brand NAME | --place-id ID ...)`: pins from Overture Maps places (`Curtilage.places`), as CSV (default), NDJSON or GeoJSON, printed or `--out FILE`. Also `--min-confidence N`, `--release NAME`, the DuckDB and log flags. Its output feeds `generate --in` directly: `curtilage places --region delaware --category pharmacy | curtilage generate --in - --in-format csv`.
 - `build REGION` writes `REGION.parquet` and `REGION.json`. REGION is a US state (`tennessee`, `new-york`) or a Geofabrik path (`europe/germany/bayern`). Options: `--out DIR` (default `.`), `--work DIR` (default: a private temporary folder, removed afterwards), `--date YYMMDD`, `--keep-downloads`, `--ml-footprints microsoft`, `--duckdb`, `--extension-directory`.
 - `serve`: an HTTP API ([HTTP server](#http-server-curtilage-serve)).
+- `missing-buildings`: the sites where OpenStreetMap has no building near the pin, as a task list for mappers: GeoJSON points, printed or `--out FILE`. It always uses OSM buildings only (`buildings: :osm`), so a machine-learned footprint can't hide the gap. Sites with no map data, partial data or an error are left out. Each task says what to do and has `footprint_nearby`: whether a machine-learned footprint (when the data has them) lies within 30 m, i.e. there's probably something to trace. Site ids stay out unless `--with-ids`. `--maproulette` writes one task per line in the format MapRoulette's line-by-line upload takes (RFC 7464: each line a FeatureCollection, after a record separator). Takes the same data, DuckDB and log flags as `generate`. In Ruby: `Curtilage::MissingBuildings.features(results, ids, with_ids: false)` on results from `generate_many(..., keep_features: true)`, and `.write(features, maproulette: false)`. **A list of where your sites are can be private: check before sharing it or uploading it as a public challenge.**
 - `doctor` checks everything the gem needs outside Ruby, with a fix for each problem: the DuckDB binary (its path and version; a warning, not a failure, outside the tested 1.4 LTS and 2.0), its `spatial` and `httpfs` extensions (with versions), and the cache folder's permissions when one is configured. `--verify DIR` also checks every built file in a catalogue or cache folder against the SHA256 its build recorded; `--network` checks that Geofabrik and Overture's catalogue answer (no locations are sent); `--json` prints the report for scripts. It exits 0 when ready, 1 if not. It prints the DuckDB version and the path of the binary that runs: `CURTILAGE_DUCKDB` runs whatever it names, so it's trusted configuration.
 
 Run `curtilage COMMAND --help` for the same list.

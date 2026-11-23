@@ -13,6 +13,7 @@ bundle exec rake benchmark                                  # run every site, pr
 bundle exec rake "benchmark:compare[OLD.json,NEW.json]"     # what changed between two runs
 bundle exec rake benchmark:baseline                         # run, and save the numbers as benchmark/baseline.json
 bundle exec rake benchmark:label_page                       # write the labelling page (data/benchmark/label.html)
+bundle exec rake benchmark:gallery                          # write the gallery (docs/gallery/index.html)
 ```
 
 It needs the DuckDB CLI, like the gem (`curtilage doctor` checks). Each run:
@@ -37,7 +38,7 @@ If Overture retires the pinned release, pin a newer one in `config.json`, run `b
 - `views/<name>.json`: a view: `name`, `description`, `options` (curtilage options it scores, e.g. `{ "scope": "centre" }`), and the kinds it counts `in` and `out` (the rest are ignored).
 - `config.json`: the pinned Overture release and the options every run uses.
 - `LABELS.md`: the labelling guide.
-- `runner.rb`, `labels.rb`, `label_page.rb`, `check_sites.rb` and `../rakelib/benchmark.rake`: the code.
+- `runner.rb`, `labels.rb`, `label_page.rb`, `gallery.rb`, `check_sites.rb` and `../rakelib/benchmark.rake`: the code.
 
 ## Your own sites and views
 

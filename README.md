@@ -2,11 +2,65 @@
 
 [![Gem Version](https://badge.fury.io/rb/curtilage.svg)](https://badge.fury.io/rb/curtilage)
 
+**Free, explainable premises polygons and geofences for any store, from OpenStreetMap.**
+
 *Curtilage: the land immediately around a building, such as its yard, drive and lot.*
 
-Generates a site's **premises polygon** (the building plus its customer-facing lot) and a **store zone** (the building's own outline) from free map data, so nobody has to draw them by hand.
+Give it a pin; it gives back the site's **premises polygon** (the building plus its customer-facing lot, up to the kerb) and a **store zone** (the building's own outline), with review flags, a confidence score and a plain-words explanation of every step. Map data is fetched as needed, so nobody has to draw polygons by hand or host anything.
 
-**Status:** 0.4, rule-based; the API may change before 1.0. On the [public benchmark](benchmark/README.md) (ten public sites in Delaware, with references drawn to the whole customer-facing lot), all ten get a valid polygon and the median overlap (IoU) is 0.30. Scored on labelled points instead (what's really at each spot), the default takes in 44% of what should be in and under 1% of what should stay out: premises rarely overreach but often fall short of the whole lot ([Known limitations](#known-limitations)). Anyone can rerun it (`rake benchmark`). On private sets of real sites that can't be published:
+## Try it
+
+The pin below is a public store from the [benchmark](benchmark/sites.geojson). With Docker (it builds the image from this repository, a few minutes the first time):
+
+```sh
+docker build -t curtilage https://github.com/mohanenm/curtilage.git && docker run --rm curtilage generate --pin -75.71809,39.46075
+```
+
+Ruby (`gem install curtilage`, plus the [DuckDB CLI](https://duckdb.org/docs/installation/)):
+
+```ruby
+require "curtilage"
+result = Curtilage.premises([-75.71809, 39.46075])   # [lng, lat]
+result.ring          # [[lng, lat], ...]
+result.explanation   # each step, in words
+```
+
+Any other language, through the HTTP API (`curtilage serve`, or `docker run --rm -p 127.0.0.1:8754:8754 curtilage serve --host 0.0.0.0`):
+
+```sh
+curl -s localhost:8754/premises -d '{"pins": [[-75.71809, 39.46075]]}'
+```
+
+```python
+import json, urllib.request
+body = json.dumps({"pins": [[-75.71809, 39.46075]]}).encode()
+sites = json.load(urllib.request.urlopen("http://127.0.0.1:8754/premises", body))   # a GeoJSON FeatureCollection
+```
+
+## Who it's for
+
+- **Geofencing and pickup:** know when a customer arrives on site, not just near it; optional approach and pickup zones ([geofence server](docs/recipes/geofence-server.md), [platforms](docs/recipes/geofence-platforms.md), [mobile circles](docs/recipes/mobile-circles.md)).
+- **Delivery:** a drop-off area per address that stops at the street ([Rails background job](docs/recipes/rails.md)).
+- **Location analytics:** count visits inside the lot rather than within a radius ([DuckDB](docs/recipes/duckdb.md), [GeoPandas](docs/recipes/geopandas.md), [PostGIS](docs/recipes/postgis.md)).
+- **Site selection:** parking area, street frontage and driveway entrances for every candidate site, e.g. all pharmacies in a state from `curtilage places` ([QGIS](docs/recipes/qgis.md)).
+- **Research:** a documented, rule-based method you can rerun and cite, with a public [benchmark](benchmark/README.md).
+- **OpenStreetMap mapping:** a task list of stores whose building is missing from the map ([Giving back](#giving-back-to-openstreetmap)).
+
+## How it compares
+
+Scored on the public benchmark's labelled points (default view, nine sites): the share of points that should be inside that are, and of points that should stay out (roads, neighbours, homes) that are taken in anyway. Simple alternatives were scored the same way; paid datasets and hand-drawing weren't.
+
+| | Cost | Coverage | On the benchmark (in caught / out taken) | Explainability | Licence of the polygons | Effort |
+|---|---|---|---|---|---|---|
+| Drawing by hand | Staff time, minutes per site | Anywhere with imagery | The yardstick, but people draw it differently | Whatever the drawer notes | Yours, if the imagery's terms allow tracing | High, every site and every change |
+| Circle around the pin | Free | Everywhere | 50 m: 48% / 18%; 75 m: 69% / 36% | None needed | Yours | None |
+| Building outline only | Free (OSM, or ML footprints) | Wherever the building is mapped | 5% / 0% | Simple | ODbL (OSM) | Low |
+| Paid POI polygon datasets | A licence fee | The vendor's place list | Not measured | Usually opaque | Proprietary, with use limits | Low, if your places are in the list |
+| curtilage | Free | Wherever OSM has the building (Overture or Geofabrik) | 44% / 1% | Every step, flags, confidence | ODbL (share-alike when you publish a database of them) | Low; review the flagged sites |
+
+Where curtilage loses: a generous circle catches more of the lot (it just takes the road and the neighbours too); it often stops short of the whole lot, misses entrances on most benchmark sites, and gives nothing where OpenStreetMap has no building. Its polygons are ODbL, which a paid dataset's aren't.
+
+**Status:** 0.5, rule-based; the API may change before 1.0. On the [public benchmark](benchmark/README.md) (ten public sites in Delaware, with references drawn to the whole customer-facing lot), all ten get a valid polygon and the median overlap (IoU) is 0.30. Scored on labelled points instead (what's really at each spot), the default takes in 44% of what should be in and under 1% of what should stay out: premises rarely overreach but often fall short of the whole lot ([Known limitations](#known-limitations)). Anyone can rerun it (`rake benchmark`). On private sets of real sites that can't be published:
 
 - On 164 sites the rules had never seen, 159 (97%) got a polygon that passed the gem's own validation (pin inside, closed, no self-intersection, plausible size). Nearly all five misses were buildings missing from OpenStreetMap. Passing validation means usable, not necessarily right.
 - Against hand-drawn premises for those sites, the median overlap (IoU) was 0.47. Hand-drawn polygons often hug the building more tightly than the whole lot this gem aims for, so IoU undersells generous but correct results.
@@ -143,6 +197,8 @@ PostGIS, geofences on your own server, circles for mobile geofences, geofence pl
 
 Under each map: the flags (hover for what they mean), the building and premises areas, parking and an estimate of spaces, street frontage, the number of entrances, and "How it was made", the step-by-step explanation. Invalid results say why.
 
+For examples, [docs/gallery/index.html](docs/gallery/index.html) is this page for every public benchmark site (download it and open it in a browser), with each site's category and what its labels say it got wrong, failures included. It is rebuilt with `rake benchmark:gallery`.
+
 At the top, a count of sites that are ok, flagged or unusable, and controls to show only some (sites that need a look, invalid ones, or those with a given flag) and to sort them (input order, needs a look first, lowest confidence first, id, or premises size).
 
 ![The preview page: two of six randomly chosen sites, each drawn with its premises, store zone, parking, roads and driveway entrances](https://raw.githubusercontent.com/mohanenm/curtilage/main/docs/preview.png)
@@ -210,6 +266,19 @@ The current folder is mounted at `/work`, so file names are relative to it. The 
 
 By default all buildings come from OpenStreetMap. Where OSM is missing buildings, you can opt in to [Microsoft's Global ML Building Footprints](https://github.com/microsoft/GlobalMLBuildingFootprints) (CDLA Permissive 2.0): build with `--ml-footprints microsoft` (or `ml_footprints: "microsoft"`), then generate with `buildings: :osm_or_ml` (only where OSM has no building near the pin), `:osm_filled` or `:ml`. With Overture reads (`source: :overture`, and `:auto` for scattered pins), Overture's non-OSM buildings play the same role and are used by default where OSM has no building near the pin (`buildings: :osm_or_ml`; pass `buildings: :osm` to turn that off). Results built on one carry the `ml_footprint` flag, and their attribution credits the footprints' source.
 
+## Giving back to OpenStreetMap
+
+Most sites that get no premises are buildings missing from OpenStreetMap. `curtilage missing-buildings` lists them as a task list for mappers, so the fix goes into the map for everyone:
+
+```sh
+curtilage missing-buildings --in sites.csv --out missing.geojson               # GeoJSON points
+curtilage missing-buildings --in sites.csv --maproulette --out missing.jsonl   # for a MapRoulette challenge
+```
+
+Each task is a point with what to do, and whether a machine-learned footprint lies nearby (something to trace). Your site ids stay out unless you pass `--with-ids`. Map from imagery you're allowed to use (the [OSM editors](https://wiki.openstreetmap.org/wiki/Editors) offer some) and follow the [OSM guidelines](https://wiki.openstreetmap.org/wiki/How_We_Map).
+
+**Don't publish a private site list.** Points with no names still say where your sites are: a list of a client's stores, or of sites you're scouting, can be confidential. Map them yourself, or share them only where you're allowed to.
+
 ## Privacy
 
 Pins never leave the machine as coordinates: they aren't put in any URL or request, and appear only in your own outputs and local error messages. What hosts can learn depends on the data source:
@@ -260,7 +329,7 @@ Pins never leave the machine as coordinates: they aren't put in any URL or reque
 | `lib/curtilage/config.rb` | Shared settings (`Curtilage.configure`, environment variables) |
 | `lib/curtilage/duckdb.rb` | Runs the DuckDB CLI |
 | `lib/curtilage/error.rb` | `Curtilage::Error`, the base of every error the gem raises |
-| `exe/curtilage` | `curtilage generate`, `preview`, `places`, `diff`, `build`, `doctor` and `serve` |
+| `exe/curtilage` | `curtilage generate`, `preview`, `places`, `diff`, `build`, `doctor`, `serve` and `missing-buildings` |
 | `lib/curtilage/server.rb` | The HTTP API (`curtilage serve`) |
 | `Dockerfile` | The gem with DuckDB, ready to run |
 | `docs/reference.md` | Every option, setting, flag and command |

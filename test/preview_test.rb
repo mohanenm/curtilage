@@ -9,11 +9,12 @@ class PreviewTest < Minitest::Test
 
   def test_page_draws_each_site_and_loads_nothing
     results = [Curtilage.generate(PIN, scene), Curtilage.generate(PIN, [])]
-    html = Curtilage::Preview.html(results, ids: ["<b>one</b>", "two"])
+    html = Curtilage::Preview.html(results, ids: ["<b>one</b>", "two"], notes: ["<i>note</i>", nil])
 
     assert_equal 2, html.scan("<svg ").size
     assert_includes html, "&lt;b&gt;one&lt;/b&gt;"
     refute_includes html, "<b>one</b>"
+    assert_includes html, "&lt;i&gt;note&lt;/i&gt;"
     assert_includes html, %(class="premises")
     assert_includes html, %(class="building")
     assert_includes html, "no premises: no building within 30 m of the pin (it may be missing from OpenStreetMap"

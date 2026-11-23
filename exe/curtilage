@@ -16,6 +16,7 @@ USAGE = <<~TEXT
     curtilage build REGION [options]
     curtilage doctor
     curtilage serve [--host HOST] [--port PORT] [options]
+    curtilage missing-buildings (--pin LNG,LAT ... | --in FILE) [--out FILE] [--maproulette]
 
   generate   The premises (and store zone) for one or more pins, as GeoJSON,
              NDJSON, CSV or KML. Pins from --pin, a CSV/GeoJSON/NDJSON file or
@@ -30,6 +31,9 @@ USAGE = <<~TEXT
   build      Build a region's map data ahead of time (a US state such as
              "tennessee", or a Geofabrik path such as "europe/germany/bayern").
   doctor     Check that DuckDB and its extensions are ready.
+  missing-buildings
+             Sites where OpenStreetMap has no building near the pin, as a
+             task list for mappers (GeoJSON, or MapRoulette's line format).
   serve      An HTTP API (POST /premises, GET /health, GET /version) on
              127.0.0.1 unless --host; token from $CURTILAGE_SERVE_TOKEN.
 
@@ -545,7 +549,36 @@ def warn_open(opts, server)
            "(set $#{opts[:token_env]})")
 end
 
-COMMANDS = %w[generate preview places diff build doctor serve].freeze
+# Always with OSM buildings only: an ML footprint filling the gap (the
+# default for Overture reads) would hide the very building that's missing.
+def missing_buildings(args)
+  opts = missing_options(args)
+  check_out(opts[:out])
+  pins, ids = read_sites(opts)
+  results = run(opts.merge(buildings: :osm), pins, keep_features: true)
+  tasks = Curtilage::MissingBuildings.features(results, ids, with_ids: opts[:with_ids])
+  text = Curtilage::MissingBuildings.write(tasks, maproulette: opts[:maproulette])
+  opts[:out] ? write_out(opts[:out], text) : $stdout.write(text)
+  LOG.puts "#{tasks.size} of #{results.size} sites have no building in OpenStreetMap"
+end
+
+def missing_options(args)
+  opts = { pins: [] }
+  parser = OptionParser.new do |o|
+    o.banner = "Usage: curtilage missing-buildings (--pin LNG,LAT ... | --in FILE) [--out FILE] [options]"
+    o.on("--pin LNG,LAT", "A location; repeat for several") { |v| opts[:pins] << v }
+    o.on("--in FILE", "Pins from a CSV, GeoJSON or NDJSON file (- for standard input)") { |v| opts[:in] = v }
+    o.on("--out FILE", "Write here instead of printing (GeoJSON)") { |v| opts[:out] = v }
+    o.on("--maproulette", "One task per line, for MapRoulette's line-by-line upload") { opts[:maproulette] = true }
+    o.on("--with-ids", "Copy your site ids into the tasks (off: a site list can be private)") { opts[:with_ids] = true }
+    data_flags(o, opts)
+    duckdb_flags(o, opts)
+    log_flags(o, opts)
+  end
+  parse(parser, args, opts)
+end
+
+COMMANDS = %w[generate preview places diff build doctor serve missing-buildings].freeze
 
 def exit_code(error)
   case error
@@ -558,7 +591,7 @@ end
 command = ARGV.shift
 begin
   case command
-  when *COMMANDS then send(command, ARGV)
+  when *COMMANDS then send(command.tr("-", "_"), ARGV)
   when "-h", "--help", "help", nil then puts USAGE
   else
     warn USAGE

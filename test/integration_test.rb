@@ -3,6 +3,7 @@
 require_relative "test_helper"
 require_relative "fixtures/make_fixture"
 require "tmpdir"
+require "open3"
 
 # End to end through the real DuckDB CLI, on a made-up region. Skipped when
 # no DuckDB is installed, unless CURTILAGE_INTEGRATION=1 (as in CI), which
@@ -97,6 +98,22 @@ class IntegrationTest < Minitest::Test
 
       assert_operator cells.size, :>=, 2 # a ~70 x 80 m lot spans several 25 m cells
       assert(cells.all? { |c| c.match?(/\A8b[0-9a-f]{13}\z/) })
+    end
+  end
+
+  # The command line, end to end: one site on a building, one 120 m off any.
+  def test_missing_buildings_command
+    with_region do |dir|
+      exe = File.expand_path("../exe/curtilage", __dir__)
+      lib = File.expand_path("../lib", __dir__)
+      far = Curtilage::Geometry.unproject([[-120, 60]], PIN).first.map { |v| v.round(7) }
+      out, err, status = Open3.capture3("ruby", "-I", lib, exe, "missing-buildings", "--parquet",
+                                        File.join(dir, "fixture.parquet"), "--pin", PIN.join(","),
+                                        "--pin", far.join(","))
+
+      assert status.success?, err
+      assert_equal([far], JSON.parse(out)["features"].map { |f| f["geometry"]["coordinates"] })
+      assert_includes err, "1 of 2 sites"
     end
   end
 

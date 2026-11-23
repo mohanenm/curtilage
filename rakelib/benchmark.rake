@@ -47,3 +47,19 @@ namespace :benchmark do
     puts "wrote #{out}: open it in a browser"
   end
 end
+
+namespace :benchmark do
+  desc "Write the gallery of public benchmark sites (docs/gallery/index.html)"
+  task :gallery do
+    paths = benchmark.paths
+    abort "benchmark:gallery is for the public benchmark only (CURTILAGE_BENCHMARK_DIR is set)" if paths[:private]
+    config = benchmark.config
+    sites = benchmark.sites
+    html = benchmark.gallery(sites, benchmark.features(sites, config.fetch("overture_release")), paths[:labels],
+                             benchmark.views(*paths[:views]).fetch("default"), config.fetch("options", {}))
+    out = File.expand_path("../docs/gallery/index.html", __dir__)
+    FileUtils.mkdir_p(File.dirname(out))
+    File.write(out, html)
+    puts "wrote #{out}"
+  end
+end

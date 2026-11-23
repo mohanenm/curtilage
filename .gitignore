@@ -13,3 +13,6 @@
 *.gem
 /.bundle/
 Gemfile.lock
+
+# Launch drafts and plans: private until posted.
+/docs/launch/
