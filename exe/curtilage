@@ -226,6 +226,11 @@ def style_flags(o, opts)
 end
 
 def zone_flags(o, opts)
+  o.on("--simplify N", Integer, "At most N corners per premises (3+), keeping the pin and store zone inside") do |v|
+    raise ArgumentError, "--simplify needs 3 or more" if v < 3
+
+    opts[:simplify] = v
+  end
   o.on("--approach [METRES]", Float, "Add an approach zone: the premises grown by METRES " \
                                      "(default #{Curtilage::Generator::DEFAULT_APPROACH_M})") do |v|
     opts[:approach_m] = v || Curtilage::Generator::DEFAULT_APPROACH_M
@@ -281,8 +286,7 @@ def run_batch(opts, sites, todo, fixes, batch)
   progress = Curtilage::Batch::Progress.new(todo.size) if opts[:progress] || ($stderr.tty? && !opts[:quiet])
   with_run_cache(opts, todo.size) do |cache|
     todo.each_slice(Curtilage::Batch::CHUNK) do |chunk|
-      local = chunk.each_with_index.filter_map { |g, i| [i, fixes[g]] if fixes[g] }.to_h
-      results = run(opts.merge(cache_dir: cache), pins.values_at(*chunk), corrections: local)
+      results = run_chunk(opts.merge(cache_dir: cache), pins.values_at(*chunk), chunk.map { |g| fixes[g] })
       batch.add(*confident(results, ids.values_at(*chunk), opts[:min_confidence]))
       count(totals, results, opts[:min_confidence])
       progress&.step(chunk.size)
@@ -290,6 +294,27 @@ def run_batch(opts, sites, todo, fixes, batch)
   end
   progress&.finish
   totals
+end
+
+# fixes: a correction or nil for each pin.
+def run_chunk(opts, pins, fixes)
+  local = fixes.each_with_index.filter_map { |fix, i| [i, fix] if fix }.to_h
+  run(opts, pins, corrections: local).tap do |results|
+    results.each { |r| simplify(r, opts[:simplify]) } if opts[:simplify]
+  end
+end
+
+# --simplify N: at most N corners, keeping the pin and store zone inside
+# (Result#simplified), validated again.
+def simplify(result, max)
+  return unless result.ring
+
+  before = result.ring.size - 1
+  result.ring = result.simplified(max)
+  result.validation = Curtilage::Validation.check(result.pin, result.ring)
+  text = "simplified #{before} corners to #{result.ring.size - 1} for --simplify #{max}"
+  result.explanation << text
+  (result.steps ||= []) << { step: "simplify", text: text, rule: "simplify" }
 end
 
 def count(totals, results, min)

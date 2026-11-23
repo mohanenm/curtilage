@@ -166,6 +166,66 @@ module Curtilage
       ring.size >= 3 && !self_intersects?(ring) ? ring : nil
     end
 
+    # The smallest circle holding every point: [centre, radius]. Welzl's
+    # incremental form in the points' own order (so the answer never
+    # varies), fine for the few dozen corners of a premises.
+    def enclosing_circle(points)
+      pts = points.uniq
+      circle = [pts[0], 0.0]
+      pts.each_with_index do |p, i|
+        next if in_circle?(circle, p)
+
+        circle = [p, 0.0]
+        pts[0...i].each_with_index do |q, j|
+          next if in_circle?(circle, q)
+
+          circle = circle_through(p, q)
+          pts[0...j].each { |s| circle = circle_through(p, q, s) unless in_circle?(circle, s) }
+        end
+      end
+      circle
+    end
+
+    def in_circle?(circle, point) = distance(circle[0], point) <= circle[1] + 1e-7
+
+    # The circle with a-b as its diameter, or round three points (the
+    # widest pair's when they're in a line).
+    def circle_through(a, b, third = nil)
+      return [lerp(a, b, 0.5), distance(a, b) / 2] unless third
+
+      centre = circumcentre(a, b, third)
+      return [a, b, third].combination(2).map { |p, q| circle_through(p, q) }.max_by(&:last) unless centre
+
+      [centre, distance(centre, a)]
+    end
+
+    # The point as far from all three, or nil when they're in a line.
+    def circumcentre(a, b, third)
+      u, v = [b, third].map { |p| [p[0] - a[0], p[1] - a[1]] }
+      d = 2 * cross([0, 0], u, v)
+      return nil if d.abs < 1e-12
+
+      # a + (|u|^2 perp(v) - |v|^2 perp(u)) / d, with perp(w) = [w.y, -w.x]
+      uu, vv = [u, v].map { |w| dot(w, w) / d }
+      [0, 1].map { |k| a[k] + (((uu * v[1 - k]) - (vv * u[1 - k])) * (k.zero? ? 1 : -1)) }
+    end
+
+    # The centre of the ring's area (the corners' mean leans toward densely
+    # drawn edges).
+    def area_centroid(xy)
+      signed = signed_area(xy)
+      return centroid(xy) if signed.abs < 1e-9
+
+      [0, 1].map do |axis|
+        total = xy.each_index.sum do |i|
+          a = xy[i]
+          b = xy[(i + 1) % xy.size]
+          (a[axis] + b[axis]) * ((a[0] * b[1]) - (b[0] * a[1]))
+        end
+        total / (6 * signed)
+      end
+    end
+
     # Whether edge i of the ring crosses any edge not next to it.
     def edge_crosses_ring?(xy, index)
       n = xy.size

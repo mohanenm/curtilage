@@ -30,7 +30,7 @@ class CliTest < Minitest::Test
   def test_bad_input_and_usage_exit_two
     [%w[generate], %w[generate --pin 95,-80,1], %w[generate --nope], %w[frobnicate], %w[build],
      %w[generate --in missing.csv], %w[generate --format pdf --pin -80,35],
-     %w[generate --entrances some --pin -80,35]].each do |args|
+     %w[generate --entrances some --pin -80,35], %w[generate --simplify 2 --pin -80,35]].each do |args|
       _, err, status = cli(*args)
 
       assert_equal 2, status.exitstatus, "#{args.join(" ")}: #{err}"

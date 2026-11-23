@@ -32,7 +32,8 @@ module Curtilage
     CSV_COLUMNS = %w[id lng lat ok problem method flags errors building building_area_m2 parking_area_m2
                      parking_spaces_estimate frontage_m premises_area_m2 premises_wkt store_wkt attribution
                      gem_version data_source data_release features_sha256 confidence approach_wkt pickup_wkt
-                     staging_wkt pin_quality candidates].freeze
+                     staging_wkt pin_quality candidates circle_lng circle_lat circle_radius_m fit_lng fit_lat
+                     fit_radius_m].freeze
 
     module_function
 
@@ -282,7 +283,8 @@ module Curtilage
     # Columns added after the first release, in order.
     def later_columns(result)
       [result.confidence, result.approach_wkt, result.pickup_wkt, result.staging_wkt,
-       result.pin_quality&.dig(:quality), result.candidates&.size]
+       result.pin_quality&.dig(:quality), result.candidates&.size,
+       *[result.enclosing_circle, result.fit_circle].flat_map { |c| c ? [*c[:centre], c[:radius_m]] : [nil] * 3 }]
     end
 
     # gem_version, data_source, data_release, features_sha256 (the full

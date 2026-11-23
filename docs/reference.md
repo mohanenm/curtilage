@@ -75,6 +75,8 @@ Premises from features you already have (from `Curtilage::Lookup.features` or `C
 | `features` | The map data it was made from (`Curtilage::Features`, in metres around the pin), or `nil` unless `keep_features: true`. |
 | `to_geojson(include_store: false, properties: {})` | A GeoJSON Feature (premises) with everything above in its properties, including the attribution to show; with `include_store: true`, a FeatureCollection of premises and store zone (`properties.role`). `properties:` are merged into each feature's properties (your own id, say). |
 | `to_wkt`, `store_wkt`, `approach_wkt`, `pickup_wkt`, `staging_wkt` | The premises and store zone as well-known text (`POLYGON ((lng lat, ...))`), for databases and spreadsheets. |
+| `enclosing_circle`, `fit_circle` | Circles for geofences that take only circles (Android's Geofencing API, iOS's `CLCircularRegion`): `{ centre: [lng, lat], radius_m: }`. `enclosing_circle` is the smallest circle holding the whole premises (radius rounded up); `fit_circle` has the premises' area, centred on them. `nil` without premises. Also in GeoJSON properties and CSV columns. |
+| `simplified(max)` | The premises with at most `max` corners (3 or more) for platforms with a vertex limit, dropping corners only while the pin and store zone stay inside and the outline stays simple: it may keep more when that can't be done. `nil` without premises. |
 | `buffered(metres)` | The premises grown (positive) or shrunk (negative) evenly, as a closed ring: a geofence with a margin. Corners are rounded when growing. `nil` if there are no premises or they shrink away. Non-convex premises (`entrances: :all`) are buffered on a half-metre to two-metre grid, keeping the part round the pin. |
 
 `provenance`:
@@ -387,6 +389,7 @@ curtilage doctor
   - Output: printed as GeoJSON, or `--out FILE` in the format its extension names (`.geojson`/`.json`, `.ndjson`/`.jsonl`, `.csv`, `.kml`). `--format geojson|ndjson|csv|kml` overrides. The file is written whole (to a temporary name, then renamed) and replaces any file there; a symbolic link at that path is refused.
   - Data: `--source auto|geofabrik|overture` (default auto), `--cache-dir DIR`, `--catalogue DIR`, `--parquet FILE`.
   - Style: `--preset whole_lot|tight|centre` or a profile name with `--profiles FILE`, `--buildings osm|osm_or_ml|osm_filled|ml`, `--[no-]store`, `--entrances near|all` (`entrances:`).
+  - Geofences: `--simplify N` keeps at most N corners per premises, never dropping the pin or store zone (`Result#simplified`). Every GeoJSON/NDJSON premises carries `enclosing_circle` and `fit_circle`; CSV has `circle_*` and `fit_*` columns.
   - Parcels: `--parcels FILE` clips premises to your property lines ([Parcels](#parcels)).
   - Corrections: `--corrections FILE` uses your polygons for sites with the same id ([Corrections](#corrections-and-comparing-runs)).
   - Ambiguous sites: `--candidates N` (1 to 5) adds up to N other premises ([Candidates](#candidates)).

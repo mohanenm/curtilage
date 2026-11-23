@@ -4,6 +4,7 @@
 
 ### Added
 
+- Geofence shapes: `Result#enclosing_circle` and `#fit_circle` (also in GeoJSON/NDJSON properties and new CSV columns), and `Result#simplified(max)` / `--simplify N`, which never drops the pin or store zone.
 - `entrances: :all` (experimental, off by default): follows the mapped service roads from the lot to every entrance on a public road and adds a corridor along each, up to the kerb. The premises are then usually not convex. On the public benchmark's labels it takes in 12 of 24 labelled entrances (5 by default) without taking in more of what should stay out.
 - Parcels you supply (`parcels:` on `generate_many`, `--parcels FILE`, or `"parcel"` features): premises are clipped to the building's parcel, keeping the site's parking where it clearly runs past it (flag `beyond_parcel`). GeoJSON or GeoParquet, local or at a URL; nothing is fetched on its own.
 - `unit_m:` (off by default): the store zone of a large, shared building estimated as that much of its frontage round the pin (flag `unit_estimated`).
