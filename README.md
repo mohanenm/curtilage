@@ -210,6 +210,19 @@ The current folder is mounted at `/work`, so file names are relative to it. The 
 
 By default all buildings come from OpenStreetMap. Where OSM is missing buildings, you can opt in to [Microsoft's Global ML Building Footprints](https://github.com/microsoft/GlobalMLBuildingFootprints) (CDLA Permissive 2.0): build with `--ml-footprints microsoft` (or `ml_footprints: "microsoft"`), then generate with `buildings: :osm_or_ml` (only where OSM has no building near the pin), `:osm_filled` or `:ml`. With Overture reads (`source: :overture`, and `:auto` for scattered pins), Overture's non-OSM buildings play the same role and are used by default where OSM has no building near the pin (`buildings: :osm_or_ml`; pass `buildings: :osm` to turn that off). Results built on one carry the `ml_footprint` flag, and their attribution credits the footprints' source.
 
+## Giving back to OpenStreetMap
+
+Most sites that get no premises are buildings missing from OpenStreetMap. `curtilage missing-buildings` lists them as a task list for mappers, so the fix goes into the map for everyone:
+
+```sh
+curtilage missing-buildings --in sites.csv --out missing.geojson               # GeoJSON points
+curtilage missing-buildings --in sites.csv --maproulette --out missing.jsonl   # for a MapRoulette challenge
+```
+
+Each task is a point with what to do, and whether a machine-learned footprint lies nearby (something to trace). Your site ids stay out unless you pass `--with-ids`. Map from imagery you're allowed to use (the [OSM editors](https://wiki.openstreetmap.org/wiki/Editors) offer some) and follow the [OSM guidelines](https://wiki.openstreetmap.org/wiki/How_We_Map).
+
+**Don't publish a private site list.** Points with no names still say where your sites are: a list of a client's stores, or of sites you're scouting, can be confidential. Map them yourself, or share them only where you're allowed to.
+
 ## Privacy
 
 Pins never leave the machine as coordinates: they aren't put in any URL or request, and appear only in your own outputs and local error messages. What hosts can learn depends on the data source:
@@ -260,7 +273,7 @@ Pins never leave the machine as coordinates: they aren't put in any URL or reque
 | `lib/curtilage/config.rb` | Shared settings (`Curtilage.configure`, environment variables) |
 | `lib/curtilage/duckdb.rb` | Runs the DuckDB CLI |
 | `lib/curtilage/error.rb` | `Curtilage::Error`, the base of every error the gem raises |
-| `exe/curtilage` | `curtilage generate`, `preview`, `places`, `diff`, `build`, `doctor` and `serve` |
+| `exe/curtilage` | `curtilage generate`, `preview`, `places`, `diff`, `build`, `doctor`, `serve` and `missing-buildings` |
 | `lib/curtilage/server.rb` | The HTTP API (`curtilage serve`) |
 | `Dockerfile` | The gem with DuckDB, ready to run |
 | `docs/reference.md` | Every option, setting, flag and command |
