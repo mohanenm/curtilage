@@ -6,6 +6,11 @@
 
 - CSV output has an `attribution` column, and KML credits every source in the document's description.
 - A "Data licence" section in the README and the reference: what the ODbL asks of results (attribution, derivative databases, produced works), with links.
+- A "Privacy" section in the README: what each data source and mode reveals, and to which host.
+
+### Security
+
+- Downloads refuse any host but Geofabrik, Overture's catalogue and Microsoft's footprint host.
 
 ### Fixed
 
