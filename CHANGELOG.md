@@ -13,6 +13,7 @@
 
 - Downloads refuse any host but Geofabrik, Overture's catalogue and Microsoft's footprint host.
 - One pin check for every entry point: coordinates must be finite plain decimals in range. Hexadecimal (`0x1A`) and underscores (`1_0`) used to be read as numbers from pin files and `--pin`, out-of-range values from files reached the results, and `Curtilage.generate` didn't check its pin. A bad `--pin` now gives a message instead of a stack trace.
+- Pin files are refused up front if they aren't valid UTF-8 or contain NUL bytes, and capped as they're read (field length, columns, rows, GeoJSON features), so an oversized file fails early with a clear message.
 
 ### Fixed
 

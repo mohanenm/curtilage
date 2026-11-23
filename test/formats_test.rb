@@ -99,4 +99,18 @@ class FormatsTest < Minitest::Test
     assert F.pin?([-80, 35])
     refute F.pin?([35, -120])
   end
+
+  def test_pin_files_are_checked_before_and_while_parsing
+    assert_raises(ArgumentError) { F.parse_pins("lng,lat\n-80,35\0\n", :csv) }
+    assert_raises(ArgumentError) { F.parse_pins("lng,lat\n-80,35\xFF\n".b, :csv) }
+    assert_equal [-80.0, 35.0], F.parse_pins("\uFEFFlng,lat\n-80,35\n", :csv).first[:pin]
+    assert_raises(ArgumentError) { F.parse_pins("lng,lat,id\n-80,35,#{"x" * (F::MAX_FIELD_CHARS + 1)}\n", :csv) }
+    assert_raises(ArgumentError) { F.parse_csv("#{"a," * (F::MAX_COLUMNS + 1)}a\n") }
+    assert_raises(ArgumentError) { F.parse_csv("a\nb\nc\n", max_rows: 2) }
+    assert_equal [%w[a], %w[b]], F.parse_csv("a\nb\n", max_rows: 2)
+    many = { type: "FeatureCollection", features: Array.new(F::MAX_PINS + 1) { {} } }
+    assert_raises(ArgumentError) { F.parse_pins(JSON.generate(many), :geojson) }
+    deep = "#{"[" * 30}#{"]" * 30}"
+    assert_raises(ArgumentError) { F.parse_pins(deep, :geojson) }
+  end
 end

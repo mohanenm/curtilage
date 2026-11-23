@@ -23,6 +23,8 @@ module Curtilage
     # Inputs are untrusted: cap what a file can ask for.
     MAX_PINS = 100_000
     MAX_BYTES = 50 * 1024 * 1024
+    MAX_FIELD_CHARS = 10_000
+    MAX_COLUMNS = 1_000
 
     CSV_COLUMNS = %w[id lng lat ok problem method flags errors building building_area_m2 parking_area_m2
                      parking_spaces_estimate frontage_m premises_area_m2 premises_wkt store_wkt attribution].freeze
@@ -51,6 +53,7 @@ module Curtilage
     end
 
     def parse_pins(text, format)
+      text = checked_text(text)
       sites = case format
               when :csv then csv_pins(text)
               when :geojson then geojson_pins(text)
@@ -62,6 +65,18 @@ module Curtilage
         site[:id] ||= i.to_s
         raise ArgumentError, "#{site[:id]}: a pin is LNG,LAT (longitude first)" unless pin?(site[:pin])
       end
+    end
+
+    # The text as valid UTF-8 without a byte-order mark, refused up front if
+    # it's too big, isn't UTF-8 or holds NUL bytes (a binary file, usually).
+    def checked_text(text)
+      raise ArgumentError, "the input is over #{MAX_BYTES / 1024 / 1024} MB" if text.bytesize > MAX_BYTES
+
+      text = text.dup.force_encoding(Encoding::UTF_8) unless text.encoding == Encoding::UTF_8
+      raise ArgumentError, "the input isn't valid UTF-8" unless text.valid_encoding?
+      raise ArgumentError, "the input contains a NUL byte: is it a text file?" if text.include?("\0")
+
+      text.delete_prefix("\uFEFF")
     end
 
     def csv_pins(text)
@@ -81,6 +96,7 @@ module Curtilage
       doc = JSON.parse(text, max_nesting: 20)
       features = doc.is_a?(Hash) && doc["type"] == "FeatureCollection" ? doc["features"] : [doc]
       raise ArgumentError, "expected GeoJSON Point features" unless features.is_a?(Array)
+      raise ArgumentError, "more than #{MAX_PINS} pins" if features.size > MAX_PINS
 
       features.each_with_index.map { |f, i| geojson_pin(f, "feature #{i + 1}") }
     rescue JSON::ParserError => e
@@ -171,29 +187,40 @@ module Curtilage
     end
 
     # RFC 4180: rows of fields; quoted fields may hold commas, quotes ("")
-    # and newlines. Blank lines are skipped.
-    def parse_csv(text)
+    # and newlines. Blank lines are skipped. Rows, columns and field length
+    # are capped as it reads, so an oversized file fails early.
+    def parse_csv(text, max_rows: MAX_PINS + 1)
       scanner = StringScanner.new(text)
       rows = []
       until scanner.eos?
         row = [csv_cell(scanner)]
-        row << csv_cell(scanner) while scanner.scan(",")
+        row << csv_cell(scanner) while scanner.scan(",") && row.size <= MAX_COLUMNS
+        raise ArgumentError, "line #{rows.size + 1} has more than #{MAX_COLUMNS} columns" if row.size > MAX_COLUMNS
+
         scanner.scan(/\r\n|\n|\r/)
         rows << row unless row == [""]
+        raise ArgumentError, "more than #{max_rows - 1} rows" if rows.size > max_rows
       end
       rows
     end
 
     def csv_cell(scanner)
-      return scanner.scan(/[^,\r\n]*/) unless scanner.scan('"')
+      value = if scanner.scan('"')
+                quoted = scanner.scan(/(?:[^"]|"")*/).gsub('""', '"')
+                scanner.scan('"') or raise ArgumentError, "a quoted CSV field is never closed"
+                quoted
+              else
+                scanner.scan(/[^,\r\n]*/)
+              end
+      raise ArgumentError, "a CSV field is over #{MAX_FIELD_CHARS} characters" if value.size > MAX_FIELD_CHARS
 
-      value = scanner.scan(/(?:[^"]|"")*/).gsub('""', '"')
-      scanner.scan('"') or raise ArgumentError, "a quoted CSV field is never closed"
       value
     end
 
     def present(value)
       text = value.to_s.strip
+      raise ArgumentError, "an id is over #{MAX_FIELD_CHARS} characters" if text.size > MAX_FIELD_CHARS
+
       text.empty? ? nil : text
     end
 
