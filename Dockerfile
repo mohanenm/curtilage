@@ -44,7 +44,9 @@ COPY curtilage.gemspec README.md CHANGELOG.md LICENSE.txt SECURITY.md ./
 COPY lib lib
 COPY sql sql
 COPY exe exe
-COPY docs/reference.md docs/security.md docs/
+# The whole folder: the gemspec picks the docs it ships (the image that
+# runs only gets the installed gem).
+COPY docs docs
 RUN gem build curtilage.gemspec \
  && gem install --no-document curtilage-*.gem
 

@@ -26,4 +26,14 @@ class PackagingTest < Minitest::Test
       assert_includes files, f
     end
   end
+
+  # The Docker build stage copies files in by path: every file the gem
+  # ships must be under something it copies, or gem build fails there.
+  def test_the_docker_build_copies_everything_the_gem_ships
+    dockerfile = File.read(File.join(ROOT, "Dockerfile"))
+    copied = dockerfile.scan(/^COPY (?!--from)(.+)$/).flat_map { |(args)| args.split[0...-1] }
+    missing = files.reject { |f| copied.any? { |c| f == c || f.start_with?("#{c.chomp("/")}/") } }
+
+    assert_empty missing
+  end
 end
