@@ -29,7 +29,14 @@ module Curtilage
         feed = Thread.new { feed(stdin, sql) }
         out = Thread.new { read_capped(stdout, max_output, wait.pid) }
         err = Thread.new { read_capped(stderr, MAX_ERROR_BYTES, wait.pid) }
-        finished = wait.join(timeout)
+        finished = begin
+          wait.join(timeout)
+        rescue Exception # rubocop:disable Lint/RescueException
+          # Interrupted (Ctrl-C) or killed: DuckDB has its own process group,
+          # so the terminal's signal never reached it. Stop it before leaving.
+          stop(wait)
+          raise
+        end
         stop(wait) unless finished
         output = [feed, out, err].map(&:value)[1..]
         raise Error, "DuckDB took over #{timeout} s and was stopped" unless finished

@@ -147,8 +147,8 @@ def preview(args)
   puts "#{results.count(&:ok?)} of #{results.size} ok; open #{File.expand_path(out)}"
 end
 
-def build(args)
-  opts = { out: ".", work: File.join(Dir.tmpdir, "curtilage-build") }
+def build_options(args)
+  opts = { out: "." }
   OptionParser.new do |o|
     o.banner = "Usage: curtilage build REGION [options]"
     o.on("--out DIR", "Where to write REGION.parquet and REGION.json (default: .)") { |v| opts[:out] = v }
@@ -160,11 +160,22 @@ def build(args)
     end
     duckdb_flags(o, opts)
   end.parse!(args)
+  opts
+end
+
+def build(args)
+  opts = build_options(args)
   region = args.shift or abort "curtilage build: give a REGION, e.g. tennessee"
 
-  puts Curtilage::Build.run(region, out_dir: opts[:out], work_dir: opts[:work], date: opts[:date],
+  # Without --work, a fresh private folder (a fixed name in a shared /tmp
+  # could be someone else's), removed afterwards unless downloads are kept.
+  work = opts[:work] || Dir.mktmpdir("curtilage-build")
+  puts Curtilage::Build.run(region, out_dir: opts[:out], work_dir: work, date: opts[:date],
                                     ml_footprints: opts[:ml], keep_downloads: opts[:keep],
                                     **opts.slice(:duckdb, :extension_directory))
+  warn "downloads kept in #{work}" if opts[:keep] && !opts[:work]
+ensure
+  FileUtils.rm_rf(work) if work && !opts[:work] && !opts[:keep]
 end
 
 def doctor(args)

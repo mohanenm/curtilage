@@ -1,6 +1,7 @@
 # frozen_string_literal: true
 
 require_relative "test_helper"
+require "timeout"
 require "tmpdir"
 
 # The DuckDB runner, driven by fake CLIs (POSIX sh, as on CI's dash).
@@ -34,6 +35,22 @@ class DuckDBTest < Minitest::Test
       child = Integer(File.read(File.join(dir, "child")))
       sleep 0.2
       refute alive?(child), "the child process should be stopped too"
+    end
+  end
+
+  # Ctrl-C reaches Ruby but not DuckDB (it has its own process group), so
+  # an interrupted caller must stop it rather than wait for it.
+  def test_an_interrupted_caller_stops_duckdb
+    Dir.mktmpdir do |dir|
+      cli = fake(dir, "sleep 30 &\nprintf '%s' \"$!\" > \"$(dirname \"$0\")/child\"\nsleep 30")
+      caller = Thread.new { D.capture(cli, "SELECT 1;", timeout: 60) }
+      caller.report_on_exception = false
+      sleep 0.1 until File.exist?(File.join(dir, "child"))
+      caller.raise(Interrupt)
+
+      assert_raises(Interrupt) { Timeout.timeout(5) { caller.join } }
+      sleep 0.2
+      refute alive?(Integer(File.read(File.join(dir, "child")))), "DuckDB's children should be stopped"
     end
   end
 
