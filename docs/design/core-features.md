@@ -23,9 +23,9 @@ Each result carries `provenance`: gem version, data source and release, every op
 
 ### Decision: making results independent of input order
 
-Shuffling the input changes the polygon on about a fifth of real sites, nearly all through the order of neighbour cuts. The options:
+Shuffling the input changed the polygon on 32 of 164 real sites, nearly all through the order of neighbour cuts (each cut works on what the ones before it left). Chosen (2026-11-23):
 
-- **A. Sort the input** into a fixed order before the rules run. Deterministic, but the order has no meaning.
-- **B. Cut at the nearest neighbour first** (ties by id). A rule that doesn't care about input order; A then covers what's left (one road case).
+- **Nearest neighbour first** (ties by id): the closest building bounds the lot most, so it's cut first. Only the buildings a cut considers are sorted, which keeps generation as fast as before.
+- **The input is sorted** into one canonical order before the rules run, covering the rest (one road case) and making the 20,000-feature cap take the same features every time.
 
-Recommended: B with A. Waiting on approval, as it changes results.
+On the private held-out set this gives the same answer for every input order. Mean IoU went from 0.469 to 0.466; today's 0.469 came from one lucky order, and random orders gave 0.464-0.466. Slanted road edges went from 7 sites to 8.

@@ -19,6 +19,10 @@
 - A "Privacy" section in the README: what each data source and mode reveals, and to which host.
 - A public benchmark in the repository (not the gem): `rake benchmark` scores results against hand-drawn references, overall and per category, on a pinned Overture release, and `rake benchmark:compare` diffs two runs. It ships as a skeleton with placeholder sites.
 
+### Changed
+
+- Results no longer depend on the order map data arrives in (DuckDB promises no row order, so a re-run could give a different polygon on about a fifth of sites). Neighbouring buildings are now cut nearest first, and the input is sorted into one order before the rules run. Some polygons change: on a private held-out set, mean IoU against hand-drawn premises went from 0.469 to 0.466 (random input orders used to give 0.464-0.466).
+
 ### Security
 
 - Downloads refuse any host but Geofabrik, Overture's catalogue and Microsoft's footprint host.

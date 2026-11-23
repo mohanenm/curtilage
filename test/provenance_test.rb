@@ -33,6 +33,19 @@ class ProvenanceTest < Minitest::Test
     refute_includes run.call, Time.now.year.to_s, "output holds no timestamps"
   end
 
+  def test_feature_order_never_changes_the_output
+    # Two neighbours either side, so the order of cuts matters.
+    features = scene + [polygon("building", 5, -40, -6, -25, 6), polygon("building", 6, 14, 10, 30, 25),
+                        polygon("parking", 7, 11, -20, 40, -12)]
+    expected = Curtilage::Formats.write([Curtilage.generate(PIN, features)], :geojson)
+
+    20.times do |seed|
+      shuffled = features.shuffle(random: Random.new(seed))
+
+      assert_equal expected, Curtilage::Formats.write([Curtilage.generate(PIN, shuffled)], :geojson)
+    end
+  end
+
   def test_precision_sets_the_decimal_places
     r = Curtilage.generate(PIN, scene, precision: 5)
     coords = r.ring + r.store_ring + r.details[:building][:footprint]

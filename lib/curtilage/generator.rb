@@ -273,6 +273,13 @@ module Curtilage
       features.buildings.reject { |b| b.equal?(target) || b.area < opts[:neighbour_min_area_m2] }
     end
 
+    # Nearest first (ties by id): each cut depends on the ones before it, so
+    # the closest building, which bounds the lot most, goes first, whatever
+    # order the map data came in.
+    def nearest_first(buildings, target)
+      buildings.sort_by { |b| [Geometry.closest_points(target.hull, b.hull)[0], b.id.to_s] }
+    end
+
     # The building's minimum rectangle plus a margin, trimmed at public
     # roads (premises never cross one).
     def building(features, opts, log)
@@ -489,9 +496,8 @@ module Curtilage
     def trim_at_neighbours(poly, features, target, opts, log)
       hull = target.hull
       area = Geometry.bounds(poly)
-      neighbours(features, target, opts).each do |other|
-        next unless Geometry.bounds_near?(area, other.bounds)
-
+      near = neighbours(features, target, opts).select { |other| Geometry.bounds_near?(area, other.bounds) }
+      nearest_first(near, target).each do |other|
         other_hull = other.hull
         next unless Geometry.overlap?(other_hull, poly)
 

@@ -44,8 +44,14 @@ module Curtilage
     # style of their keys, so two results can be shown to come from the same
     # map data (Result#provenance).
     def self.fingerprint(features)
-      lines = Array(features).map { |f| JSON.generate(canonical(f), allow_nan: true) }.sort
-      Digest::SHA256.hexdigest(lines.join("\n"))
+      Digest::SHA256.hexdigest(in_order(features).map(&:first).join("\n"))
+    end
+
+    # [[canonical JSON, feature], ...] sorted by the JSON: one order whatever
+    # order the features came in (DuckDB promises none), so the rules see the
+    # same input every time.
+    def self.in_order(features)
+      Array(features).map { |f| [JSON.generate(canonical(f), allow_nan: true), f] }.sort_by(&:first)
     end
 
     def self.canonical(value)
@@ -65,9 +71,10 @@ module Curtilage
       @railways = []
       @dropped = 0
       @seen = {}
-      @sha256 = self.class.fingerprint(features)
-      Array(features).first(MAX_FEATURES).each { |f| add(f) }
-      @dropped += [Array(features).size - MAX_FEATURES, 0].max
+      ordered = self.class.in_order(features)
+      @sha256 = Digest::SHA256.hexdigest(ordered.map(&:first).join("\n"))
+      ordered.first(MAX_FEATURES).each { |pair| add(pair.last) }
+      @dropped += [ordered.size - MAX_FEATURES, 0].max
     end
 
     # Roads that bound a site (Generator::PUBLIC_HIGHWAYS), not service

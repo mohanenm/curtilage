@@ -64,7 +64,7 @@ Premises from features you already have (from `Curtilage::Lookup.features` or `C
 | `features_sha256` | A SHA256 of the map data the result was made from, the same whatever order the features came in. Two results with the same hash, version and options used the same inputs. |
 | `options` | Every generation option after defaults and presets. |
 
-It holds no timestamps: the same pins, options and data give the same output, byte for byte. Results that failed with an error carry only `gem_version`.
+It holds no timestamps: the same pins, options and data give the same output, byte for byte, whatever order the map data arrives in. Results that failed with an error carry only `gem_version`.
 
 `details`:
 

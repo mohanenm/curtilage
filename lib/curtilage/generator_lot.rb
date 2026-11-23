@@ -136,9 +136,7 @@ module Curtilage
     def share_lot(part, lot, site)
       features, target, opts, log = site.to_a
       shared = site.shared.include?(lot)
-      others = neighbours(features, target, opts).select do |other|
-        touches?(lot, other, opts) && !Geometry.overlap?(other.hull, target.hull)
-      end
+      others = lot_neighbours(lot, features, target, opts)
       others.each do |other|
         next unless (shared && !LOT_TYPES.include?(other.category)) || home?(other, features, opts)
         next if part.size < 3
@@ -149,11 +147,20 @@ module Curtilage
       part
     end
 
+    # Other buildings the lot touches (not ones joined to the site's own),
+    # nearest first.
+    def lot_neighbours(lot, features, target, opts)
+      touching = neighbours(features, target, opts).select do |other|
+        touches?(lot, other, opts) && !Geometry.overlap?(other.hull, target.hull)
+      end
+      nearest_first(touching, target)
+    end
+
     # Stops 1 m short of any neighbouring building the lot reached.
     def keep_off_neighbours(poly, features, target, opts, log)
       area = Geometry.bounds(poly)
-      neighbours(features, target, opts).each do |other|
-        next unless Geometry.bounds_near?(area, other.bounds)
+      near = neighbours(features, target, opts).select { |other| Geometry.bounds_near?(area, other.bounds) }
+      nearest_first(near, target).each do |other|
         next if Geometry.overlap?(other.hull, target.hull) || !Geometry.overlap?(other.hull, poly)
 
         trimmed = split_from_neighbour(poly, target.hull, other.hull, target.rectangle[:angle],
