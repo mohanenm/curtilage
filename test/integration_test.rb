@@ -24,6 +24,28 @@ class IntegrationTest < Minitest::Test
     end
   end
 
+  # GeoParquet parcels (a WKB geometry column) are read near the pins only
+  # and clip the premises.
+  def test_parquet_parcels_clip_the_premises
+    with_region do |dir|
+      parcels = File.join(dir, "parcels.parquet")
+      near = CurtilageFixture.box(-50, -35, 20, 30)
+      far = CurtilageFixture.box(5_000, 5_000, 5_050, 5_050)
+      sql = [Curtilage::DuckDB.load_sql("spatial"),
+             "COPY (SELECT ST_AsWKB(ST_GeomFromText(wkt)) AS geometry FROM (VALUES ('#{near}'), ('#{far}')) t(wkt)) " \
+             "TO '#{parcels}' (FORMAT parquet);"]
+      extensions = Curtilage.config.extension_directory
+      sql.unshift(Curtilage::DuckDB.extension_sql(extensions, Curtilage.config.duckdb)) if extensions
+      _, err, status = Curtilage::DuckDB.capture(Curtilage.config.duckdb, sql.join("\n"))
+      assert status.success?, err
+
+      assert_equal 1, Curtilage::Parcels.near(parcels, [PIN])[PIN].size
+      result = Curtilage.generate_many([PIN], parquet: File.join(dir, "fixture.parquet"), parcels: parcels).first
+
+      assert(result.steps.any? { |s| s[:step] == "clip_parcel" })
+    end
+  end
+
   def test_lookup_reads_the_features_around_a_pin
     with_region do |dir|
       rows = Curtilage::Lookup.features(parquet: File.join(dir, "fixture.parquet"), pin: PIN)
