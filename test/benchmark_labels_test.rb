@@ -36,6 +36,17 @@ class BenchmarkLabelsTest < Minitest::Test
     refute score["kinds"].key?("sidewalk")
   end
 
+  def test_random_points_are_scored_apart
+    random = [point("public_road", 10, 0).merge("source" => "random"),
+              point("open_land", 80, 80).merge("source" => "random")]
+    score = B.score_labels(VIEW, square, labels + random, PIN)
+
+    assert_equal 3, score["out"] # hand-placed only
+    assert_equal [0, 2, 1], score["random"].values_at("in", "out", "included")
+    assert_equal 3, B.errors(score) # both count
+    assert_equal 1, B.label_stats([score])["random"]["errors"]
+  end
+
   def test_no_premises_catches_nothing
     score = B.score_labels(VIEW, nil, labels, PIN)
 

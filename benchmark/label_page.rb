@@ -61,8 +61,10 @@ module CurtilageBenchmark
     <div id="app"><div id="side">
       <b>Label what is at each spot</b>
       <p class="muted">Pick a kind (or press its key), click the map to place a point; click a point to remove it.
-        Then press <i>Random points</i> and give each highlighted point its kind. Follow benchmark/LABELS.md.
-        Save downloads <i>id</i>.geojson for the labels folder.</p>
+        Follow benchmark/LABELS.md. Save downloads <i>id</i>.geojson for the labels folder.</p>
+      <p class="muted"><b>Random points:</b> the page picks 15 spots near the pin that nobody chose (the same ones
+        every time) and shows them one by one in a yellow ring. Press the key for what's there. They catch mistakes
+        in places you wouldn't have thought to check, and are scored apart from the points you place.</p>
       <div><button id="undo">Undo</button><button id="random">Random points</button><button id="save">Save</button></div>
       <div id="status" class="muted"></div>
       <div id="kinds"></div>
@@ -105,13 +107,15 @@ module CurtilageBenchmark
         m.on("click", e => { L.DomEvent.stop(e); labels.splice(i, 1); save(); redraw(); });
       });
       if (queue.length) {
-        L.circleMarker([queue[0][1], queue[0][0]], { radius: 9, weight: 3, color: "#fff", fill: false, interactive: false }).addTo(layer);
-        L.circleMarker([queue[0][1], queue[0][0]], { radius: 12, weight: 2, color: "#000", fill: false, interactive: false }).addTo(layer);
+        const at = [queue[0][1], queue[0][0]];
+        L.circleMarker(at, { radius: 14, weight: 4, color: "#ffd400", fill: false, interactive: false }).addTo(layer);
+        L.circleMarker(at, { radius: 18, weight: 2, color: "#000", fill: false, interactive: false }).addTo(layer);
+        L.circleMarker(at, { radius: 2, weight: 0, fillColor: "#ffd400", fillOpacity: 1, interactive: false }).addTo(layer);
       }
       const hand = labels.filter(l => l.source !== "random").length, rand = labels.length - hand;
       document.getElementById("status").textContent = queue.length
-        ? `Random point ${RANDOM - queue.length + 1} of ${RANDOM}: press the key for what's there (p: unclear).`
-        : `${s.id}: ${hand} placed, ${rand} random labelled.`;
+        ? `Random point ${RANDOM - queue.length + 1} of ${RANDOM}: press the key for what's inside the yellow ring (p: unclear).`
+        : `${s.id}: ${hand} placed, ${rand} of ${RANDOM} random points labelled.`;
       renderKinds(); renderList();
     }
     function renderKinds() {
@@ -145,7 +149,7 @@ module CurtilageBenchmark
     function choose(k) {
       if (queue.length) {
         labels.push({ kind: k, point: queue.shift(), source: "random" }); save();
-        if (queue.length) map.panTo([queue[0][1], queue[0][0]]);
+        if (queue.length) map.setView([queue[0][1], queue[0][0]], 19);
       } else kind = k;
       redraw();
     }
@@ -164,7 +168,7 @@ module CurtilageBenchmark
     document.getElementById("random").onclick = () => {
       const done = labels.filter(l => l.source === "random").map(l => l.point.join());
       queue = randomPoints(site()).map(p => p.map(v => Math.round(v * 1e7) / 1e7)).filter(p => !done.includes(p.join()));
-      map.setView([site().pin[1], site().pin[0]], 18);
+      if (queue.length) map.setView([queue[0][1], queue[0][0]], 19);
       redraw();
     };
     document.addEventListener("keydown", e => {

@@ -72,8 +72,20 @@ module CurtilageBenchmark
 
   # One view's score for one result: counts, per-kind tallies, hard
   # failures and the wrong points.
+  #
+  # Hand-placed points and the page's random points answer different
+  # questions ("right where it matters?" against "how much of the area
+  # around is right?"), so the random ones are scored apart, under
+  # "random". Hard failures and errors count both.
   def score_labels(view, ring, labels, pin)
     xy = ring && G.counter_clockwise(G.open_ring(G.project(ring, pin)))
+    random, hand = labels.partition { |l| l["source"] == "random" }
+    score = points_score(view, xy, hand, pin)
+    chance = points_score(view, xy, random, pin)
+    score.merge("hard" => (score["hard"] + chance["hard"]).uniq, "random" => chance)
+  end
+
+  def points_score(view, xy, labels, pin)
     score = { "in" => 0, "caught" => 0, "out" => 0, "included" => 0, "wrong_near_edge" => 0, "kinds" => {},
               "hard" => [], "wrong" => [] }
     labels.each do |l|
@@ -103,19 +115,29 @@ module CurtilageBenchmark
     score["hard"] << "#{want ? "missed" : "took in"} #{label["kind"]}" if hard
   end
 
-  def errors(score) = (score["in"] - score["caught"]) + score["included"]
+  # Wrong points, hand-placed and random.
+  def errors(score) = point_errors(score) + (score["random"] ? point_errors(score["random"]) : 0)
+  def point_errors(score) = (score["in"] - score["caught"]) + score["included"]
 
   # Per view, over the labelled sites: the share of "in" points caught and
   # of "out" points taken in, averaged per site (big lots don't count for
   # more), the same forgiving wrong points within TOLERANCE_M of the edge,
   # sites with a hard failure, and per-kind tallies.
+  # The hand-placed points' numbers, with the random points' under
+  # "random".
   def label_stats(scores)
+    hand = rates(scores).merge("hard_failures" => scores.count { |s| s["hard"].any? }, "kinds" => kind_totals(scores))
+    random = scores.filter_map { |s| s["random"] }
+    hand.merge("random" => rates(random))
+  end
+
+  def rates(scores)
     in_rates = scores.select { |s| s["in"].positive? }.map { |s| s["caught"].fdiv(s["in"]) }
     out_rates = scores.select { |s| s["out"].positive? }.map { |s| s["included"].fdiv(s["out"]) }
-    total = scores.sum { |s| errors(s) }
-    { "sites" => scores.size, "in_caught" => mean(in_rates), "out_included" => mean(out_rates),
-      "errors" => total, "errors_beyond_tolerance" => total - scores.sum { |s| s["wrong_near_edge"] },
-      "hard_failures" => scores.count { |s| s["hard"].any? }, "kinds" => kind_totals(scores) }
+    total = scores.sum { |s| point_errors(s) }
+    { "sites" => scores.size, "points" => scores.sum { |s| s["in"] + s["out"] }, "in_caught" => mean(in_rates),
+      "out_included" => mean(out_rates), "errors" => total,
+      "errors_beyond_tolerance" => total - scores.sum { |s| s["wrong_near_edge"] } }
   end
 
   def kind_totals(scores)
@@ -130,8 +152,11 @@ module CurtilageBenchmark
 
     head = row("view", "sites", "in caught", "out taken", "errors", "hard fails")
     lines = stats.map do |name, s|
+      r = s["random"]
       [row(name, s["sites"], s["in_caught"], s["out_included"],
            "#{s["errors"]} (#{s["errors_beyond_tolerance"]} > #{TOLERANCE_M} m)", s["hard_failures"]),
+       row("  random points", r["points"], r["in_caught"], r["out_included"],
+           "#{r["errors"]} (#{r["errors_beyond_tolerance"]} > #{TOLERANCE_M} m)"),
        "  #{s["kinds"].map { |k, t| "#{k} #{t["right"]}/#{t["n"]}" }.join(", ")}"]
     end
     ["", head, *lines.flatten]

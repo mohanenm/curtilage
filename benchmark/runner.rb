@@ -216,7 +216,11 @@ module CurtilageBenchmark
   # The same run with numbers only (no polygons or points), safe to commit.
   def numbers_only(run)
     run.merge("sites" => run["sites"].map do |s|
-      s.except("ring").tap { |c| c["views"] &&= c["views"].transform_values { |v| v.except("wrong") } }
+      s.except("ring").tap do |c|
+        c["views"] &&= c["views"].transform_values do |v|
+          v.except("wrong").tap { |w| w["random"] &&= w["random"].except("wrong") }
+        end
+      end
     end)
   end
 
