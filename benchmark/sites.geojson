@@ -1,0 +1,56 @@
+{
+  "type": "FeatureCollection",
+  "features": [
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          -80.0,
+          35.0
+        ]
+      },
+      "properties": {
+        "id": "placeholder-standalone",
+        "category": "standalone",
+        "notes": "PLACEHOLDER: made-up pin, not a real site. Shows the layout only.",
+        "placeholder": true
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          -80.004,
+          35.006
+        ]
+      },
+      "properties": {
+        "id": "placeholder-corner",
+        "category": "corner_lot",
+        "notes": "PLACEHOLDER: made-up pin, not a real site. Shows the layout only.",
+        "placeholder": true
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          -80.00275,
+          34.9978
+        ]
+      },
+      "properties": {
+        "id": "placeholder-ml",
+        "category": "missing_building",
+        "notes": "PLACEHOLDER: made-up pin, not a real site. Shows a per-site option (buildings: osm_filled).",
+        "placeholder": true,
+        "options": {
+          "buildings": "osm_filled"
+        }
+      }
+    }
+  ]
+}
