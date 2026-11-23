@@ -18,6 +18,8 @@ require_relative "curtilage/generator_zones"
 require_relative "curtilage/generator_pin"
 require_relative "curtilage/candidates"
 require_relative "curtilage/profiles"
+require_relative "curtilage/corrections"
+require_relative "curtilage/diff"
 require_relative "curtilage/lookup"
 require_relative "curtilage/download"
 require_relative "curtilage/zip_range"
@@ -144,8 +146,19 @@ module Curtilage
   # puts; default $stderr), release: (Overture). keep_features: true keeps each
   # result's map data (Result#features, which Preview draws); by default it's
   # dropped to save memory. Other options go to generate.
-  def self.generate_many(pins, keep_features: false, max_pins: MAX_PINS_PER_CALL, **)
-    results = fetch_and_generate(checked_pins(pins, max_pins), **)
+  #
+  # corrections: { pin index => ring (or { ring:, store_ring: }) } uses
+  # those polygons instead of generating (see Corrections); their pins
+  # fetch no data.
+  def self.generate_many(pins, keep_features: false, max_pins: MAX_PINS_PER_CALL, corrections: {}, **options)
+    pins = checked_pins(pins, max_pins)
+    fixed = Corrections.checked(corrections, pins.size)
+    rest = pins.each_index.reject { |i| fixed.key?(i) }
+    generated = rest.empty? ? [] : fetch_and_generate(pins.values_at(*rest), **options)
+    manual = fixed.map do |i, c|
+      Corrections.result(pins[i], c[:ring], store_ring: c[:store_ring], validation: options.fetch(:validation, {}))
+    end
+    results = merge(pins.size, [rest, generated], [fixed.keys, manual])
     results.each { |r| [r, *r.candidates].each { |c| c.features = nil } } unless keep_features
     results
   end

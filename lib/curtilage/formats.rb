@@ -26,6 +26,8 @@ module Curtilage
     MAX_BYTES = 50 * 1024 * 1024
     MAX_FIELD_CHARS = 10_000
     MAX_COLUMNS = 1_000
+    # Rings read back from result files: generated ones have at most 200.
+    MAX_RESULT_VERTICES = 1_000
 
     CSV_COLUMNS = %w[id lng lat ok problem method flags errors building building_area_m2 parking_area_m2
                      parking_spaces_estimate frontage_m premises_area_m2 premises_wkt store_wkt attribution
@@ -135,6 +137,66 @@ module Curtilage
       { id: present(id), pin: coords.map { |v| number(v, where) } }
     rescue JSON::ParserError => e
       raise ArgumentError, "#{where} isn't valid JSON: #{e.message[0, 200]}"
+    end
+
+    # Premises read back from a GeoJSON or NDJSON file of results (this
+    # gem's output, edited or not, or any polygons with an id): { id =>
+    # { ring:, store_ring:, properties: } }. A feature's id is its
+    # properties.id or its id; properties.role picks premises (the default)
+    # or store, and other zones are skipped. ring is nil where the file has
+    # no premises. Rings aren't validated here (Corrections and Diff do).
+    def read_results(path, format: nil)
+      format ||= format_of(path)
+      raise ArgumentError, "results are .geojson or .ndjson: #{path}" unless %i[geojson ndjson].include?(format)
+      raise ArgumentError, "#{path} is over #{MAX_BYTES / 1024 / 1024} MB" if File.size(path) > MAX_BYTES
+
+      parse_results(File.read(path, encoding: "bom|utf-8"), format)
+    rescue SystemCallError => e
+      raise ArgumentError, "can't read #{path}: #{e.message}"
+    end
+
+    def parse_results(text, format)
+      text = checked_text(text)
+      features = if format == :ndjson
+                   text.each_line.reject { |l| l.strip.empty? }.map { |l| JSON.parse(l, max_nesting: 30) }
+                 else
+                   doc = JSON.parse(text, max_nesting: 30)
+                   doc.is_a?(Hash) && doc["type"] == "FeatureCollection" ? doc["features"] : [doc]
+                 end
+      raise ArgumentError, "expected GeoJSON Features" unless features.is_a?(Array)
+      raise ArgumentError, "more than #{MAX_PINS * 10} features" if features.size > MAX_PINS * 10
+
+      features.each_with_index.with_object({}) { |(f, i), out| add_result(out, f, "feature #{i + 1}") }
+    rescue JSON::ParserError => e
+      raise ArgumentError, "not valid GeoJSON: #{e.message[0, 200]}"
+    end
+
+    def add_result(out, feature, where)
+      raise ArgumentError, "#{where} isn't a Feature" unless feature.is_a?(Hash) && feature["type"] == "Feature"
+
+      props = feature["properties"].is_a?(Hash) ? feature["properties"] : {}
+      id = present(props["id"] || feature["id"]) or raise ArgumentError, "#{where} has no id"
+      entry = out[id] ||= { ring: nil, store_ring: nil, properties: {} }
+      case props.fetch("role", "premises")
+      when "premises"
+        entry.merge!(ring: polygon_ring(feature["geometry"], where), properties: props)
+        entry[:store_ring] ||= polygon_ring(props["store"], where) if props["store"]
+      when "store" then entry[:store_ring] = polygon_ring(feature["geometry"], where)
+      end
+    end
+
+    def polygon_ring(geometry, where)
+      return nil if geometry.nil?
+      unless geometry.is_a?(Hash) && geometry["type"] == "Polygon" && geometry["coordinates"].is_a?(Array)
+        raise ArgumentError, "#{where} isn't a Polygon"
+      end
+
+      ring = geometry["coordinates"][0]
+      unless ring.is_a?(Array) && ring.size <= MAX_RESULT_VERTICES
+        raise ArgumentError, "#{where} has more than #{MAX_RESULT_VERTICES} vertices"
+      end
+
+      ring
     end
 
     PLACE_COLUMNS = %w[id lng lat name brand category place_confidence place_sources place_licences].freeze

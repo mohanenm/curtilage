@@ -90,6 +90,7 @@ end
 - Just the building at a pin: `Curtilage.building_at(pin)`.
 - No pin list? `curtilage places --region virginia --category pharmacy` (or `--brand`) lists matching places from Overture Maps as pins to generate from (`Curtilage.places` in Ruby). Each row names its sources and licences.
 - Big sites (a big-box store's lot can pass 100,000 m2, where validation stops by default): raise the limits, e.g. `validation: { max_area_m2: 200_000, max_area_error_m2: 300_000 }` ([reference](docs/reference.md#validation-limits)).
+- Fix the few bad sites once: `--corrections fixed.geojson` (your edited output, matched by id) uses your polygons instead of generating them, marked manual. After a data refresh, `curtilage diff last.ndjson new.ndjson` lists only the sites whose premises changed enough to look at again.
 - Check a polygon someone already drew: `Curtilage::Audit.check(pin, ring, features)` returns `:ok`, `:review` (with reasons) or `:invalid`.
 
 ### What each result holds

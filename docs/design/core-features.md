@@ -73,6 +73,13 @@ What the data allows today:
 - **Your own profiles: done.** A profile is a named set of generation options, so nothing new reaches `generate`: `Profiles.load` returns option hashes, checked at load with the same checks as direct options, and the CLI turns `--preset NAME` into a profile when `--profiles` has it. YAML through the standard library's safe loader (no aliases, no objects), so no new dependency.
 - **Named site-type profiles (`drive_through`, `fuel`, `big_box`, `pharmacy`, `grocery`, `urban_storefront`): waiting.** The brief says tune them on the public benchmark only, and its reference polygons aren't drawn yet. Shipping untuned guesses as named presets would look authoritative without being so. Once references exist: one profile per category with enough sites, each judged on aerial imagery and the benchmark, with per-profile results reported.
 
+## 6.9 Human corrections and keeping results stable
+
+- **Corrections** replace generation for their sites (and skip fetching data for them). They're validated like generated polygons; an invalid one is returned, not ok, rather than silently swapped for a generated one, so the person who drew it sees why. A corrected store zone outside the premises is dropped (the store zone must sit inside), with a step. Valid corrections score confidence 1.0: a person checked them. By pin index in Ruby (pins have no ids there), by id on the command line, from GeoJSON or NDJSON: the gem's own output edited in a GIS reads back as is.
+- **`diff`** compares two result files: IoU (premises are convex; a non-convex correction is compared by its outline), areas, ok, flags gained and lost, confidence. Review means: added, removed, premises appeared or vanished, ok changed, a flag gained, or IoU below 0.9. Exit 1 when any site needs review, for scripts.
+- **No separate lock.** The brief asked for a result kept unless the data changed materially. 6.1 already makes unchanged data give byte-identical results; corrections re-applied each run keep the human fixes; `diff` shows the generated sites that changed materially. A lock would add stored state and a definition of "material" for little more.
+- Result files are untrusted input: size capped, rings capped at 1,000 vertices (the shape check is quadratic), ids required.
+
 ## 8.2 A stable CLI contract
 
 (Pulled ahead of Phase 8 because the provenance and NDJSON schema go together.)

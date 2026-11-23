@@ -30,6 +30,8 @@ module Curtilage
     # [score, factors]: the score rounded to 2 places, and every factor as
     # { name:, met:, weight: }.
     def assess(result)
+      return [result.ok? ? 1.0 : 0.0, [{ name: :valid, met: result.ok?, weight: 1.0 }]] if result.method_name == :manual
+
       factors = met(result).map { |name, ok| { name: name, met: ok, weight: FACTORS.fetch(name)[0] } }
       lost = factors.reject { |f| f[:met] }.sum { |f| f[:weight] }
       [[1.0 - lost, 0.0].max.round(2), factors]

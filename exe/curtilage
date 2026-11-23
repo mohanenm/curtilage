@@ -12,6 +12,7 @@ USAGE = <<~TEXT
     curtilage generate (--pin LNG,LAT ... | --in FILE) [--out FILE] [options]
     curtilage preview (--pin LNG,LAT ... | --in FILE) [--out FILE] [options]
     curtilage places (--region NAME | --bbox W,S,E,N) (--category NAME | --brand NAME | --place-id ID ...)
+    curtilage diff OLD NEW [--threshold IOU] [--out FILE]
     curtilage build REGION [options]
     curtilage doctor
 
@@ -23,6 +24,8 @@ USAGE = <<~TEXT
              check by eye (it loads nothing from the internet).
   places     Pins from Overture Maps places (a category or brand in a region),
              to feed generate when you have no pin list.
+  diff       Compare two runs (GeoJSON or NDJSON) site by site, marking
+             sites whose premises changed enough to review again.
   build      Build a region's map data ahead of time (a US state such as
              "tennessee", or a Geofabrik path such as "europe/germany/bayern").
   doctor     Check that DuckDB and its extensions are ready.
@@ -104,25 +107,31 @@ def io_flags(o, opts, command)
        "- reads standard input (NDJSON unless --in-format says otherwise)") do |v|
     opts[:in] = v
   end
+  o.on("--corrections FILE", "Use these polygons for sites with the same id (GeoJSON or NDJSON) " \
+                             "instead of generating them") { |v| opts[:corrections] = v }
   o.on("--in-format NAME", Curtilage::Formats::INPUTS.map(&:to_s),
        "csv, geojson or ndjson (default: from --in's extension)") do |v|
     opts[:in_format] = v.to_sym
   end
-  if command == "preview"
-    o.on("--out FILE", "Where to write the page (default: curtilage-preview.html)") { |v| opts[:out] = v }
-    o.on("--buffer METRES", Float, "Also draw the premises grown by this much (a geofence margin)") do |v|
-      opts[:buffer] = v
-    end
-  else
-    o.on("--out FILE", "Write here instead of printing; the format follows the extension") { |v| opts[:out] = v }
-    o.on("--format NAME", Curtilage::Formats::OUTPUTS.map(&:to_s), "geojson (default), ndjson, csv or kml") do |v|
-      opts[:format] = v.to_sym
-    end
-    o.on("--min-confidence N", Float, "Leave out results with confidence below N (0 to 1)") do |v|
-      raise ArgumentError, "--min-confidence is 0 to 1: #{v}" unless v.between?(0, 1)
+  command == "preview" ? page_flags(o, opts) : output_flags(o, opts)
+end
 
-      opts[:min_confidence] = v
-    end
+def page_flags(o, opts)
+  o.on("--out FILE", "Where to write the page (default: curtilage-preview.html)") { |v| opts[:out] = v }
+  o.on("--buffer METRES", Float, "Also draw the premises grown by this much (a geofence margin)") do |v|
+    opts[:buffer] = v
+  end
+end
+
+def output_flags(o, opts)
+  o.on("--out FILE", "Write here instead of printing; the format follows the extension") { |v| opts[:out] = v }
+  o.on("--format NAME", Curtilage::Formats::OUTPUTS.map(&:to_s), "geojson (default), ndjson, csv or kml") do |v|
+    opts[:format] = v.to_sym
+  end
+  o.on("--min-confidence N", Float, "Leave out results with confidence below N (0 to 1)") do |v|
+    raise ArgumentError, "--min-confidence is 0 to 1: #{v}" unless v.between?(0, 1)
+
+    opts[:min_confidence] = v
   end
 end
 
@@ -156,6 +165,18 @@ def style(opts)
   return style unless profiles.key?(style[:preset])
 
   profiles[style.delete(:preset)].merge(style)
+end
+
+# { pin index => { ring:, store_ring: } } for the sites --corrections has
+# a premises polygon for, matched by id.
+def corrections(opts, ids)
+  return {} unless opts[:corrections]
+
+  found = Curtilage::Formats.read_results(opts[:corrections]).select { |_, c| c[:ring] }
+  index = ids.each_with_index.to_h
+  unmatched = found.keys.reject { |id| index.key?(id) }
+  LOG.puts "warning: #{unmatched.size} correction(s) match no site id, e.g. #{unmatched.first}" if unmatched.any?
+  found.filter_map { |id, c| [index[id], c.slice(:ring, :store_ring)] if index.key?(id) }.to_h
 end
 
 def run(opts, pins, **extra)
@@ -223,16 +244,21 @@ def generate(args)
   format = opts[:format] || Curtilage::Formats.format_of(opts[:out]) || :geojson
   check_out(opts[:out])
   pins, ids = read_sites(opts)
-  results = run(opts, pins)
+  results = run(opts, pins, corrections: corrections(opts, ids))
   kept, ids = confident(results, ids, opts[:min_confidence])
-  text = Curtilage::Formats.write(kept, format, ids: ids, store: opts.fetch(:store_zone, true))
-  if opts[:out]
-    write_out(opts[:out], text)
-    LOG.puts "#{results.count(&:ok?)} of #{results.size} ok; wrote #{opts[:out]}"
+  deliver(Curtilage::Formats.write(kept, format, ids: ids, store: opts.fetch(:store_zone, true)), opts[:out],
+          "#{results.count(&:ok?)} of #{results.size} ok")
+  exit(kept.size == results.size && results.all?(&:ok?) ? 0 : 1)
+end
+
+# Writes text to out, or prints it.
+def deliver(text, out, summary)
+  if out
+    write_out(out, text)
+    LOG.puts "#{summary}; wrote #{out}"
   else
     $stdout.write(text.empty? || text.end_with?("\n") ? text : "#{text}\n")
   end
-  exit(kept.size == results.size && results.all?(&:ok?) ? 0 : 1)
 end
 
 # [results, ids] at or above the minimum confidence (all of them without one).
@@ -249,7 +275,7 @@ def preview(args)
   out = opts[:out] || "curtilage-preview.html"
   check_out(out)
   pins, ids = read_sites(opts)
-  results = run(opts, pins, keep_features: true)
+  results = run(opts, pins, keep_features: true, corrections: corrections(opts, ids))
   write_out(out, Curtilage::Preview.html(results, ids: ids, buffer_m: opts[:buffer]))
   LOG.puts "#{results.count(&:ok?)} of #{results.size} ok; open #{File.expand_path(out)}"
   exit(results.all?(&:ok?) ? 0 : 1)
@@ -294,6 +320,35 @@ def places(args)
   opts[:out] ? write_out(opts[:out], text) : $stdout.write(text)
   LOG.puts "#{found.size} place(s) from Overture Maps; each row names its sources and licences " \
            "(CDLA Permissive 2.0, CC0 or Apache 2.0)"
+end
+
+def diff_options(args)
+  opts = {}
+  parser = OptionParser.new do |o|
+    o.banner = "Usage: curtilage diff OLD NEW [options]"
+    o.on("--threshold IOU", Float, "Review sites whose premises overlap the old less than this " \
+                                   "(default #{Curtilage::Diff::REVIEW_IOU})") { |v| opts[:threshold] = v }
+    o.on("--out FILE", "Write here instead of printing; the format follows the extension") { |v| opts[:out] = v }
+    o.on("--format NAME", %w[csv ndjson], "csv (default) or ndjson") { |v| opts[:format] = v.to_sym }
+    log_flags(o, opts)
+  end
+  parse(parser, args, opts)
+end
+
+def diff(args)
+  opts = diff_options(args)
+  old, new = args.shift(2)
+  raise ArgumentError, "give OLD and NEW result files" unless old && new
+
+  check_out(opts[:out])
+  rows = Curtilage::Diff.compare(Curtilage::Formats.read_results(old), Curtilage::Formats.read_results(new),
+                                 **opts.slice(:threshold))
+  format = opts[:format] || (Curtilage::Formats.format_of(opts[:out]) == :ndjson ? :ndjson : :csv)
+  review = rows.count { |r| r[:review] }
+  summary = "#{rows.size} site(s): #{rows.count { |r| r[:status] == "same" }} same, #{review} to review"
+  deliver(Curtilage::Diff.write(rows, format), opts[:out], summary)
+  LOG.puts summary unless opts[:out]
+  exit(review.zero? ? 0 : 1)
 end
 
 def build_options(args)
@@ -344,7 +399,7 @@ def doctor(args)
   exit(report["ok"] ? 0 : 1)
 end
 
-COMMANDS = %w[generate preview places build doctor].freeze
+COMMANDS = %w[generate preview places diff build doctor].freeze
 
 def exit_code(error)
   case error

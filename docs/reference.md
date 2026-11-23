@@ -26,6 +26,8 @@ Premises for many pins, in pin order. Pins that share map data share the work. E
 | `data:` | `{}` | For builds: `max_age_days:` (31), `ml_footprints:` (`"microsoft"`), `parallel_builds:` (1, at most 8; each build peaks near 600 MB, so raise it to 2-3 only on machines with the memory). An unknown `data:` option raises `ArgumentError`. For `:auto`: `auto_build_min_pins:` (10). For Overture: `release:` (default: the latest; a release name such as `"2026-11-18.0"`). `log:` where build progress goes (anything with `puts`; default standard error). |
 | `preset:` | none | `:whole_lot`, `:tight` or `:centre` (below). |
 | `method:` | none | `:grow_trim` or `:building` to force one method, no fallback. |
+| `corrections:` | `{}` | `{ pin index => ring }` (or `{ ring:, store_ring: }`), 0-based: use these polygons instead of generating ([Corrections](#corrections-and-comparing-runs)). Their pins fetch no data. |
+| `candidates:` | none | 1 to 5: also return other premises for ambiguous sites ([Candidates](#candidates)). |
 | `keep_features:` | `false` | Keep each result's map data in `Result#features` (needed by `Preview` to draw the surroundings). Off by default to save memory on big batches. |
 | any generation option | | See the table below. |
 
@@ -61,7 +63,7 @@ Premises from features you already have (from `Curtilage::Lookup.features` or `C
 | `explanation` | Each step, in plain words. |
 | `steps` | The same steps as records, one per line of `explanation` and in the same order, for tools to show or audit (below). |
 | `validation` | `errors`, `warnings` and `metrics` (area, rectangularity, pin inside, distances). |
-| `method_name` | `:grow_trim`, or `:building` after a fallback. |
+| `method_name` | `:grow_trim`, or `:building` after a fallback; `:manual` for a [correction](#corrections-and-comparing-runs). |
 | `building` | The id of the building used. |
 | `attribution` | What to credit wherever the result is shown: OpenStreetMap, plus Overture, Overture's non-OSM building sources or Microsoft's footprints when the result could use them. `nil` means OpenStreetMap only (`Result::OSM_ATTRIBUTION`). |
 | `pin` | The pin it was made for. |
@@ -174,6 +176,16 @@ All distances in metres, areas in square metres. These are `Curtilage::Generator
 | `off_centre_m` | `200` | Warn (`off_centre`) if the polygon's centre is further than this from the pin. |
 | `swap_far_m`, `swap_near_m` | `10000`, `1000` | Error (`swapped`) when the polygon is further than `swap_far_m` from the pin but within `swap_near_m` of it with longitude and latitude swapped. |
 
+### Corrections and comparing runs
+
+To fix the few bad sites once and trust the rest:
+
+- **Corrections.** `generate_many(pins, corrections: { 3 => ring })`, or `Curtilage::Corrections.result(pin, ring, store_ring: nil)` for one site, returns the polygon you give instead of generating it: `method_name` `:manual`, `provenance` `{ gem_version:, data: { source: "manual" } }`, a `manual` step, validated like any polygon (with the `validation:` limits passed), so an invalid one is returned not `ok?`, saying why. A store zone that isn't a valid ring inside the premises is dropped, with a step. A valid correction has confidence 1.0 (the factors are just `valid`). On the command line, `--corrections FILE` (GeoJSON or NDJSON) matches polygons to sites by id; this gem's own output, edited in a GIS, works as is.
+- **Comparing runs.** `curtilage diff OLD NEW` (or `Curtilage::Diff.compare(old, new, threshold: 0.9)` on two `Formats.read_results`) compares two result files site by site: `status` (`same`, `changed`, `added`, `removed`), IoU of the premises, both areas and the change in percent, `ok` before and after, flags gained and lost, and confidence before and after. A site needs `review` when it was added or removed, gained or lost premises, changed `ok`, gained a flag, or its premises overlap the old ones less than the threshold. It prints CSV (or `--format ndjson`, or `--out FILE`), says how many need review on standard error, and exits 1 when any do.
+- **Keeping results stable.** The same pins, options and data give byte-identical results (see `provenance`), so a rerun only changes sites whose map data changed; re-applying your corrections keeps your fixes, and `diff` against the last run lists the sites worth a look.
+
+`Formats.read_results(path)` reads a GeoJSON or NDJSON result file back as `{ id => { ring:, store_ring:, properties: } }` (premises and store zone; other zones skipped; rings of up to 1,000 vertices; files up to 50 MB).
+
 ### Candidates
 
 When a site is ambiguous, `candidates: N` (1 to 5, on `generate`, `generate_many` or `premises`; `--candidates N` on the command line) also returns up to N other premises in `Result#candidates`, for a reviewer or a downstream system to choose from. The main result is unchanged. Alternatives come from:
@@ -225,6 +237,7 @@ In GeoJSON they're extra features with `properties.role` `approach`, `pickup` an
 | `pickup_zone` | The pickup zone estimated from a parking lot, or none found. | `pickup_m` |
 | `staging_point` | The staging point placed. | |
 | `candidate` | What a candidate is (first step of each `Result#candidates`). | `scope` or `method` for those alternatives |
+| `manual` | The polygon is a correction, not generated. | |
 | `snap_pin` | The pin moved onto the nearest building (flag `pin_moved`). | `snap_m` |
 
 New step names may be added in minor versions; treat an unknown one as a plain note.
@@ -346,6 +359,7 @@ DuckDB's `spatial` and `httpfs` extensions install themselves on first use.
 curtilage generate (--pin LNG,LAT ... | --in FILE|-) [--out FILE] [options]
 curtilage preview (--pin LNG,LAT ... | --in FILE) [--out FILE] [options]
 curtilage places (--region NAME | --bbox W,S,E,N) (--category NAME | --brand NAME | --place-id ID ...)
+curtilage diff OLD NEW [--threshold IOU] [--out FILE]
 curtilage build REGION [options]
 curtilage doctor
 ```
@@ -355,6 +369,7 @@ curtilage doctor
   - Output: printed as GeoJSON, or `--out FILE` in the format its extension names (`.geojson`/`.json`, `.ndjson`/`.jsonl`, `.csv`, `.kml`). `--format geojson|ndjson|csv|kml` overrides. The file is written whole (to a temporary name, then renamed) and replaces any file there; a symbolic link at that path is refused.
   - Data: `--source auto|geofabrik|overture` (default auto), `--cache-dir DIR`, `--catalogue DIR`, `--parquet FILE`.
   - Style: `--preset whole_lot|tight|centre` or a profile name with `--profiles FILE`, `--buildings osm|osm_filled|ml`, `--[no-]store`.
+  - Corrections: `--corrections FILE` uses your polygons for sites with the same id ([Corrections](#corrections-and-comparing-runs)).
   - Ambiguous sites: `--candidates N` (1 to 5) adds up to N other premises ([Candidates](#candidates)).
   - Pins: `--snap [METRES]` (default 30) moves pins that aren't on a building onto the nearest one (`snap_m:`).
   - Zones: `--approach [METRES]` (default 150) and `--pickup [METRES]` (default 25) add the [zones](#zones).
@@ -362,13 +377,14 @@ curtilage doctor
   - `--min-confidence N` (0 to 1) leaves out results whose confidence is below N, and says how many on standard error; the exit code is then 1, as some sites weren't written.
   - Logs: `--quiet` keeps only warnings and errors; `--log-format json` writes each log line as `{"level": "info"|"warning"|"error", "message": "..."}`.
 - `preview`: generates the same way (same options, except `--format`), then writes the page described under [Preview](#preview-curtilagepreview). `--out FILE` (default `curtilage-preview.html`); `--buffer METRES` also draws the premises grown by that much.
+- `diff OLD NEW`: compares two result files ([Comparing runs](#corrections-and-comparing-runs)). `--threshold IOU` (default 0.9), `--out FILE`, `--format csv|ndjson`. Exits 1 when any site needs review.
 - `places (--region NAME | --bbox W,S,E,N) (--category NAME | --brand NAME | --place-id ID ...)`: pins from Overture Maps places (`Curtilage.places`), as CSV (default), NDJSON or GeoJSON, printed or `--out FILE`. Also `--min-confidence N`, `--release NAME`, the DuckDB and log flags. Its output feeds `generate --in` directly: `curtilage places --region delaware --category pharmacy | curtilage generate --in - --in-format csv`.
 - `build REGION` writes `REGION.parquet` and `REGION.json`. REGION is a US state (`tennessee`, `new-york`) or a Geofabrik path (`europe/germany/bayern`). Options: `--out DIR` (default `.`), `--work DIR` (default: a private temporary folder, removed afterwards), `--date YYMMDD`, `--keep-downloads`, `--ml-footprints microsoft`, `--duckdb`, `--extension-directory`.
 - `doctor` checks everything the gem needs outside Ruby, with a fix for each problem: the DuckDB binary (its path and version; a warning, not a failure, outside the tested 1.4 LTS and 2.0), its `spatial` and `httpfs` extensions (with versions), and the cache folder's permissions when one is configured. `--verify DIR` also checks every built file in a catalogue or cache folder against the SHA256 its build recorded; `--network` checks that Geofabrik and Overture's catalogue answer (no locations are sent); `--json` prints the report for scripts. It exits 0 when ready, 1 if not. It prints the DuckDB version and the path of the binary that runs: `CURTILAGE_DUCKDB` runs whatever it names, so it's trusted configuration.
 
 Run `curtilage COMMAND --help` for the same list.
 
-Standard output carries only results (`generate` without `--out`, and the file path `build` wrote); progress, summaries, warnings and errors go to standard error, so output can be piped. Exit codes, for `generate`, `preview`, `places` and `build`:
+Standard output carries only results (`generate` without `--out`, and the file path `build` wrote); progress, summaries, warnings and errors go to standard error, so output can be piped. Exit codes, for `generate`, `preview`, `places`, `diff` and `build` (`diff` uses 1 for "some sites need review"):
 
 | Code | Meaning |
 |---|---|
