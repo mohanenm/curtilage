@@ -4,6 +4,7 @@
 
 ### Added
 
+- A gallery of the public benchmark sites (`docs/gallery/index.html`, `rake benchmark:gallery`): each site's premises, zones, flags and steps, with what its labels say it got wrong. `Preview.html` takes `notes:`, a line of text per site.
 - `curtilage missing-buildings`: sites where OpenStreetMap has no building near the pin, as GeoJSON points for mappers (`--maproulette` for MapRoulette's line-by-line format). Uses OSM buildings only; site ids only with `--with-ids`. `Curtilage::MissingBuildings` in Ruby.
 - H3 cells: `--h3 RES` / `Curtilage::H3.cover(results, res)` lists the cells each premises touches, in every output, through DuckDB's community `h3` extension (opt-in; installed only when used; published for DuckDB 1.4 LTS at the time of writing).
 - `Curtilage.point_in_premises?(ring, point)`: the geofence check on a stored ring.

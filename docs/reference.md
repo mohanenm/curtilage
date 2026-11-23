@@ -339,7 +339,7 @@ GeoParquet (`.parquet`, GeoParquet 1.0 metadata), GeoPackage (`.gpkg`) and FlatG
 
 ### Preview: `Curtilage::Preview`
 
-`Preview.html(results, ids: nil, title: "curtilage preview", buffer_m: nil)` returns a self-contained HTML page with a card per result:
+`Preview.html(results, ids: nil, title: "curtilage preview", buffer_m: nil, notes: nil)` returns a self-contained HTML page with a card per result (`notes:`: one line of text per result, or nil, shown under its heading):
 
 - A map 240 m across, north up, with a 50 m scale bar: the premises, store zone and pin; the site's building (darker) and other buildings, mapped parking, public roads (hover for the name), service roads and driveways, railways; driveway entrances (blue dots); with `buffer_m:`, the premises grown by that much (dashed).
 - Under it: the flags (hover for their meaning), the building and premises areas, parking area and estimated spaces, street frontage, the number of entrances, and the step-by-step explanation. Invalid results say why.

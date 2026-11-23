@@ -53,6 +53,16 @@ class BenchmarkLabelsTest < Minitest::Test
     assert_equal [0, 0], score.values_at("caught", "included")
   end
 
+  def test_gallery_says_what_failed_and_loads_nothing
+    site = { "id" => "made-up", "category" => "standalone", "notes" => "A made-up site.", "pin" => PIN }
+    html = Dir.mktmpdir { |dir| B.gallery([site], { "made-up" => scene }, dir, VIEW, {}) }
+    note = B.gallery_note(site, Curtilage.generate(PIN, scene), labels, VIEW)
+
+    assert_includes html, "standalone: A made-up site. Not labelled yet."
+    refute_match(%r{https?://|(src|href)=}, html)
+    assert_match(/caught \d of 3 .* took in \d of 3 .* Failed: missed entrance/, note)
+  end
+
   def test_stats_average_per_site_and_changes_are_paired
     good = B.score_labels(VIEW, square, labels, PIN)
     none = B.score_labels(VIEW, nil, labels, PIN)

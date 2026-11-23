@@ -197,6 +197,8 @@ PostGIS, geofences on your own server, circles for mobile geofences, geofence pl
 
 Under each map: the flags (hover for what they mean), the building and premises areas, parking and an estimate of spaces, street frontage, the number of entrances, and "How it was made", the step-by-step explanation. Invalid results say why.
 
+For examples, [docs/gallery/index.html](docs/gallery/index.html) is this page for every public benchmark site (download it and open it in a browser), with each site's category and what its labels say it got wrong, failures included. It is rebuilt with `rake benchmark:gallery`.
+
 At the top, a count of sites that are ok, flagged or unusable, and controls to show only some (sites that need a look, invalid ones, or those with a given flag) and to sort them (input order, needs a look first, lowest confidence first, id, or premises size).
 
 ![The preview page: two of six randomly chosen sites, each drawn with its premises, store zone, parking, roads and driveway entrances](https://raw.githubusercontent.com/mohanenm/curtilage/main/docs/preview.png)

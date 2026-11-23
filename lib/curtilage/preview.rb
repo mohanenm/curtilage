@@ -24,11 +24,13 @@ module Curtilage
 
     # ids: one label per result (default 1, 2, ...). buffer_m: also draw the
     # premises grown by this many metres (Result#buffered), e.g. a geofence
-    # margin. Results without features (generate_many without
+    # margin. notes: one line of text per result (or nil), shown under its
+    # heading. Results without features (generate_many without
     # keep_features: true) show only the premises, store zone and entrances.
-    def html(results, ids: nil, title: "curtilage preview", buffer_m: nil)
+    def html(results, ids: nil, title: "curtilage preview", buffer_m: nil, notes: nil)
       ids ||= (1..results.size).map(&:to_s)
-      cards = results.zip(ids).each_with_index.map { |(result, id), i| card(result, id, i, buffer_m) }
+      notes ||= []
+      cards = results.zip(ids).each_with_index.map { |(result, id), i| card(result, id, i, buffer_m, notes[i]) }
       credits = results.flat_map { |r| r.attribution || Result::OSM_ATTRIBUTION }.uniq
       zones = %w[approach pickup].select { |z| results.any? { |r| r.public_send("#{z}_ring") } }
       zones << "candidate" if results.any? { |r| r.candidates&.any? }
@@ -75,11 +77,12 @@ module Curtilage
         "#{states.fetch("invalid", 0)} without usable premises"
     end
 
-    def card(result, id, index, buffer_m)
+    def card(result, id, index, buffer_m, note = nil)
       status = result.ok? ? "" : %(<span class="bad">#{h(result.problem)}</span>)
       notes = result.explanation.map { |n| "<li>#{h(n)}</li>" }.join
+      note = note ? %(<p class="facts">#{h(note)}</p>) : ""
       <<~HTML
-        <section #{card_data(result, id, index)}><h2>#{h(id)} #{status}</h2>
+        <section #{card_data(result, id, index)}><h2>#{h(id)} #{status}</h2>#{note}
         <svg viewBox="#{-VIEW_M} #{-VIEW_M} #{VIEW_M * 2} #{VIEW_M * 2}" role="img" aria-label="site #{h(id)}">#{shapes(result, buffer_m).join}</svg>
         <p>#{flag_tags(result.flags)}</p>#{facts(result)}<details><summary>How it was made</summary><ol>#{notes}</ol></details></section>
       HTML

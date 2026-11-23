@@ -7,6 +7,7 @@ require "time"
 require "curtilage"
 require_relative "labels"
 require_relative "label_page"
+require_relative "gallery"
 
 # The public benchmark (not part of the gem): runs curtilage on the sites in
 # benchmark/sites.geojson against a pinned Overture release, scores each
