@@ -20,7 +20,7 @@ curtilage is pre-1.0: fixes go into the latest release only. Upgrade to get them
 
 In scope:
 
-- The gem's code and the `curtilage` command, including how it runs external programs (the DuckDB CLI, `curl`, `unzip`) and builds the SQL it gives DuckDB.
+- The gem's code and the `curtilage` command, including how it runs external programs (the DuckDB CLI, and `curl` when installed) and builds the SQL it gives DuckDB.
 - Downloads of map data (Geofabrik, Overture's catalogue, opt-in Microsoft footprints): host allow-list, size caps, archive handling, the cache folder.
 - Parsing untrusted input: pin files and map data.
 - Outputs: the HTML preview, CSV, KML, GeoJSON and files written with `--out`.

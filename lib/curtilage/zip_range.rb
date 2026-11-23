@@ -72,10 +72,28 @@ module Curtilage
       raise Corrupt, "#{entry.name} would inflate #{ratio} times"
     end
 
-    # Applies the same checks to a zip already on disk, before something
-    # else (unzip) extracts it.
+    # Applies the same checks to a zip already on disk.
     def check_local(zip, patterns, max_bytes:)
       choose(local_entries(zip), patterns, max_bytes)
+    end
+
+    # Extracts the matching members of a zip on disk into dir, with the same
+    # checks and CRCs as a range download: no unzip needed. Returns the paths.
+    def extract_local(zip, patterns, dir, max_bytes:)
+      chosen = check_local(zip, patterns, max_bytes: max_bytes)
+      FileUtils.mkdir_p(dir)
+      File.open(zip, "rb") do |file|
+        runs(chosen).flat_map do |run|
+          reader = RunReader.new(run, dir)
+          file.seek(run.first.offset)
+          left = run.last.data_end - run.first.offset
+          while left.positive? && (chunk = file.read([left, 1 << 20].min))
+            reader << chunk
+            left -= chunk.bytesize
+          end
+          reader.finish
+        end
+      end
     end
 
     def local_entries(zip)

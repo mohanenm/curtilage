@@ -110,4 +110,19 @@ class ZipRangeTest < Minitest::Test
       assert_raises(Z::Unsupported) { Z.check_local(path, ["gis_osm_roads_free_*"], max_bytes: 10) }
     end
   end
+
+  def test_a_zip_on_disk_extracts_without_unzip
+    Dir.mktmpdir do |dir|
+      path = File.join(dir, "region.shp.zip")
+      File.binwrite(path, zip_bytes)
+      out = File.join(dir, "layers")
+      paths = Z.extract_local(path, ["gis_osm_roads_free_*"], out, max_bytes: 10**9)
+
+      assert_equal 2, paths.size
+      assert_equal MEMBERS["a/gis_osm_roads_free_1.shp"], File.read(File.join(out, "gis_osm_roads_free_1.shp"))
+      refute_path_exists File.join(out, "gis_osm_water_free_1.shp")
+      File.binwrite(path, zip_bytes(corrupt: true))
+      assert_raises(Z::Corrupt) { Z.extract_local(path, ["gis_osm_roads_free_*"], File.join(dir, "bad"), max_bytes: 10**9) }
+    end
+  end
 end

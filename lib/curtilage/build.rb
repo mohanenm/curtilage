@@ -4,14 +4,13 @@ require "date"
 require "digest"
 require "fileutils"
 require "json"
-require "open3"
 require "time"
 
 module Curtilage
   # Builds a region's features Parquet from Geofabrik's free shapefiles:
   # find the newest dated extract, download only the layers used (range
-  # requests, CRC-checked; the whole zip plus unzip only if the server can't
-  # do ranges), and run sql/build_from_shapefiles.sql with the DuckDB CLI.
+  # requests, CRC-checked; the whole zip, read the same way, only if the
+  # server can't do ranges), and run sql/build_from_shapefiles.sql with the DuckDB CLI.
   # Optionally adds machine-learned building footprints (see Footprints).
   #
   # Network access is limited to Geofabrik (and the footprint host when asked
@@ -120,9 +119,7 @@ module Curtilage
         log.puts "downloading https://#{HOST}#{url_path(part, date)}"
         Download.fetch(HOST, url_path(part, date), zip, max_bytes: MAX_DOWNLOAD_BYTES)
       end
-      check_zip(zip)
-      ZipRange.check_local(zip, LAYER_PATTERNS, max_bytes: MAX_DOWNLOAD_BYTES)
-      unzip_layers(zip, dir)
+      extract_zip(zip, dir)
       [dir, date]
     end
 
@@ -148,27 +145,15 @@ module Curtilage
                    "(large regions are only offered as sub-regions)"
     end
 
-    # Geofabrik publishes no checksum for shapefiles; the zip's CRCs catch a
-    # truncated or corrupt download.
-    def check_zip(zip)
-      _, err, status = unzip("-tq", zip)
-      return if status.success?
-
+    # The layers from a zip downloaded whole, read by the gem itself (no
+    # unzip): names, sizes and each member's CRC are checked, which catches
+    # a truncated or corrupt download. A bad zip is deleted.
+    def extract_zip(zip, dir)
+      ZipRange.extract_local(zip, LAYER_PATTERNS, dir, max_bytes: MAX_DOWNLOAD_BYTES)
+    rescue ZipRange::Corrupt, ZipRange::Unsupported => e
       File.delete(zip)
-      raise Error, "corrupt download #{File.basename(zip)} (deleted): #{err.strip[0, 200]}"
-    end
-
-    def unzip(*)
-      Open3.capture3("unzip", *)
-    rescue Errno::ENOENT
-      raise Error, "unzip not found: it's needed when a server can't serve byte ranges"
-    end
-
-    def unzip_layers(zip, dir)
-      FileUtils.mkdir_p(dir)
-      # -j: junk any folders in member names, so files land only in dir.
-      _, err, status = unzip("-joq", zip, *LAYER_PATTERNS, "-d", dir)
-      raise Error, "unzip failed: #{err.strip[0, 200]}" unless status.success?
+      FileUtils.rm_rf(dir)
+      raise Error, "corrupt download #{File.basename(zip)} (deleted): #{e.message}"
     end
 
     # [footprint tiles covering the region's extent, that extent], or [[],
