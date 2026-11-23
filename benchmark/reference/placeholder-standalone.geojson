@@ -1,0 +1,35 @@
+{
+  "type": "Feature",
+  "geometry": {
+    "type": "Polygon",
+    "coordinates": [
+      [
+        [
+          -80.0004,
+          34.9996
+        ],
+        [
+          -79.9996,
+          34.9996
+        ],
+        [
+          -79.9996,
+          35.0004
+        ],
+        [
+          -80.0004,
+          35.0004
+        ],
+        [
+          -80.0004,
+          34.9996
+        ]
+      ]
+    ]
+  },
+  "properties": {
+    "id": "placeholder-standalone",
+    "placeholder": true,
+    "note": "PLACEHOLDER: a square around a made-up pin, not a hand-drawn reference. Replace it with a real one."
+  }
+}
