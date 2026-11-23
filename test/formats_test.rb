@@ -66,6 +66,7 @@ class FormatsTest < Minitest::Test
     assert_match(/\APOLYGON/, rows[1][F::CSV_COLUMNS.index("premises_wkt")])
     assert_equal "false", rows[2][3]
     assert_equal "-80.0", rows[1][1]
+    assert_equal "© OpenStreetMap contributors", rows[1][F::CSV_COLUMNS.index("attribution")]
   end
 
   def test_kml_output
@@ -75,7 +76,16 @@ class FormatsTest < Minitest::Test
     assert_includes kml, "<name>&lt;a&gt; store</name>"
     refute_includes kml, "<name>b premises</name>"
     assert_equal 2, kml.scan("<Polygon>").size
-    assert_includes kml, "© OpenStreetMap contributors"
+    assert_includes kml, "<description>Map data: © OpenStreetMap contributors</description>"
+  end
+
+  def test_every_output_credits_each_source
+    credited = Curtilage.generate(PIN, scene).tap { |r| r.attribution = ["© OpenStreetMap contributors", "<Odd> & Co"] }
+
+    assert_includes F.write([credited], :csv), "© OpenStreetMap contributors; <Odd> & Co"
+    assert_includes F.write([credited], :kml), "Map data: © OpenStreetMap contributors; &lt;Odd&gt; &amp; Co"
+    assert_includes F.write([credited], :geojson), "<Odd> & Co"
+    assert_includes Curtilage::Preview.html([credited]), "&lt;Odd&gt; &amp; Co"
   end
 
   def test_format_of

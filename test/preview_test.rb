@@ -79,7 +79,7 @@ class PreviewTest < Minitest::Test
 
       assert_equal 1, status.exitstatus # nothing usable: no map data
       assert_includes err, "0 of 1 ok"
-      rows = Curtilage::Formats.parse_csv(File.read(File.join(dir, "out.csv")))
+      rows = Curtilage::Formats.parse_csv(File.read(File.join(dir, "out.csv"), encoding: "utf-8"))
 
       assert_equal %w[shop-1 false], rows[1].values_at(0, 3)
       out, = run.call("generate", "--format", "kml")
