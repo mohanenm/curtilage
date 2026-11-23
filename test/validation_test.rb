@@ -57,4 +57,25 @@ class ValidationTest < Minitest::Test
   def test_thresholds_can_be_overridden
     assert_empty check(rectangle(20, 20), min_area_m2: 100).warnings
   end
+
+  def test_pins_are_two_finite_decimal_numbers_in_range
+    assert_equal [-80.0, 35.0], Curtilage::Validation.pin([-80, 35])
+    assert_equal [-80.25, 35.0], Curtilage::Validation.pin([" -80.25 ", "35"])
+    assert_equal [-0.0, 1.0e-3], Curtilage::Validation.pin(["-0.0", "1e-3"])
+    [%w[0x1A 35], %w[1_0 35], %w[1e400 35], %w[NaN 35], %w[Infinity 35], [Float::NAN, 35],
+     [Float::INFINITY, 35], [nil, 35], ["", "35"], [-80.0], nil, "-80,35", [-181, 35], [-80, 91], %W[\uFF10 35]]
+      .each { |pin| assert_raises(ArgumentError, pin.inspect) { Curtilage::Validation.pin(pin) } }
+  end
+
+  def test_every_entry_point_checks_the_pin
+    assert_raises(ArgumentError) { Curtilage.generate([Float::NAN, 35.0], []) }
+    assert_raises(ArgumentError) { Curtilage::Lookup.checked(%w[0x1A 35]) }
+    assert_raises(ArgumentError) { Curtilage::Formats.parse_pins("lng,lat\n0x1A,35\n", :csv) }
+    assert_raises(ArgumentError) { Curtilage::Formats.parse_pins("lng,lat\n1e400,35\n", :csv) }
+    assert_raises(ArgumentError) { Curtilage::Formats.parse_pins("lng,lat\n-80,95\n", :csv) }
+    point = '{"type":"Feature","geometry":{"type":"Point","coordinates":["1_0",35]}}'
+    assert_raises(ArgumentError) { Curtilage::Formats.parse_pins(point, :geojson) }
+    assert_raises(ArgumentError) { Curtilage::Formats.pin_from_text("-80,35,1") }
+    assert_equal [-80.0, 35.0], Curtilage::Formats.pin_from_text(" -80 , 35 ")
+  end
 end

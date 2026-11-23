@@ -56,6 +56,11 @@ class PreviewTest < Minitest::Test
 
       refute_predicate status, :success?
       assert_includes err, "x: a pin is LNG,LAT"
+      _, err, status = Open3.capture3("ruby", "-I", lib, exe, "generate", "--pin", "0x1A,35")
+      assert_includes err, "isn't a number"
+      refute status.success?
+      refute_includes err, ".rb:" # a message, not a stack trace
+
       _, err, = Open3.capture3("ruby", "-I", lib, exe, "generate", "--in", File.join(dir, "missing.csv"))
 
       assert_includes err, "No such file"

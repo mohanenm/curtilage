@@ -58,7 +58,10 @@ module Curtilage
               end
       raise ArgumentError, "more than #{MAX_PINS} pins" if sites.size > MAX_PINS
 
-      sites.each.with_index(1) { |site, i| site[:id] ||= i.to_s }
+      sites.each.with_index(1) do |site, i|
+        site[:id] ||= i.to_s
+        raise ArgumentError, "#{site[:id]}: a pin is LNG,LAT (longitude first)" unless pin?(site[:pin])
+      end
     end
 
     def csv_pins(text)
@@ -209,9 +212,17 @@ module Curtilage
     end
 
     def number(value, where)
-      Float(value.to_s.strip)
+      Validation.coordinate(value, [value])
     rescue ArgumentError
       raise ArgumentError, "#{where}: #{value.inspect} isn't a number"
+    end
+
+    # A pin from "LNG,LAT" text (the command line's --pin).
+    def pin_from_text(text, where = "--pin #{text}")
+      parts = text.to_s.split(",")
+      raise ArgumentError, "#{where}: a pin is LNG,LAT" unless parts.size == 2
+
+      parts.map { |v| number(v, where) }
     end
   end
 end

@@ -109,17 +109,7 @@ module Curtilage
       "#{scans.join(" UNION ALL ")};"
     end
 
-    def checked(pin)
-      raise ArgumentError, "a pin is [lng, lat]: #{pin.inspect}" unless pin.is_a?(Array) && pin.size >= 2
-
-      lng = Float(pin[0])
-      lat = Float(pin[1])
-      raise ArgumentError, "pin out of range: #{pin.inspect}" unless lng.abs <= 180 && lat.abs <= 90
-
-      [lng, lat]
-    rescue TypeError
-      raise ArgumentError, "a pin is two numbers: #{pin.inspect}"
-    end
+    def checked(pin) = Validation.pin(pin)
 
     def quote(text) = DuckDB.quote(text)
   end

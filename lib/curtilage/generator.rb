@@ -123,6 +123,7 @@ module Curtilage
     def generate(method, pin, features, **options)
       raise ArgumentError, "unknown method #{method.inspect}" unless METHODS.include?(method)
 
+      pin = Validation.pin(pin)
       opts = checked_options(options)
       features = Features.new(pin, features) unless features.is_a?(Features)
       features = choose_buildings(features, opts[:buildings])

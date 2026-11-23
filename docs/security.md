@@ -40,7 +40,8 @@ What curtilage trusts, what it doesn't, who might attack it, and how each attack
 
 ## Defences in the code
 
-- **SQL**: text values go through `DuckDB.quote`; numbers through `Float()`/`Integer()`; pins through `Lookup.checked`.
+- **Pins**: every entry point goes through `Validation.pin`: two finite plain decimal numbers, in range.
+- **SQL**: text values go through `DuckDB.quote`; numbers through `Float()`/`Integer()`; pins through `Validation.pin`.
 - **Commands**: every external program (DuckDB, `curl`, `unzip`, `git` in the benchmark) runs through `Open3`, `system` or `IO.popen` with an argument list, never a shell string.
 - **Downloads** (`Download`): only `ALLOWED_HOSTS`; HTTPS only (`curl --proto =https`); no redirects followed; size capped while streaming; written to a `.part` file and renamed only when complete; transient failures retried three times.
 - **Zip extraction** (`ZipRange`): only plain file names (no folders, so nothing can be written outside the target, and no symlinks are created); at most 1,000 entries; compressed size capped; inflated size must match the header; CRC-32 checked.
@@ -52,7 +53,6 @@ What curtilage trusts, what it doesn't, who might attack it, and how each attack
 
 Being worked on; this list shrinks as they're fixed.
 
-- Pin strings: hexadecimal (`0x1A`) and underscores (`1_0`) are accepted as numbers, and `Curtilage.generate` doesn't check its pin.
 - Pin files: field length isn't capped, and NUL bytes and invalid UTF-8 aren't rejected up front.
 - Numeric options aren't range-checked (a negative distance or a huge radius is accepted).
 - DuckDB runs have no timeout, and lookups no memory cap; DuckDB's output is read in full before its size is checked. A failed query's error message can quote the query, including the box around a pin.

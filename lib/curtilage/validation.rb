@@ -25,7 +25,34 @@ module Curtilage
       swap_near_m: 1_000,
     }.freeze
 
+    # A number written as text: plain decimal, optionally with an exponent.
+    # Ruby's Float() also takes hex ("0x1A") and underscores ("1_0"), which
+    # in a pin list are mistakes, not numbers.
+    DECIMAL = /\A[+-]?(?:\d+(?:\.\d*)?|\.\d+)(?:[eE][+-]?\d+)?\z/
+
     module_function
+
+    # The pin as [lng, lat] floats, or ArgumentError: two finite numbers (or
+    # decimal strings), longitude within 180 and latitude within 90. Every
+    # entry point checks pins through here.
+    def pin(pin)
+      raise ArgumentError, "a pin is [lng, lat]: #{pin.inspect}" unless pin.is_a?(Array) && pin.size >= 2
+
+      lng, lat = pin.first(2).map { |v| coordinate(v, pin) }
+      raise ArgumentError, "pin out of range (longitude first): #{pin.inspect}" unless lng.abs <= 180 && lat.abs <= 90
+
+      [lng, lat]
+    end
+
+    def coordinate(value, pin)
+      number = case value
+               when Numeric then value.to_f
+               when String then value.strip.match?(DECIMAL) ? Float(value.strip) : nil
+               end
+      raise ArgumentError, "a pin is two numbers: #{pin.inspect}" unless number&.finite?
+
+      number
+    end
 
     # pin: [lng, lat]. ring: [[lng, lat], ...], closed or not.
     def check(pin, ring, **options)
