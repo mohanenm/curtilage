@@ -2,6 +2,8 @@
 
 ## [Unreleased]
 
+## [0.4.0] - 2026-11-23
+
 ### Breaking
 
 - Command-line exit codes: bad input and usage errors exit 2 (they exited 1, which now only means some sites failed), a missing DuckDB exits 3 and unavailable map data 4. `preview` exits 1 when some sites have no usable premises (it always exited 0), and prints its summary to standard error instead of standard output.
@@ -22,6 +24,7 @@
 - Corrections: `corrections:` (`--corrections FILE`, matched by id; the gem's own output, edited, works) uses your polygons instead of generating, validated and marked manual (`method_name: :manual`, data source `manual`). `Formats.read_results` reads result files back.
 - `curtilage diff OLD NEW` (`Curtilage::Diff`): compares two runs site by site (IoU, area change, ok, flags gained and lost, confidence) and marks sites that changed beyond a threshold for review, exiting 1 when any need it.
 - Big batches from the command line: `curtilage generate` works in chunks of 500 sites, shows progress with an ETA on a terminal (`--progress` to force it), streams NDJSON and CSV so memory stays flat, and `--resume` carries on an interrupted run from where it stopped. Without `--cache-dir`, a region a run builds is shared by every chunk.
+- The public benchmark has hand-drawn references for its ten sites (traced on public-domain USGS imagery) and a committed baseline (`benchmark/baseline.json`).
 - A `precision:` option sets the decimal places of output coordinates (default 7, as before).
 - `curtilage doctor` checks everything the gem needs outside Ruby with a fix for each problem (DuckDB version, with a warning outside the tested 1.4 and 2.0; extensions; the cache folder), and takes `--network` (are the map-data hosts reachable) and `--json`; it exits 1 when something's missing.
 - A `validation:` option raises or lowers the validation limits for generated polygons (e.g. `{ max_area_error_m2: 300_000 }` for a big-box store's lot, which could only ever get the fallback before). The limits are documented in the reference.

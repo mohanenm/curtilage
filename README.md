@@ -1,10 +1,12 @@
 # curtilage
 
+[![Gem Version](https://badge.fury.io/rb/curtilage.svg)](https://badge.fury.io/rb/curtilage)
+
 *Curtilage: the land immediately around a building, such as its yard, drive and lot.*
 
 Generates a site's **premises polygon** (the building plus its customer-facing lot) and a **store zone** (the building's own outline) from free map data, so nobody has to draw them by hand.
 
-**Status:** 0.3, rule-based; the API may change before 1.0. How it's been checked so far, on private sets of real sites that can't be published:
+**Status:** 0.4, rule-based; the API may change before 1.0. On the [public benchmark](benchmark/README.md) (ten public sites in Delaware, with references drawn to the whole customer-facing lot), all ten get a valid polygon and the median overlap (IoU) is 0.30: the premises mostly fall short of the whole lot, which the next round of rule changes targets. Anyone can rerun it (`rake benchmark`). On private sets of real sites that can't be published:
 
 - On 164 sites the rules had never seen, 159 (97%) got a polygon that passed the gem's own validation (pin inside, closed, no self-intersection, plausible size). Nearly all five misses were buildings missing from OpenStreetMap. Passing validation means usable, not necessarily right.
 - Against hand-drawn premises for those sites, the median overlap (IoU) was 0.47. Hand-drawn polygons often hug the building more tightly than the whole lot this gem aims for, so IoU undersells generous but correct results.
@@ -185,7 +187,9 @@ Rules on open map data go a long way, but some sites need a person. These are th
 - **Sites spread over several buildings** (compounds, campuses). The premises cover the building at the pin only, so they come out too small.
 - **Dense rowhouse blocks.** Cuts toward many close neighbours can leave a thin sliver.
 - **`near_houses` is noisy in dense urban areas,** where almost every site borders homes. It's more meaningful in suburbs.
-- **The polygon is always convex,** so entrance notches and L-shaped lots are approximated.
+- **The polygon is always convex.** Entrance notches are approximated, and an L-shaped site (a building plus a lot to one side) gets a diagonal edge that can cross a neighbour's parking or clip its buildings.
+- **Lots reaching more than 60 m from the building** (deep lots, big parking fields) are cut short (`parking_max_extent_m`), and entrances beyond the claimed lot aren't taken in unless a mapped driveway leads to them.
+- **Shopping centres.** A shared lot is split by nearest building, which is crude; internal streets mapped as service roads don't bound the lot; and a building at an angle to its car park gets an oversized rectangle that can spill into neighbouring lots. Ring roads tagged `unclassified` can cut a store off from its own car park. Check results flagged `store_may_be_unit` or on shared lots, or try `scope: :centre` or `candidates: 3`.
 - **Sites within about 100 m of the antimeridian** (180° longitude: parts of Fiji, Chukotka, the Aleutians) get no polygon: premises can't cross that line, so validation refuses them.
 
 ## Building footprints: OSM, or OSM plus machine-learned
