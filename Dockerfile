@@ -28,7 +28,7 @@ COPY curtilage.gemspec README.md CHANGELOG.md LICENSE.txt SECURITY.md ./
 COPY lib lib
 COPY sql sql
 COPY exe exe
-COPY docs docs
+COPY docs/reference.md docs/security.md docs/
 RUN gem build curtilage.gemspec \
  && gem install --no-document curtilage-*.gem \
  && rm -rf /src

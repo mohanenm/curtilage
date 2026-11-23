@@ -7,7 +7,7 @@ require_relative "test_helper"
 class PackagingTest < Minitest::Test
   ROOT = File.expand_path("..", __dir__)
   SHIPPED = [%r{\Alib/.+\.rb\z}, %r{\Asql/[^/]+\.sql\z}, %r{\Aexe/[^/]+\z},
-             %r{\A(docs/reference|README|CHANGELOG|SECURITY)\.md\z}, /\ALICENSE\.txt\z/].freeze
+             %r{\A(docs/reference|docs/security|README|CHANGELOG|SECURITY)\.md\z}, /\ALICENSE\.txt\z/].freeze
 
   def files
     Dir.chdir(ROOT) { Gem::Specification.load("curtilage.gemspec").files }
@@ -20,7 +20,8 @@ class PackagingTest < Minitest::Test
   end
 
   def test_the_essentials_ship
-    %w[lib/curtilage.rb exe/curtilage sql/build_from_shapefiles.sql docs/reference.md LICENSE.txt].each do |f|
+    %w[lib/curtilage.rb exe/curtilage sql/build_from_shapefiles.sql docs/reference.md docs/security.md
+       LICENSE.txt].each do |f|
       assert_includes files, f
     end
   end

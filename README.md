@@ -255,4 +255,4 @@ The gem itself is plain Ruby with no runtime gem dependencies. Getting data need
 - The code is MIT-licensed (see `LICENSE.txt`); results keep the map data's licence ([Data licence](#data-licence)).
 - Downloaded files and built Parquet files are OSM-derived data. They're never committed to this repository (see `.gitignore`).
 - This repository must never contain real site locations, private data or credentials. Tests and examples use made-up coordinates.
-- Security issues: see `SECURITY.md` (report privately through GitHub).
+- Security issues: see `SECURITY.md` (report privately through GitHub); the threat model is in [docs/security.md](docs/security.md).
