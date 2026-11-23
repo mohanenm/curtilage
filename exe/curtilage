@@ -169,11 +169,27 @@ end
 
 def doctor(args)
   opts = {}
-  OptionParser.new { |o| duckdb_flags(o, opts) }.parse!(args)
-  settings = Curtilage.duckdb_options(opts)
+  OptionParser.new do |o|
+    o.on("--verify DIR", "Check each built file in DIR (catalogue or cache folder) against its recorded SHA256") do |v|
+      opts[:verify] = v
+    end
+    duckdb_flags(o, opts)
+  end.parse!(args)
+  settings = Curtilage.duckdb_options(opts.except(:verify))
   check_duckdb(settings)
   check_extensions(settings)
+  verify(opts[:verify]) if opts[:verify]
   puts "Ready."
+end
+
+def verify(dir)
+  catalogue = Curtilage::Catalogue.from_dir(dir)
+  problems = catalogue.verify
+  problems.each { |p| warn "  #{p}" }
+  abort "#{problems.size} built file(s) in #{dir} don't match their metadata: rebuild them" unless problems.empty?
+  puts "Built files: #{catalogue.regions.size} region(s) in #{dir} match their metadata"
+rescue Curtilage::Error => e
+  abort e.message
 end
 
 def check_duckdb(settings)

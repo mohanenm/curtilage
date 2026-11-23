@@ -22,6 +22,7 @@
 - Fuzz tests for the CSV and GeoJSON readers, map-data parsing, geometry on degenerate input, validation, and generation near the poles and the antimeridian (`FUZZ_ITERATIONS` for longer runs). They found no crash; sites on the antimeridian get no polygon (now a known limitation).
 - Zip extraction caps what the layers may inflate to (20 GB in all, 200 times per member), and a whole zip downloaded when a server can't serve ranges gets the same name and size checks before `unzip`, which now drops folder paths.
 - Builds record the size and SHA256 of every file they download in the region's metadata, and warn when a rebuild finds Geofabrik's file for the same date has changed.
+- The cache folder is created readable only by you, and one that another user owns or everyone can write to is refused. Builds record their Parquet file's size and SHA256; a cached file that's missing or the wrong size is rebuilt (caches built by earlier versions rebuild once), and `curtilage doctor --verify DIR` checks every file's hash.
 - Text placed into DuckDB SQL (paths, bucket URLs, folders) may not contain line breaks or NUL bytes, `memory_limit` must look like `"400MB"`, and `threads` must be 1 to 64. Tests push crafted values through every path into SQL.
 
 ### Fixed

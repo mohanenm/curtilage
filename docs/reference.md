@@ -19,7 +19,7 @@ Premises for many pins, in pin order. Pins that share map data share the work.
 | Option | Default | What |
 |---|---|---|
 | `source:` | `Curtilage.config.source` (`:auto`) | `:auto`: build a Geofabrik region when enough pins share it (`data: { auto_build_min_pins: 10 }`) or it's already cached, and read scattered pins from Overture Maps. `:geofabrik`: always build the pins' regions (the host learns only the region; use this for sensitive location lists). `:overture`: always read Overture Maps in place (its storage host learns roughly where each pin is). See the README's [Privacy](../README.md#privacy) section. |
-| `cache_dir:` | `Curtilage.config.cache_dir` (none) | Keep on-demand builds here and reuse them for a month. Without it, builds go to a temporary folder deleted afterwards. |
+| `cache_dir:` | `Curtilage.config.cache_dir` (none) | Keep on-demand builds here and reuse them for a month. Without it, builds go to a temporary folder deleted afterwards. A new folder is created readable only by you; one another user owns, or that everyone can write to, is refused. A cached file that's missing or the wrong size is rebuilt. |
 | `catalogue:` | none | A `Curtilage::Catalogue` of regions built ahead of time (overrides `source:`). |
 | `parquet:` | none | One built file, or a list, local or `s3://`, `gs://`, `https://` (overrides `source:`). |
 | `lookup:` | `{}` | `duckdb:`, `extension_directory:` (default: the configuration), `setup_sql:` (e.g. `CREATE SECRET` for a private bucket), `radius_deg:` (how far around each pin to read, default 0.004), `memory_limit:` (DuckDB's memory cap for lookups and Overture reads, default `"1GB"`), `timeout:` (seconds before a DuckDB query is stopped, default `Curtilage.config.duckdb_timeout`, 600). |
@@ -207,7 +207,7 @@ curtilage doctor
   - Exits 1 if any result isn't usable, so scripts can tell.
 - `preview`: generates the same way (same options, except `--format`), then writes the page described under [Preview](#preview-curtilagepreview). `--out FILE` (default `curtilage-preview.html`); `--buffer METRES` also draws the premises grown by that much.
 - `build REGION` writes `REGION.parquet` and `REGION.json`. REGION is a US state (`tennessee`, `new-york`) or a Geofabrik path (`europe/germany/bayern`). Options: `--out DIR` (default `.`), `--work DIR`, `--date YYMMDD`, `--keep-downloads`, `--ml-footprints microsoft`, `--duckdb`, `--extension-directory`.
-- `doctor` checks that DuckDB runs and its extensions load, and says what to install if not. It prints the DuckDB version and the path of the binary that runs: `CURTILAGE_DUCKDB` runs whatever it names, so it's trusted configuration.
+- `doctor` checks that DuckDB runs and its extensions load, and says what to install if not. `--verify DIR` also checks every built file in a catalogue or cache folder against the SHA256 its build recorded. It prints the DuckDB version and the path of the binary that runs: `CURTILAGE_DUCKDB` runs whatever it names, so it's trusted configuration.
 
 Run `curtilage COMMAND --help` for the same list.
 

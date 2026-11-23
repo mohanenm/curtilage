@@ -282,7 +282,8 @@ module Curtilage
         bbox: bbox_of(rows),
         counts: rows.to_h { |r| [r["feature"], r["n"]] },
         licence: "ODbL-1.0", attribution: attribution(opts[:ml_footprints]),
-        outline: rounded(opts[:outline]), sources: opts[:sources], ml_sources: opts[:ml_sources]
+        outline: rounded(opts[:outline]), sources: opts[:sources], ml_sources: opts[:ml_sources],
+        parquet_bytes: File.size?(parquet), parquet_sha256: sha256(parquet), gem_version: VERSION
       }.compact
     end
 
@@ -310,6 +311,10 @@ module Curtilage
       File.file?(file) ? JSON.parse(File.read(file, encoding: "utf-8")) : nil
     rescue JSON::ParserError
       nil
+    end
+
+    def sha256(file)
+      File.file?(file) ? Digest::SHA256.file(file).hexdigest : nil
     end
 
     def bbox_of(rows)

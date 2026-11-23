@@ -1,5 +1,6 @@
 # frozen_string_literal: true
 
+require "digest"
 require "json"
 
 module Curtilage
@@ -59,6 +60,21 @@ module Curtilage
       return :none if held.zero?
 
       held == points.size ? :full : :partial
+    end
+
+    # Problems with the local Parquet files against what their metadata
+    # recorded (size and SHA256): missing, truncated or altered files.
+    def verify
+      @regions.filter_map do |r|
+        next if r.parquet.match?(Lookup::REMOTE) || !r.metadata["parquet_sha256"]
+        next "#{r.parquet}: missing" unless File.file?(r.parquet)
+        next "#{r.parquet}: #{File.size(r.parquet)} bytes, expected #{r.metadata["parquet_bytes"]}" \
+          if File.size(r.parquet) != r.metadata["parquet_bytes"]
+
+        next if Digest::SHA256.file(r.parquet).hexdigest == r.metadata["parquet_sha256"]
+
+        "#{r.parquet}: SHA256 differs from its metadata"
+      end
     end
 
     def attribution(files)

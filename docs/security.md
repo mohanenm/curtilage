@@ -21,7 +21,7 @@ What curtilage trusts, what it doesn't, who might attack it, and how each attack
 | `setup_sql:` (lookup option) | **Yes** | Passed to DuckDB as written, for statements such as `CREATE SECRET`. Never fill it from untrusted input. |
 | Environment variables (`CURTILAGE_*`) and `Curtilage.configure` | **Yes**: configuration | Values that reach SQL are quoted (`DuckDB.quote`) or converted to numbers first. |
 | Catalogue folders and bucket URLs | The location is configuration; the files are map data | Paths and URLs are quoted in SQL; what they contain is treated like any map data. |
-| The cache folder | Only if nobody else can write to it | DuckDB reads its Parquet files and the gem trusts its metadata, so whoever can write to it can feed both. |
+| The cache folder | Only if nobody else can write to it | DuckDB reads its Parquet files and the gem trusts its metadata. A new cache folder is created `0700`; one another user owns, or everyone can write to, is refused. Each built file's size and SHA256 are recorded; a missing or wrong-sized file is rebuilt, and `curtilage doctor --verify DIR` checks the hashes. |
 | Upstream hosts | No | HTTPS with certificate checks, to a fixed list of hosts; no redirects followed; sizes capped while streaming. |
 
 ## Who might attack, and the defences
@@ -30,7 +30,7 @@ What curtilage trusts, what it doesn't, who might attack it, and how each attack
 
 **A malicious input file** (a pin list from someone else). Size, pin-count and nesting caps; a strict CSV reader; pins must be numbers in range. Outputs are made safe for where they're opened: CSV cells a spreadsheet would run as a formula get a leading `'`, the preview escapes all text, KML escapes all text, and GeoJSON is written by a JSON library.
 
-**A shared cache on a multi-user machine.** Another user who can write to the cache folder could replace a built region with a crafted one. Keep the cache in a folder only you can write to (see the gaps below).
+**A shared cache on a multi-user machine.** Another user who can write to the cache folder could replace a built region with a crafted one. The gem creates its cache folder `0700` and refuses one that another user owns or everyone can write to; a group-writable folder is your call. Recorded sizes catch a truncated or swapped file on use, and `doctor --verify` checks every SHA256.
 
 **A compromised upstream release.** Downloads go only to the listed hosts over HTTPS. Geofabrik publishes no checksums, so a build checks each file's zip CRC, which catches corruption but not deliberate tampering, and records every downloaded file's size and SHA256 in the region's metadata: a later build of the same dated extract warns if anything changed. The DuckDB binary and its extensions come from DuckDB: install DuckDB from a source you trust.
 
@@ -56,7 +56,6 @@ What curtilage trusts, what it doesn't, who might attack it, and how each attack
 
 Being worked on; this list shrinks as they're fixed.
 
-- The cache folder is created with default permissions and isn't checked for other writers; cached files have no recorded checksums.
 - There's no offline mode that guarantees no network use.
 - A site that raises during generation aborts its whole batch; there's no cap on pins per call.
 - CI actions aren't pinned to commit SHAs; the Docker image downloads DuckDB without a checksum and isn't pinned to a base-image digest.

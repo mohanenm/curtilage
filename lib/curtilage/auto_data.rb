@@ -28,7 +28,19 @@ module Curtilage
       @opts = OPTIONS.merge(options.compact)
       @temporary = @opts[:cache_dir].nil?
       @cache_dir = @opts[:cache_dir] || Dir.mktmpdir("curtilage")
-      FileUtils.mkdir_p(@cache_dir)
+      FileUtils.mkdir_p(@cache_dir, mode: 0o700)
+      problem = AutoData.cache_problem(File.stat(@cache_dir), @cache_dir)
+      raise Error, problem if problem
+    end
+
+    # DuckDB reads the cache's Parquet files and the gem trusts its
+    # metadata, so a cache someone else can write to is refused.
+    def self.cache_problem(stat, dir)
+      if stat.uid != Process.uid
+        "the cache folder #{dir} belongs to another user: use a folder you own"
+      elsif stat.mode.anybits?(0o002)
+        "the cache folder #{dir} is writable by every user: run `chmod 700 #{dir}` or use another folder"
+      end
     end
 
     # A Catalogue covering the pins, building what's missing first. Pins in
@@ -100,12 +112,18 @@ module Curtilage
                              **@opts.slice(:ml_footprints, :duckdb, :extension_directory, :log))
     end
 
+    # Built recently enough, with its Parquet file present at the size the
+    # metadata recorded: a missing, truncated or replaced file is rebuilt.
+    # (doctor --verify checks the full SHA256.)
     def fresh?(metadata_file)
       return false unless File.file?(metadata_file)
 
-      built = Time.parse(JSON.parse(File.read(metadata_file, encoding: "utf-8"))["built_at"].to_s)
-      Time.now - built < @opts[:max_age_days] * 86_400
-    rescue ArgumentError, JSON::ParserError
+      meta = JSON.parse(File.read(metadata_file, encoding: "utf-8"))
+      parquet = File.join(@cache_dir, File.basename(meta["parquet"].to_s))
+      built = Time.parse(meta["built_at"].to_s)
+      Time.now - built < @opts[:max_age_days] * 86_400 && File.file?(parquet) &&
+        File.size(parquet) == meta["parquet_bytes"]
+    rescue ArgumentError, TypeError, JSON::ParserError
       false
     end
 
