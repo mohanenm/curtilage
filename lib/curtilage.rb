@@ -147,7 +147,7 @@ module Curtilage
   rescue StandardError => e
     Result.new(method_name: nil, pin: pin, flags: [:error], building: nil,
                explanation: ["generating this site failed: #{e.class}: #{e.message[0, 300]}"],
-               validation: Validation::Result.new(["error"], [], {}))
+               validation: Validation::Result.new(["error"], [], {}), provenance: { gem_version: VERSION })
   end
 
   def self.check_data(data)
@@ -233,11 +233,15 @@ module Curtilage
     results
   end
 
+  # The release is settled once up front, so every result names the one
+  # it was read from.
   def self.from_overture(pins, lookup, data, options)
-    lists = Overture.features_many(pins, **lookup.slice(:duckdb, :extension_directory, :radius_deg),
-                                   **data.slice(:release))
+    online!("reading Overture Maps (use a catalogue or cached builds)")
+    release = Overture.release(data)
+    lists = Overture.features_many(pins, **lookup.slice(:duckdb, :extension_directory, :radius_deg), release: release)
     pins.zip(lists).map do |pin, features|
       generate_safely(pin, features, options).tap do |r|
+        r.provenance[:data] = { source: "overture", release: release }
         r.attribution = Overture.attribution(r.features)
         r.explanation.unshift("map data: OpenStreetMap, read from Overture Maps")
       end
@@ -290,6 +294,10 @@ module Curtilage
 
   def self.generate_one(pin, features, files, catalogue, options)
     result = generate_safely(pin, features, options)
+    result.provenance[:data] = if files.empty? then nil
+                               elsif catalogue then catalogue.provenance(files)
+                               else { source: "parquet" }
+                               end
     credits = catalogue&.attribution(files) || []
     result.attribution = credits unless credits.empty?
     if files.empty?

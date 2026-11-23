@@ -30,8 +30,8 @@ module Curtilage
 
     # Inverse of project, rounded to 7 decimals (about a centimetre): what
     # results hand out.
-    def lnglat(xy, origin)
-      unproject(xy, origin).map { |lng, lat| [lng.round(7), lat.round(7)] }
+    def lnglat(xy, origin, precision = 7)
+      unproject(xy, origin).map { |lng, lat| [lng.round(precision), lat.round(precision)] }
     end
 
     def metres_per_degree_lng(lat)

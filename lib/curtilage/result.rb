@@ -9,8 +9,12 @@ module Curtilage
   # premises were made. features: the map data it was made from (a Features,
   # in metres around pin), kept for previews and debugging; generate_many
   # drops it unless asked (keep_features: true), and it isn't serialised.
+  # provenance: what the result was made from and with (gem version, data
+  # source and release, options, a hash of the map data), so it can be
+  # reproduced; it holds no timestamps, so the same inputs give the same
+  # output byte for byte.
   Result = Struct.new(:method_name, :pin, :ring, :store_ring, :explanation, :flags, :validation, :building,
-                      :details, :attribution, :features, keyword_init: true) do
+                      :details, :attribution, :features, :provenance, keyword_init: true) do
     def ok?
       !ring.nil? && validation.ok?
     end
@@ -44,7 +48,7 @@ module Curtilage
         properties: properties.merge(
           role: "premises", ok: ok?, method: method_name, flags: flags, building: building, details: details,
           errors: validation.errors, warnings: validation.warnings, metrics: validation.metrics,
-          explanation: explanation, attribution: attribution
+          explanation: explanation, attribution: attribution, provenance: provenance
         ),
       }
       store = { type: "Feature", geometry: Result.polygon(store_ring),
@@ -66,7 +70,7 @@ module Curtilage
       grown = metres.negative? ? Geometry.clip_inside(xy, xy, -metres) : Geometry.round_buffer(xy, metres)
       return nil if grown.size < 3 || Geometry.area(grown) < 1
 
-      out = Geometry.lnglat(Geometry.clean(grown), pin)
+      out = Geometry.lnglat(Geometry.clean(grown), pin, provenance&.dig(:options, :precision) || 7)
       out << out.first
     end
 

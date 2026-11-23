@@ -49,10 +49,22 @@ Premises from features you already have (from `Curtilage::Lookup.features` or `C
 | `attribution` | What to credit wherever the result is shown: OpenStreetMap, plus Overture, Overture's non-OSM building sources or Microsoft's footprints when the result could use them. `nil` means OpenStreetMap only (`Result::OSM_ATTRIBUTION`). |
 | `pin` | The pin it was made for. |
 | `details` | Facts about the site, rough by nature (open map data); `nil` when no premises were made. See below. |
+| `provenance` | What the result was made from, to reproduce or audit it (below). |
 | `features` | The map data it was made from (`Curtilage::Features`, in metres around the pin), or `nil` unless `keep_features: true`. |
 | `to_geojson(include_store: false, properties: {})` | A GeoJSON Feature (premises) with everything above in its properties, including the attribution to show; with `include_store: true`, a FeatureCollection of premises and store zone (`properties.role`). `properties:` are merged into each feature's properties (your own id, say). |
 | `to_wkt`, `store_wkt` | The premises and store zone as well-known text (`POLYGON ((lng lat, ...))`), for databases and spreadsheets. |
 | `buffered(metres)` | The premises grown (positive) or shrunk (negative) evenly, as a closed ring: a geofence with a margin. Corners are rounded when growing. `nil` if there are no premises or they shrink away. |
+
+`provenance`:
+
+| Key | What |
+|---|---|
+| `gem_version` | The curtilage version that made it. |
+| `data` | `{ source: "overture", release: "2026-11-18.0" }`; `{ source: "geofabrik", regions: [{ region:, extract_dates: [...], ml_footprints: { source:, fetched: } }] }` for builds and catalogues (`ml_footprints` only when the build added them; their source publishes no dates, so `fetched` is the build's date); `{ source: "parquet" }` for a lone `parquet:` file; `nil` when no data covered the pin or features were passed to `generate` directly. |
+| `features_sha256` | A SHA256 of the map data the result was made from, the same whatever order the features came in. Two results with the same hash, version and options used the same inputs. |
+| `options` | Every generation option after defaults and presets. |
+
+It holds no timestamps: the same pins, options and data give the same output, byte for byte. Results that failed with an error carry only `gem_version`.
 
 `details`:
 
@@ -80,7 +92,7 @@ Any option passed with a preset overrides it.
 
 ### Generation options
 
-All distances in metres, areas in square metres. These are `Curtilage::Generator::DEFAULTS`. An unknown or misspelt option raises `ArgumentError`, and so does a value out of range: distances must be 0 to 1,000 m, areas 0 to 10,000,000 m2, `max_vertices` a whole number from 4 to 50, `max_store_vertices` from 3 to 200, `shared_lot_buildings` from 1 to 1,000 (`Generator::RANGES`).
+All distances in metres, areas in square metres. These are `Curtilage::Generator::DEFAULTS`. An unknown or misspelt option raises `ArgumentError`, and so does a value out of range: distances must be 0 to 1,000 m, areas 0 to 10,000,000 m2, `max_vertices` a whole number from 4 to 50, `max_store_vertices` from 3 to 200, `shared_lot_buildings` from 1 to 1,000, `precision` a whole number from 5 to 15 (`Generator::RANGES`).
 
 | Option | Default | What |
 |---|---|---|
@@ -107,6 +119,7 @@ All distances in metres, areas in square metres. These are `Curtilage::Generator
 | `max_vertices` | `10` | The premises are simplified to at most this many corners (never cutting the building). |
 | `max_store_vertices` | `20` | The store outline is simplified to at most this many corners. |
 | `validation` | `{}` | Limits for the validation every polygon goes through (below), e.g. `{ max_area_error_m2: 300_000 }` for a big-box store's lot. |
+| `precision` | `7` | Decimal places in output coordinates (7 is about 1 cm). Validation checks the rounded polygon. |
 
 #### Validation limits
 
@@ -155,8 +168,8 @@ Writing results: `Formats.write(results, format, ids: nil, store: true)` returns
 | Format | What |
 |---|---|
 | `:geojson` | One FeatureCollection: for each pin, its premises and (unless `store: false`) its store zone, with `properties.id`, `properties.role` and everything `to_geojson` carries. |
-| `:csv` | One row per pin. Columns: `id`, `lng`, `lat`, `ok`, `problem`, `method`, `flags` and `errors` (`;`-separated), `building`, `building_area_m2`, `parking_area_m2`, `parking_spaces_estimate`, `frontage_m`, `premises_area_m2`, `premises_wkt`, `store_wkt`, `attribution` (`; `-separated). Cells a spreadsheet would run as a formula (starting with `=`, `+`, `-`, `@`, `|` or `%`, or their full-width forms, even after spaces) get a leading `'`; plain numbers don't. |
-| `:kml` | A placemark per polygon (premises and store zone), with the flags and attribution in its description, and every source credited in the document's description, for Google Earth. |
+| `:csv` | One row per pin. Columns: `id`, `lng`, `lat`, `ok`, `problem`, `method`, `flags` and `errors` (`;`-separated), `building`, `building_area_m2`, `parking_area_m2`, `parking_spaces_estimate`, `frontage_m`, `premises_area_m2`, `premises_wkt`, `store_wkt`, `attribution` (`; `-separated), then `gem_version`, `data_source`, `data_release` (the Overture release or the Geofabrik extract dates, `;`-separated) and `features_sha256` from `provenance` (the options are only in GeoJSON). Cells a spreadsheet would run as a formula (starting with `=`, `+`, `-`, `@`, `|` or `%`, or their full-width forms, even after spaces) get a leading `'`; plain numbers don't. |
+| `:kml` | A placemark per polygon (premises and store zone), with the flags, attribution, gem version and data release in its description, and every source credited in the document's description, for Google Earth. |
 
 `Formats.format_of(path)` names the format a file extension stands for.
 

@@ -27,7 +27,8 @@ module Curtilage
     MAX_COLUMNS = 1_000
 
     CSV_COLUMNS = %w[id lng lat ok problem method flags errors building building_area_m2 parking_area_m2
-                     parking_spaces_estimate frontage_m premises_area_m2 premises_wkt store_wkt attribution].freeze
+                     parking_spaces_estimate frontage_m premises_area_m2 premises_wkt store_wkt attribution
+                     gem_version data_source data_release features_sha256].freeze
 
     module_function
 
@@ -136,7 +137,21 @@ module Curtilage
        result.validation.errors.join(";"), result.building, d.dig(:building, :area_m2), d[:parking_area_m2],
        d[:parking_spaces_estimate],
        d[:frontage_m], result.validation.metrics[:area_m2]&.round, result.to_wkt, result.store_wkt,
-       credits(result).join("; ")]
+       credits(result).join("; "), *provenance_columns(result)]
+    end
+
+    # gem_version, data_source, data_release, features_sha256 (the full
+    # record, options included, is in the GeoJSON).
+    def provenance_columns(result)
+      prov = result.provenance || {}
+      [prov[:gem_version], prov.dig(:data, :source), release(prov[:data]), prov[:features_sha256]]
+    end
+
+    # The Overture release, or the Geofabrik extract date(s).
+    def release(data)
+      return nil unless data
+
+      data[:release] || data[:regions]&.flat_map { |r| r[:extract_dates] || [] }&.uniq&.join(";")
     end
 
     def kml(results, ids, store)
@@ -170,6 +185,8 @@ module Curtilage
       parts = [result.problem || "ok"]
       parts << "flags: #{result.flags.join(", ")}" if result.flags.any?
       parts << credits(result).join("; ")
+      gem, source, release = provenance_columns(result)
+      parts << "curtilage #{gem}; data: #{[source, release].compact.join(" ")}" if gem
       parts.join("\n")
     end
 

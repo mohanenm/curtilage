@@ -1,5 +1,8 @@
 # frozen_string_literal: true
 
+require "digest"
+require "json"
+
 module Curtilage
   # The OSM features around a pin, projected to metres around it.
   #
@@ -35,7 +38,23 @@ module Curtilage
     end
     Line = Struct.new(:id, :highway, :name, :xy, keyword_init: true)
 
-    attr_reader :pin, :buildings, :ml_buildings, :parking, :roads, :railways, :dropped
+    attr_reader :pin, :buildings, :ml_buildings, :parking, :roads, :railways, :dropped, :sha256
+
+    # A SHA256 of the input that ignores the order of the features and the
+    # style of their keys, so two results can be shown to come from the same
+    # map data (Result#provenance).
+    def self.fingerprint(features)
+      lines = Array(features).map { |f| JSON.generate(canonical(f), allow_nan: true) }.sort
+      Digest::SHA256.hexdigest(lines.join("\n"))
+    end
+
+    def self.canonical(value)
+      case value
+      when Hash then value.to_h { |k, v| [k.to_s, canonical(v)] }.sort.to_h
+      when Array then value.map { |v| canonical(v) }
+      else value
+      end
+    end
 
     def initialize(pin, features)
       @pin = pin
@@ -46,6 +65,7 @@ module Curtilage
       @railways = []
       @dropped = 0
       @seen = {}
+      @sha256 = self.class.fingerprint(features)
       Array(features).first(MAX_FEATURES).each { |f| add(f) }
       @dropped += [Array(features).size - MAX_FEATURES, 0].max
     end

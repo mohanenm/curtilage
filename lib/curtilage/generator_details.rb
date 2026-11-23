@@ -16,14 +16,14 @@ module Curtilage
 
     module_function
 
-    def details(target, premises, features, pin, log)
+    def details(target, premises, features, pin, log, precision: 7)
       parking = parking_area(premises, features)
       {
-        building: building_info(target, pin),
+        building: building_info(target, pin, precision),
         parking_area_m2: parking.round,
         parking_spaces_estimate: (parking / M2_PER_PARKING_SPACE).floor,
         frontage_m: frontage(premises, features).round,
-        access_points: to_lnglat(distinct(log.access || []), pin),
+        access_points: Geometry.lnglat(distinct(log.access || []), pin, precision),
       }
     end
 
@@ -35,10 +35,10 @@ module Curtilage
       end
     end
 
-    def building_info(target, pin)
+    def building_info(target, pin, precision)
       return nil unless target
 
-      outline = to_lnglat(target.xy, pin)
+      outline = Geometry.lnglat(target.xy, pin, precision)
       { id: target.id, name: target.name, type: target.category, area_m2: target.area.round,
         footprint: outline + [outline.first] }
     end
@@ -70,7 +70,5 @@ module Curtilage
         road.xy.each_cons(2).any? { |p, q| Geometry.segment_distance(point, p, q) <= reach }
       end
     end
-
-    def to_lnglat(xy, pin) = Geometry.lnglat(xy, pin)
   end
 end
