@@ -106,9 +106,11 @@ module Curtilage
       pickup_m: nil,                 # also a pickup zone: mapped parking this close to the building (nil: none)
       snap_m: nil,                   # move a pin that's off any building onto the nearest within this (nil: don't)
       entrances: :near,              # :near, or :all (follow driveways to every entrance; premises not convex)
+      lot_split: :square,            # shared lots: :square (cut square to the building) or :voronoi (nearest building)
     }.freeze
 
     BUILDING_SOURCES = %i[osm osm_filled ml].freeze
+    LOT_SPLITS = %i[square voronoi].freeze
     SCOPES = %i[site centre].freeze
 
     # Allowed values for the numeric options: [min, max, whole number?].
@@ -184,13 +186,16 @@ module Curtilage
     end
 
     def check_choices(opts)
-      raise ArgumentError, "unknown scope: #{opts[:scope].inspect} (have: #{SCOPES.join(", ")})" \
-        unless SCOPES.include?(opts[:scope])
-      raise ArgumentError, "unknown buildings: #{opts[:buildings].inspect} (have: #{BUILDING_SOURCES.join(", ")})" \
-        unless BUILDING_SOURCES.include?(opts[:buildings])
+      choices.each do |key, allowed|
+        raise ArgumentError, "unknown #{key}: #{opts[key].inspect} (have: #{allowed.join(", ")})" \
+          unless allowed.include?(opts[key])
+      end
       raise ArgumentError, "store_zone must be true or false" unless [true, false].include?(opts[:store_zone])
-      raise ArgumentError, "unknown entrances: #{opts[:entrances].inspect} (have: #{ENTRANCES.join(", ")})" \
-        unless ENTRANCES.include?(opts[:entrances])
+    end
+
+    # The options that take one of a few names, and the names.
+    def choices
+      { scope: SCOPES, buildings: BUILDING_SOURCES, entrances: ENTRANCES, lot_split: LOT_SPLITS }
     end
 
     def check_range(key, value, min, max, whole)

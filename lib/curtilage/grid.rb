@@ -108,7 +108,45 @@ module Curtilage
       end
     end
 
+    # Splitting a shape between polygons, and its convex outline.
+    module Regions
+      # Keeps the cells nearer mine (a ring) than any of the others: a
+      # Voronoi cell round a polygon, not just its centre.
+      def keep_nearer(mine, others)
+        return self if others.empty?
+
+        own = distances_to([mine])
+        best = distances_to(others) # the nearest of them is the nearest cell of them all
+        @on.each_index { |i| @on[i] &&= own[i] <= best[i] }
+        self
+      end
+
+      # The convex outline of the shape (from each row's first and last cell),
+      # in metres; [] when empty.
+      def hull
+        edges = (0...@h).flat_map do |row|
+          line = @on[row * @w, @w]
+          first = line.index(true)
+          next [] unless first
+
+          last = line.rindex(true)
+          y0 = @y0 + (row * @cell)
+          [[first, y0], [last + 1, y0], [first, y0 + @cell], [last + 1, y0 + @cell]]
+        end
+        Geometry.convex_hull(edges.map { |col, y| [@x0 + (col * @cell), y] })
+      end
+
+      private
+
+      def distances_to(rings)
+        cells = Array.new(@on.size, false)
+        rings.each { |xy| paint(xy, cells: cells) }
+        Distance.squared(cells, @w, @h, true)
+      end
+    end
+
     include Trace
+    include Regions
 
     attr_reader :cell
 
@@ -131,14 +169,14 @@ module Curtilage
     def on?(point) = @on[index_at(point) || -1] == true
 
     # Sets (or clears) every cell whose centre is inside the ring.
-    def paint(xy, value: true)
+    def paint(xy, value: true, cells: @on)
       return self if xy.size < 3
 
       ys = xy.map(&:last)
       rows(ys.min, ys.max).each do |row|
         y = @y0 + ((row + 0.5) * @cell)
         crossings(xy, y).each_slice(2) do |a, b|
-          cols(a, b).each { |col| @on[(row * @w) + col] = value } if b
+          cols(a, b).each { |col| cells[(row * @w) + col] = value } if b
         end
       end
       self

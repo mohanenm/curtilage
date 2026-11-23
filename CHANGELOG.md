@@ -5,6 +5,8 @@
 ### Added
 
 - `entrances: :all` (experimental, off by default): follows the mapped service roads from the lot to every entrance on a public road and adds a corridor along each, up to the kerb. The premises are then usually not convex. On the public benchmark's labels it takes in 12 of 24 labelled entrances (5 by default) without taking in more of what should stay out.
+- `lot_split: :voronoi` (experimental, off by default): splits a shared lot by nearest building wall instead of cuts square to the building.
+- `--entrances near|all` on the command line.
 - The public benchmark scores labelled points per use case (views), with a labelling page; see `benchmark/LABELS.md`.
 
 ### Changed
