@@ -6,22 +6,27 @@ require "tmpdir"
 class LookupTest < Minitest::Test
   L = Curtilage::Lookup
 
-  def test_sql_filters_each_pin_on_its_box_and_quotes_paths
+  def test_local_files_join_the_pins_boxes_and_quote_paths
     sql = L.sql(["/tmp/it's.parquet"], [[-80.0, 35.0], [-81.0, 36.0]], "/ext", 0.004)
 
-    assert_includes sql, "read_parquet(['/tmp/it''s.parquet'])"
+    assert_includes sql, "read_parquet(['/tmp/it''s.parquet']) f JOIN boxes b"
     assert_includes sql, "SET extension_directory = '/ext';"
-    assert_includes sql, "SELECT 1 AS pin_index"
-    assert_includes sql, "max_lng >= -80.004"
-    assert_includes sql, "min_lat <= 36.004"
+    assert_includes sql, "(1, -81.004, 35.996, -80.996, 36.004)"
+    assert_includes sql, "f.max_lng >= b.x0 AND f.min_lng <= b.x1"
     refute_includes sql, "httpfs"
   end
 
-  def test_remote_files_load_httpfs_and_setup_sql_goes_in_the_script
-    sql = L.sql(["s3://bucket/tennessee.parquet"], [[-80.0, 35.0]], nil, 0.004, "CREATE SECRET (TYPE s3);")
+  # Remote files keep a scan per pin, so only the row groups near each pin
+  # are read, not whole files.
+  def test_remote_files_scan_per_pin_load_httpfs_and_take_setup_sql
+    sql = L.sql(["s3://bucket/tennessee.parquet"], [[-80.0, 35.0], [-81.0, 36.0]], nil, 0.004,
+                "CREATE SECRET (TYPE s3);")
 
     assert_includes sql, "LOAD httpfs;"
     assert_includes sql, "CREATE SECRET (TYPE s3);"
+    assert_includes sql, "SELECT 1 AS pin_index"
+    assert_includes sql, "max_lng >= -81.004 AND min_lng <= -80.996"
+    refute_includes sql, "JOIN boxes"
   end
 
   def test_rejects_bad_pins_and_radius

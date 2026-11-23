@@ -32,6 +32,7 @@
 
 ### Changed
 
+- Lookups in local built files are about three times faster (7 ms to 2 ms a pin): one scan joined to the pins' boxes instead of a scan per pin. Files in a bucket keep a scan per pin, so only the parts near each pin are read. New builds use smaller row groups (5,000 rows), which speeds up those reads; existing builds work as before.
 - Generation is faster with identical results: road trims no longer sample road segments too far from the building to matter. About five times on ordinary buildings (34 ms to 7 ms a site on 500 made-up pins), about 1.4 times on busy commercial sites (median 92 ms to 65 ms on a held-out set).
 - Results no longer depend on the order map data arrives in (DuckDB promises no row order, so a re-run could give a different polygon on about a fifth of sites). Neighbouring buildings are now cut nearest first, and the input is sorted into one order before the rules run. Some polygons change: on a private held-out set, mean IoU against hand-drawn premises went from 0.469 to 0.466 (random input orders used to give 0.464-0.466).
 
