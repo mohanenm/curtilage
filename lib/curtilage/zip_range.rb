@@ -22,16 +22,19 @@ module Curtilage
     LOCAL_SIGNATURE = 0x04034b50
     TAIL_BYTES = 65_557 # end-of-central-directory record plus the longest comment
     MAX_ENTRIES = 1_000
+    # Decompression bombs: the layers a build takes may not inflate to more
+    # than this in all (Texas's are a few GB), nor any member by more than
+    # this ratio (padded .dbf text compresses well, but not this well).
+    MAX_UNCOMPRESSED_BYTES = 20_000_000_000
+    MAX_RATIO = 200
+    MEMBER_NAME = /\A[\w.-]+\z/
 
     module_function
 
     # Extracts the members whose names match any of patterns (File.fnmatch)
     # into dir. Returns the extracted file paths.
     def extract(host, path, patterns, dir, max_bytes:)
-      entries = entries(host, path)
-      chosen = entries.select { |e| patterns.any? { |p| File.fnmatch(p, File.basename(e.name)) } }
-      raise Unsupported, "no members match #{patterns.join(", ")}" if chosen.empty?
-      raise Unsupported, "members over #{max_bytes} bytes" if chosen.sum(&:compressed_size) > max_bytes
+      chosen = choose(entries(host, path), patterns, max_bytes)
 
       FileUtils.mkdir_p(dir)
       # Each run (adjacent members) streams on its own connection, in parallel.
@@ -45,18 +48,55 @@ module Curtilage
       Curtilage.join_all(threads).flatten
     end
 
+    # The members to take: those matching patterns, with plain file names
+    # (nothing can land outside the folder), within the size caps.
+    def choose(entries, patterns, max_bytes)
+      chosen = entries.select { |e| patterns.any? { |p| File.fnmatch(p, File.basename(e.name)) } }
+      raise Unsupported, "no members match #{patterns.join(", ")}" if chosen.empty?
+      raise Unsupported, "members over #{max_bytes} bytes" if chosen.sum(&:compressed_size) > max_bytes
+
+      chosen.each { |e| check_member(e) }
+      total = chosen.sum(&:uncompressed_size)
+      raise Corrupt, "members would inflate to #{total} bytes, over #{MAX_UNCOMPRESSED_BYTES}" \
+        if total > MAX_UNCOMPRESSED_BYTES
+
+      chosen
+    end
+
+    def check_member(entry)
+      raise Corrupt, "bad member name #{entry.name.inspect}" unless File.basename(entry.name).match?(MEMBER_NAME)
+
+      ratio = entry.uncompressed_size / [entry.compressed_size, 1].max
+      return unless ratio > MAX_RATIO && entry.uncompressed_size > 1_000_000
+
+      raise Corrupt, "#{entry.name} would inflate #{ratio} times"
+    end
+
+    # Applies the same checks to a zip already on disk, before something
+    # else (unzip) extracts it.
+    def check_local(zip, patterns, max_bytes:)
+      choose(local_entries(zip), patterns, max_bytes)
+    end
+
+    def local_entries(zip)
+      entries_from(File.size(zip), ->(first, last) { File.binread(zip, last - first + 1, first) })
+    end
+
     # The zip's central directory, each entry knowing where its bytes end.
     def entries(host, path)
-      length = content_length(host, path)
-      tail = range(host, path, [length - TAIL_BYTES, 0].max, length - 1)
+      entries_from(content_length(host, path), ->(first, last) { range(host, path, first, last) })
+    end
+
+    # read: (first, last) -> those bytes of the zip.
+    def entries_from(length, read)
+      tail = read.call([length - TAIL_BYTES, 0].max, length - 1)
       eocd = tail.rindex(EOCD_SIGNATURE) or raise Unsupported, "no end-of-central-directory record"
       count, cd_size, cd_offset = tail.byteslice(eocd + 10, 10).unpack("vVV")
       if count == 0xFFFF || cd_offset == 0xFFFFFFFF || count > MAX_ENTRIES
-        raise Unsupported,
-              "zip64 or too many entries"
+        raise Unsupported, "zip64 or too many entries"
       end
 
-      list = parse_central(range(host, path, cd_offset, cd_offset + cd_size - 1), count)
+      list = parse_central(read.call(cd_offset, cd_offset + cd_size - 1), count)
       ends = list.map(&:offset).sort + [cd_offset]
       list.each { |e| e.data_end = ends[ends.index(e.offset) + 1] }
     end

@@ -45,7 +45,7 @@ What curtilage trusts, what it doesn't, who might attack it, and how each attack
 - **DuckDB runs** (`DuckDB.capture`): each in its own process group, stopped with everything it started after a timeout (600 s for lookups, 3600 s for builds); output read as it arrives and DuckDB stopped once it passes the cap; lookups and Overture reads capped at 1 GB of memory; error messages stripped of the query excerpt DuckDB quotes, which can hold the box around a pin.
 - **Commands**: every external program (DuckDB, `curl`, `unzip`, `git` in the benchmark) runs through `Open3`, `system` or `IO.popen` with an argument list, never a shell string.
 - **Downloads** (`Download`): only `ALLOWED_HOSTS`; HTTPS only (`curl --proto =https`); no redirects followed; size capped while streaming; written to a `.part` file and renamed only when complete; transient failures retried three times.
-- **Zip extraction** (`ZipRange`): only plain file names (no folders, so nothing can be written outside the target, and no symlinks are created); at most 1,000 entries; compressed size capped; inflated size must match the header; CRC-32 checked.
+- **Zip extraction** (`ZipRange`): only plain file names (no folders, so nothing can be written outside the target, and no symlinks are created); at most 1,000 entries; compressed size capped; the layers taken may inflate to at most 20 GB in all and no member by more than 200 times; inflated size must match the header; CRC-32 checked. A whole zip downloaded as a fallback gets the same checks before `unzip` runs, and `unzip -j` drops any folder paths.
 - **Atomic writes**: the cached region index, each region's metadata and the command line's `--out` files are written to a temporary name and renamed; an unreadable cached index is fetched again. `--out` refuses a symbolic link at the target.
 - **Errors**: everything raised on purpose is a `Curtilage::Error`, or an `ArgumentError` for bad input.
 - **Output**: the preview escapes all text, drops Unicode direction controls from it, and carries a Content-Security-Policy that allows only its own inline style and script (by hash) and no loads at all, so a missed escape can't run script. CSV cells a spreadsheet would run as a formula (a leading `=`, `+`, `-`, `@`, `|` or `%`, full-width forms, after any whitespace) get a leading `'`, in every column; KML escapes all text; GeoJSON is written by a JSON library.
@@ -57,7 +57,6 @@ What curtilage trusts, what it doesn't, who might attack it, and how each attack
 Being worked on; this list shrinks as they're fixed.
 
 - The cache folder is created with default permissions and isn't checked for other writers; cached files have no recorded checksums; downloaded files' SHA256 isn't recorded.
-- Zip extraction doesn't cap the total uncompressed size or the compression ratio.
 - There's no offline mode that guarantees no network use.
 - A site that raises during generation aborts its whole batch; there's no cap on pins per call.
 - CI actions aren't pinned to commit SHAs; the Docker image downloads DuckDB without a checksum and isn't pinned to a base-image digest.

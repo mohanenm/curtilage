@@ -109,6 +109,7 @@ module Curtilage
         Download.fetch(HOST, url_path(part, date), zip, max_bytes: MAX_DOWNLOAD_BYTES)
       end
       check_zip(zip)
+      ZipRange.check_local(zip, LAYER_PATTERNS, max_bytes: MAX_DOWNLOAD_BYTES)
       unzip_layers(zip, dir)
       [dir, date]
     end
@@ -153,7 +154,8 @@ module Curtilage
 
     def unzip_layers(zip, dir)
       FileUtils.mkdir_p(dir)
-      _, err, status = unzip("-oq", zip, *LAYER_PATTERNS, "-d", dir)
+      # -j: junk any folders in member names, so files land only in dir.
+      _, err, status = unzip("-joq", zip, *LAYER_PATTERNS, "-d", dir)
       raise Error, "unzip failed: #{err.strip[0, 200]}" unless status.success?
     end
 
