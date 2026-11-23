@@ -124,6 +124,10 @@ end
 
 From Ruby, `Curtilage::Formats` does the same ([reference](docs/reference.md#files-curtilageformats)).
 
+### HTTP API
+
+`curtilage serve` runs a small HTTP API on this machine (127.0.0.1:8754): `POST /premises` with `{"pins": [[-80.0, 35.0]]}` answers GeoJSON (or NDJSON), for apps in any language. Set `CURTILAGE_SERVE_TOKEN` to require a bearer token; requests, pins and time are capped, and pins are never logged. Put a reverse proxy in front for TLS. Details and the OpenAPI spec: [reference](docs/reference.md#http-server-curtilage-serve).
+
 ### Checking results by eye
 
 `curtilage preview --in sites.csv` writes `curtilage-preview.html`: a card per site with a map drawn from the map data the premises were made from. Each map shows:
@@ -251,7 +255,8 @@ Pins never leave the machine as coordinates: they aren't put in any URL or reque
 | `lib/curtilage/config.rb` | Shared settings (`Curtilage.configure`, environment variables) |
 | `lib/curtilage/duckdb.rb` | Runs the DuckDB CLI |
 | `lib/curtilage/error.rb` | `Curtilage::Error`, the base of every error the gem raises |
-| `exe/curtilage` | `curtilage generate`, `preview`, `build` and `doctor` |
+| `exe/curtilage` | `curtilage generate`, `preview`, `places`, `diff`, `build`, `doctor` and `serve` |
+| `lib/curtilage/server.rb` | The HTTP API (`curtilage serve`) |
 | `Dockerfile` | The gem with DuckDB, ready to run |
 | `docs/reference.md` | Every option, setting, flag and command |
 | `sql/build_from_shapefiles.sql` | DuckDB query: shapefiles to a features Parquet file |

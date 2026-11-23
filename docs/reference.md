@@ -407,6 +407,7 @@ curtilage doctor
 - `diff OLD NEW`: compares two result files ([Comparing runs](#corrections-and-comparing-runs)). `--threshold IOU` (default 0.9), `--out FILE`, `--format csv|ndjson`. Exits 1 when any site needs review.
 - `places (--region NAME | --bbox W,S,E,N) (--category NAME | --brand NAME | --place-id ID ...)`: pins from Overture Maps places (`Curtilage.places`), as CSV (default), NDJSON or GeoJSON, printed or `--out FILE`. Also `--min-confidence N`, `--release NAME`, the DuckDB and log flags. Its output feeds `generate --in` directly: `curtilage places --region delaware --category pharmacy | curtilage generate --in - --in-format csv`.
 - `build REGION` writes `REGION.parquet` and `REGION.json`. REGION is a US state (`tennessee`, `new-york`) or a Geofabrik path (`europe/germany/bayern`). Options: `--out DIR` (default `.`), `--work DIR` (default: a private temporary folder, removed afterwards), `--date YYMMDD`, `--keep-downloads`, `--ml-footprints microsoft`, `--duckdb`, `--extension-directory`.
+- `serve`: an HTTP API ([HTTP server](#http-server-curtilage-serve)).
 - `doctor` checks everything the gem needs outside Ruby, with a fix for each problem: the DuckDB binary (its path and version; a warning, not a failure, outside the tested 1.4 LTS and 2.0), its `spatial` and `httpfs` extensions (with versions), and the cache folder's permissions when one is configured. `--verify DIR` also checks every built file in a catalogue or cache folder against the SHA256 its build recorded; `--network` checks that Geofabrik and Overture's catalogue answer (no locations are sent); `--json` prints the report for scripts. It exits 0 when ready, 1 if not. It prints the DuckDB version and the path of the binary that runs: `CURTILAGE_DUCKDB` runs whatever it names, so it's trusted configuration.
 
 Run `curtilage COMMAND --help` for the same list.
@@ -423,6 +424,16 @@ Standard output carries only results (`generate` without `--out`, and the file p
 | 70 | An unexpected error (a bug: please report it with the message). |
 
 `doctor` keeps its own codes: 0 ready, 1 not.
+
+### HTTP server: `curtilage serve`
+
+`curtilage serve` answers HTTP on the standard library alone (no server gem), so any language can ask for premises. The spec is [docs/openapi.yaml](openapi.yaml).
+
+- `GET /health`: `{"status":"ok"}`, no token needed. `GET /version`: the gem, DuckDB and the default data source.
+- `POST /premises`: `{"pins": [[lng, lat], ...] or [{"id": ..., "pin": [lng, lat]}], "options": {...}}`, a GeoJSON FeatureCollection of points, or NDJSON (`Content-Type: application/x-ndjson`). Answers a GeoJSON FeatureCollection, or NDJSON (one site per line, [schema](schema/site-v1.json)) with `Accept: application/x-ndjson`. A request may set generation options only (and `preset`, `candidates`, `method`); where map data comes from is fixed at start (`--source`, `--catalogue`, `--parquet`, `--cache-dir`), so a request can't point the server at files.
+- **Safe by default.** Listens on 127.0.0.1 unless `--host`. With a token in `$CURTILAGE_SERVE_TOKEN` (or the variable `--token-env` names; never on the command line, where the process list shows it) every endpoint but `/health` needs `Authorization: Bearer TOKEN`, compared in constant time; a warning is printed when listening beyond this machine without one. Limits: `--max-body` (1,000,000 bytes, 413 over), `--max-pins` (100 a request, 413), `--timeout` (120 s a request, 504), `--concurrency` (4 requests at once, 503 beyond), headers 16 KB, 10 s to send a request (408); bodies need `Content-Length` (411 for chunked). No CORS headers unless `--cors-origin ORIGIN`. Errors are `{"error": "..."}`, never a stack trace. The log has one line a request (method, path, status, time) and never the pins, unless `--log-pins`.
+- **TLS:** it speaks plain HTTP. To serve beyond this machine, put a reverse proxy in front and keep the server on 127.0.0.1, e.g. with Caddy (`reverse_proxy 127.0.0.1:8754` in a site block gets certificates itself) or nginx (`proxy_pass http://127.0.0.1:8754;` in a `server` block with `ssl_certificate`). Set a token too: the proxy only adds encryption.
+- **Docker:** `docker run --rm -p 127.0.0.1:8754:8754 -e CURTILAGE_SERVE_TOKEN -v curtilage-cache:/cache curtilage serve --host 0.0.0.0` (inside the container it must listen on all addresses; publish the port on 127.0.0.1 or behind your proxy). The image has a health check on `/health`.
 
 ### Docker
 

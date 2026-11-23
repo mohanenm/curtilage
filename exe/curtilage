@@ -15,6 +15,7 @@ USAGE = <<~TEXT
     curtilage diff OLD NEW [--threshold IOU] [--out FILE]
     curtilage build REGION [options]
     curtilage doctor
+    curtilage serve [--host HOST] [--port PORT] [options]
 
   generate   The premises (and store zone) for one or more pins, as GeoJSON,
              NDJSON, CSV or KML. Pins from --pin, a CSV/GeoJSON/NDJSON file or
@@ -29,6 +30,8 @@ USAGE = <<~TEXT
   build      Build a region's map data ahead of time (a US state such as
              "tennessee", or a Geofabrik path such as "europe/germany/bayern").
   doctor     Check that DuckDB and its extensions are ready.
+  serve      An HTTP API (POST /premises, GET /health, GET /version) on
+             127.0.0.1 unless --host; token from $CURTILAGE_SERVE_TOKEN.
 
   Run "curtilage COMMAND --help" for a command's options. Results go to
   standard output, everything else to standard error.
@@ -489,7 +492,57 @@ def doctor(args)
   exit(report["ok"] ? 0 : 1)
 end
 
-COMMANDS = %w[generate preview places diff build doctor].freeze
+# A token on the command line would show in the process list: it comes
+# from an environment variable (CURTILAGE_SERVE_TOKEN unless --token-env).
+def serve(args)
+  opts, limits = serve_flags(args)
+  token = ENV.fetch(opts[:token_env], nil)
+  server = Curtilage::Server.new(**opts.slice(:host, :port, :cors_origin, :log_pins),
+                                 token: token, log: LOG, options: serve_options(opts), **limits)
+  warn_open(opts, server)
+  # A signal handler can't close a socket another thread is blocked on.
+  %w[INT TERM].each { |signal| trap(signal) { Thread.new { server.stop } } }
+  server.run
+  LOG.puts "curtilage serve: stopped"
+end
+
+def serve_flags(args)
+  opts = { token_env: "CURTILAGE_SERVE_TOKEN" }
+  limits = {}
+  OptionParser.new do |o|
+    o.on("--host HOST", "Address to listen on (default 127.0.0.1: this machine only)") { |v| opts[:host] = v }
+    o.on("--port PORT", Integer, "Port (default 8754)") { |v| opts[:port] = v }
+    o.on("--token-env NAME", "Require the bearer token in this environment variable") { |v| opts[:token_env] = v }
+    o.on("--cors-origin ORIGIN", "Allow browser calls from this origin (default: none)") { |v| opts[:cors_origin] = v }
+    o.on("--log-pins", "Log request bodies, pins included (default: never)") { opts[:log_pins] = true }
+    serve_limit_flags(o, limits)
+    data_flags(o, opts)
+    duckdb_flags(o, opts)
+  end.parse!(args)
+  [opts, limits]
+end
+
+def serve_limit_flags(o, limits)
+  o.on("--max-pins N", Integer, "Pins per request (default 100)") { |v| limits[:max_pins] = v }
+  o.on("--max-body BYTES", Integer, "Request body size (default 1000000)") { |v| limits[:max_body_bytes] = v }
+  o.on("--timeout SECONDS", Float, "Time per request (default 120)") { |v| limits[:timeout_s] = v }
+  o.on("--concurrency N", Integer, "Requests at once (default 4)") { |v| limits[:max_concurrent] = v }
+end
+
+def serve_options(opts)
+  catalogue = opts[:catalogue] && Curtilage::Catalogue.from_dir(opts[:catalogue])
+  { catalogue: catalogue, **opts.slice(:parquet, :source, :cache_dir),
+    lookup: opts.slice(:duckdb, :extension_directory), data: { log: LOG } }.compact
+end
+
+def warn_open(opts, server)
+  return if server.instance_variable_get(:@token) || [nil, "127.0.0.1", "localhost", "::1"].include?(opts[:host])
+
+  LOG.puts("warning: listening on #{opts[:host]} with no token: anyone who can reach it can use it " \
+           "(set $#{opts[:token_env]})")
+end
+
+COMMANDS = %w[generate preview places diff build doctor serve].freeze
 
 def exit_code(error)
   case error

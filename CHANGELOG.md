@@ -4,6 +4,7 @@
 
 ### Added
 
+- `curtilage serve`: an HTTP API (`POST /premises`, `GET /health`, `GET /version`) on the standard library, spec in `docs/openapi.yaml`. Binds 127.0.0.1 unless `--host`; optional bearer token from an environment variable; body, pin, time and concurrency limits; no CORS unless configured; pins never logged unless `--log-pins`. The Docker image exposes 8754 with a health check.
 - GeoParquet, GeoPackage and FlatGeobuf output (`--out FILE.parquet|.gpkg|.fgb`, or `--format`), written through DuckDB with attribution and provenance as columns; `--resume` works for them.
 - Geofence shapes: `Result#enclosing_circle` and `#fit_circle` (also in GeoJSON/NDJSON properties and new CSV columns), and `Result#simplified(max)` / `--simplify N`, which never drops the pin or store zone.
 - `entrances: :all` (experimental, off by default): follows the mapped service roads from the lot to every entrance on a public road and adds a corridor along each, up to the kerb. The premises are then usually not convex. On the public benchmark's labels it takes in 12 of 24 labelled entrances (5 by default) without taking in more of what should stay out.

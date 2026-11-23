@@ -1,0 +1,135 @@
+openapi: 3.1.0
+info:
+  title: curtilage serve
+  version: "1"
+  description: |
+    The HTTP API of `curtilage serve`: premises polygons for pins, from free
+    map data. It listens on 127.0.0.1 unless started with `--host`. When a
+    token is set (`$CURTILAGE_SERVE_TOKEN`, or `--token-env NAME`), every
+    endpoint but /health needs `Authorization: Bearer TOKEN`. Bodies, pins
+    per request, time per request and concurrent requests are capped
+    (`--max-body`, `--max-pins`, `--timeout`, `--concurrency`). Results carry
+    the attribution to show (OpenStreetMap, ODbL) in their properties.
+  license:
+    name: MIT (code); results are derived from OpenStreetMap data (ODbL)
+servers:
+  - url: http://127.0.0.1:8754
+security:
+  - bearer: []
+paths:
+  /health:
+    get:
+      summary: Whether the server is up.
+      security: []
+      responses:
+        "200":
+          description: Up.
+          content:
+            application/json:
+              schema: { type: object, properties: { status: { const: ok } } }
+        "503": { $ref: "#/components/responses/Busy" }
+  /version:
+    get:
+      summary: The gem, DuckDB and default data source.
+      responses:
+        "200":
+          description: Versions.
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  gem: { type: string }
+                  duckdb: { type: [string, "null"] }
+                  source: { type: string }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+  /premises:
+    post:
+      summary: Premises for pins.
+      description: |
+        Pins in, results out: a GeoJSON FeatureCollection (premises, store zone
+        and any zones per site, told apart by properties.role and joined by
+        properties.id), or with `Accept: application/x-ndjson` one Feature per
+        site per line, as in docs/schema/site-v1.json. Where map data comes from
+        is set when the server starts; a request may set generation options
+        only (docs/reference.md, Generation options), plus preset, candidates
+        and method.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              oneOf:
+                - type: object
+                  required: [pins]
+                  properties:
+                    pins:
+                      type: array
+                      description: "[lng, lat] pairs, or objects with id and pin."
+                      items:
+                        oneOf:
+                          - $ref: "#/components/schemas/Pin"
+                          - type: object
+                            required: [pin]
+                            properties:
+                              id: { type: string }
+                              pin: { $ref: "#/components/schemas/Pin" }
+                    options:
+                      type: object
+                      description: 'Generation options, e.g. {"preset": "tight"} or {"entrances": "all"}.'
+                - type: object
+                  description: "A GeoJSON FeatureCollection of Point features (id from the feature's id)."
+                  required: [type, features]
+                  properties:
+                    type: { const: FeatureCollection }
+                    features: { type: array }
+            example: { pins: [[-80.0, 35.0]], options: { preset: whole_lot } }
+          application/x-ndjson:
+            schema:
+              type: string
+              description: "One site per line, as the command line reads NDJSON."
+      responses:
+        "200":
+          description: One result per pin, in order.
+          content:
+            application/geo+json:
+              schema: { type: object, description: "A FeatureCollection." }
+            application/x-ndjson:
+              schema: { type: string, description: "One Feature per site per line (docs/schema/site-v1.json)." }
+        "400": { $ref: "#/components/responses/Error" }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "408": { $ref: "#/components/responses/Error" }
+        "411": { $ref: "#/components/responses/Error" }
+        "413": { $ref: "#/components/responses/Error" }
+        "503": { $ref: "#/components/responses/Busy" }
+        "504": { $ref: "#/components/responses/Error" }
+components:
+  securitySchemes:
+    bearer: { type: http, scheme: bearer }
+  schemas:
+    Pin:
+      type: array
+      minItems: 2
+      maxItems: 2
+      items: { type: number }
+      description: "[longitude, latitude]"
+    Error:
+      type: object
+      properties:
+        error: { type: string, description: "What was wrong, in words. Never a stack trace." }
+  responses:
+    Error:
+      description: Refused, with the reason.
+      content:
+        application/json:
+          schema: { $ref: "#/components/schemas/Error" }
+    Unauthorized:
+      description: A valid bearer token is required (WWW-Authenticate Bearer).
+      content:
+        application/json:
+          schema: { $ref: "#/components/schemas/Error" }
+    Busy:
+      description: The concurrency cap is reached; try again shortly.
+      content:
+        application/json:
+          schema: { $ref: "#/components/schemas/Error" }

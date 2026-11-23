@@ -7,7 +7,8 @@ require_relative "test_helper"
 class PackagingTest < Minitest::Test
   ROOT = File.expand_path("..", __dir__)
   SHIPPED = [%r{\Alib/.+\.rb\z}, %r{\Asql/[^/]+\.sql\z}, %r{\Aexe/[^/]+\z}, %r{\Adocs/schema/[^/]+\.json\z},
-             %r{\A(docs/reference|docs/security|README|CHANGELOG|SECURITY)\.md\z}, /\ALICENSE\.txt\z/].freeze
+             %r{\A(docs/reference|docs/security|README|CHANGELOG|SECURITY)\.md\z}, /\ALICENSE\.txt\z/,
+             %r{\Adocs/openapi\.yaml\z}].freeze
 
   def files
     Dir.chdir(ROOT) { Gem::Specification.load("curtilage.gemspec").files }

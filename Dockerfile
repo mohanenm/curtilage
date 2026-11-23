@@ -67,5 +67,10 @@ RUN curtilage doctor
 
 VOLUME ["/cache"]
 WORKDIR /work
+# For "serve --host 0.0.0.0": the API's port, and a health check that only
+# a server passes (a one-off generate exits long before it matters).
+EXPOSE 8754
+HEALTHCHECK --interval=30s --timeout=5s --start-period=20s \
+  CMD ruby -rnet/http -e 'exit Net::HTTP.get_response(URI("http://127.0.0.1:8754/health")).code == "200"'
 ENTRYPOINT ["curtilage"]
 CMD ["--help"]
