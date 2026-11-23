@@ -2,6 +2,8 @@
 
 ## [Unreleased]
 
+## [0.5.0] - 2026-11-23
+
 ### Added
 
 - A gallery of the public benchmark sites (`docs/gallery/index.html`, `rake benchmark:gallery`): each site's premises, zones, flags and steps, with what its labels say it got wrong. `Preview.html` takes `notes:`, a line of text per site.
