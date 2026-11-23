@@ -37,6 +37,34 @@ jobs:
           LANG: C
         run: bundle exec rake
 
+  # The DuckDB-dependent tests against a real CLI (pinned, checksum-verified)
+  # on a made-up region; CURTILAGE_INTEGRATION=1 makes skipping them a failure.
+  integration:
+    runs-on: ubuntu-latest
+    name: Integration (DuckDB 1.4.4)
+    env:
+      DUCKDB_VERSION: "1.4.4"
+      DUCKDB_SHA256: ea79eae4233f1aba9a020c8a61877de38a789bc62cdd37485d3589cd77dc0d3e
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: ruby/setup-ruby@be3c7df29b3349ec6bcfc6b4792f1cf9f5237d18 # v1.343.0
+        with:
+          ruby-version: "3.4"
+          bundler-cache: true
+      - name: Install DuckDB
+        run: |
+          curl -fsSL -o "$RUNNER_TEMP/duckdb.zip" \
+            "https://github.com/duckdb/duckdb/releases/download/v${DUCKDB_VERSION}/duckdb_cli-linux-amd64.zip"
+          echo "${DUCKDB_SHA256}  $RUNNER_TEMP/duckdb.zip" | sha256sum -c -
+          unzip -q "$RUNNER_TEMP/duckdb.zip" -d "$RUNNER_TEMP/duckdb"
+          echo "CURTILAGE_DUCKDB=$RUNNER_TEMP/duckdb/duckdb" >> "$GITHUB_ENV"
+      - name: Run the tests with a real DuckDB
+        env:
+          CURTILAGE_INTEGRATION: "1"
+        run: bundle exec rake test
+
   # Known vulnerabilities in the development gems. bundler-audit is installed
   # here only, so it isn't a dependency of the gem or its Gemfile.
   audit:

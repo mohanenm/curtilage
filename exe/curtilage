@@ -186,45 +186,14 @@ def doctor(args)
     o.on("--verify DIR", "Check each built file in DIR (catalogue or cache folder) against its recorded SHA256") do |v|
       opts[:verify] = v
     end
+    o.on("--network", "Also check that the map-data hosts answer (no locations are sent)") { opts[:network] = true }
+    o.on("--json", "Print the report as JSON, for scripts") { opts[:json] = true }
     duckdb_flags(o, opts)
   end.parse!(args)
-  settings = Curtilage.duckdb_options(opts.except(:verify))
-  check_duckdb(settings)
-  check_extensions(settings)
-  verify(opts[:verify]) if opts[:verify]
-  puts "Ready."
-end
-
-def verify(dir)
-  catalogue = Curtilage::Catalogue.from_dir(dir)
-  problems = catalogue.verify
-  problems.each { |p| warn "  #{p}" }
-  abort "#{problems.size} built file(s) in #{dir} don't match their metadata: rebuild them" unless problems.empty?
-  puts "Built files: #{catalogue.regions.size} region(s) in #{dir} match their metadata"
-rescue Curtilage::Error => e
-  abort e.message
-end
-
-def check_duckdb(settings)
-  version, err, status = Curtilage::DuckDB.capture(settings[:duckdb], "", "--version")
-  abort "DuckDB (#{settings[:duckdb]}) failed to run: #{err.strip[0, 300]}" unless status.success?
-
-  puts "DuckDB: #{version.strip} (#{Curtilage::DuckDB.resolve(settings[:duckdb]) || settings[:duckdb]})"
-rescue Curtilage::Error => e
-  abort e.message
-end
-
-def check_extensions(settings)
-  dir = settings[:extension_directory]
-  sql = [(Curtilage::DuckDB.extension_sql(dir, settings[:duckdb]) if dir),
-         Curtilage::DuckDB.load_sql("spatial", "httpfs")].compact.join("\n")
-  versions = Curtilage::DuckDB.extension_versions(settings[:duckdb], sql, %w[spatial httpfs])
-  abort "DuckDB extensions (spatial, httpfs) could not be loaded" unless versions.size == 2
-
-  puts "Extensions: #{versions.map { |name, v| "#{name} #{v}" }.join(", ")}" \
-       "#{" (offline: loaded, not installed)" if Curtilage.offline?}"
-rescue Curtilage::Error => e
-  abort e.message
+  report = Curtilage::Doctor.report(Curtilage.duckdb_options(opts.slice(:duckdb, :extension_directory)),
+                                    network: opts[:network], verify: opts[:verify])
+  puts opts[:json] ? JSON.pretty_generate(report) : Curtilage::Doctor.text(report)
+  exit(report["ok"] ? 0 : 1)
 end
 
 case ARGV.shift

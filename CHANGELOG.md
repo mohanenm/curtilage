@@ -4,6 +4,7 @@
 
 ### Added
 
+- `curtilage doctor` checks everything the gem needs outside Ruby with a fix for each problem (DuckDB version, with a warning outside the tested 1.4 and 2.0; extensions; the cache folder), and takes `--network` (are the map-data hosts reachable) and `--json`; it exits 1 when something's missing.
 - A `validation:` option raises or lowers the validation limits for generated polygons (e.g. `{ max_area_error_m2: 300_000 }` for a big-box store's lot, which could only ever get the fallback before). The limits are documented in the reference.
 - CSV output has an `attribution` column, and KML credits every source in the document's description.
 - A "Data licence" section in the README and the reference: what the ODbL asks of results (attribution, derivative databases, produced works), with links.

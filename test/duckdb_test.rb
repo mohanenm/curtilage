@@ -113,4 +113,27 @@ class DuckDBTest < Minitest::Test
       assert_equal({ "spatial" => "v9.9.9" }, D.extension_versions(cli, "LOAD spatial;", %w[spatial]))
     end
   end
+
+  def test_doctor_reports_each_check_with_a_fix
+    Dir.mktmpdir do |dir|
+      rows = '[{"name":"spatial","version":"x"},{"name":"httpfs","version":"y"}]'
+      cli = fake(dir, "case \"$1\" in --version) printf 'v9.9.9 (Test) abc\\n';; " \
+                      "*) cat > /dev/null; printf '%s\\n' '#{rows}';; esac")
+      report = Curtilage::Doctor.report({ duckdb: cli }, cache_dir: nil)
+
+      assert report["ok"]
+      refute report["checks"]["duckdb"]["tested"]
+      assert_includes report["checks"]["duckdb"]["warning"], "untested"
+      assert_equal({ "spatial" => "x", "httpfs" => "y" }, report["checks"]["extensions"]["versions"])
+      missing = Curtilage::Doctor.report({ duckdb: File.join(dir, "none") }, cache_dir: nil)
+
+      refute missing["ok"]
+      assert_includes Curtilage::Doctor.text(missing).join("\n"), "brew install duckdb"
+      open = File.join(dir, "cache")
+      Dir.mkdir(open)
+      File.chmod(0o777, open)
+
+      refute Curtilage::Doctor.cache(open)["ok"]
+    end
+  end
 end
