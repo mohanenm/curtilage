@@ -2,7 +2,7 @@
 
 A small set of public sites, each with a hand-drawn premises polygon, that anyone can run curtilage against. It covers the hard cases, so changes to the rules can be judged on numbers anyone can reproduce. It lives in the repository only; none of it ships in the gem.
 
-**Status: skeleton.** The three sites here are made-up placeholders (`"placeholder": true`) with placeholder squares for references. They show the layout and are never counted in the totals. Real sites and hand-drawn references are being added.
+**Status:** ten public sites in Delaware, one per category, chosen from OpenStreetMap data; hand-drawn references, and sites for `drive_through`, `l_shaped_lot`, `outside_us` and `missing_building`, are still to come. Until a site has a reference, it's scored on validity, flags and fallbacks only. A site can also be marked `"placeholder": true` (made-up, kept out of the totals) while trying things out.
 
 ## Running it
 

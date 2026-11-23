@@ -6,15 +6,15 @@
       "geometry": {
         "type": "Point",
         "coordinates": [
-          -80.0,
-          35.0
+          -75.16413,
+          38.49141
         ]
       },
       "properties": {
-        "id": "placeholder-standalone",
+        "id": "standalone-public",
         "category": "standalone",
-        "notes": "PLACEHOLDER: made-up pin, not a real site. Shows the layout only.",
-        "placeholder": true
+        "notes": "A public building (volunteer fire company) on its own lot, nothing built close by.",
+        "placeholder": false
       }
     },
     {
@@ -22,15 +22,15 @@
       "geometry": {
         "type": "Point",
         "coordinates": [
-          -80.004,
-          35.006
+          -75.58351,
+          39.68725
         ]
       },
       "properties": {
-        "id": "placeholder-corner",
+        "id": "corner-commercial",
         "category": "corner_lot",
-        "notes": "PLACEHOLDER: made-up pin, not a real site. Shows the layout only.",
-        "placeholder": true
+        "notes": "A small commercial building where two named roads meet: trims on two sides.",
+        "placeholder": false
       }
     },
     {
@@ -38,18 +38,127 @@
       "geometry": {
         "type": "Point",
         "coordinates": [
-          -80.00275,
-          34.9978
+          -75.25976,
+          38.54683
         ]
       },
       "properties": {
-        "id": "placeholder-ml",
-        "category": "missing_building",
-        "notes": "PLACEHOLDER: made-up pin, not a real site. Shows a per-site option (buildings: osm_filled).",
-        "placeholder": true,
-        "options": {
-          "buildings": "osm_filled"
-        }
+        "id": "deep-lot-retail",
+        "category": "deep_lot",
+        "notes": "Retail set about 120 m back from the road: the lot runs well beyond the 60 m parking reach.",
+        "placeholder": false
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          -75.55789,
+          39.73987
+        ]
+      },
+      "properties": {
+        "id": "railway-government",
+        "category": "next_to_railway",
+        "notes": "A government building with a railway about 50 m away: the lot stops at the line.",
+        "placeholder": false
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          -75.10568,
+          38.47407
+        ]
+      },
+      "properties": {
+        "id": "backs-onto-houses",
+        "category": "backs_onto_houses",
+        "notes": "Retail with its own parking and houses behind: the lot must stop short of the yards.",
+        "placeholder": false
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          -75.71809,
+          39.46075
+        ]
+      },
+      "properties": {
+        "id": "big-box-retail",
+        "category": "big_box",
+        "notes": "A large store (about 10,000 m2) with about 40,000 m2 of parking.",
+        "placeholder": false
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          -75.46499,
+          39.00939
+        ]
+      },
+      "properties": {
+        "id": "shared-lot-restaurant",
+        "category": "shared_lot",
+        "notes": "A restaurant whose parking lot is shared with one other building.",
+        "placeholder": false
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          -75.60099,
+          39.75928
+        ]
+      },
+      "properties": {
+        "id": "centre-unit",
+        "category": "shopping_centre_unit",
+        "notes": "A unit on a lot shared by four or more buildings: only its share of the lot is its premises.",
+        "placeholder": false
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          -75.38401,
+          38.6918
+        ]
+      },
+      "properties": {
+        "id": "urban-storefront",
+        "category": "urban_storefront",
+        "notes": "A small storefront with no lot of its own and close neighbours.",
+        "placeholder": false
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          -75.55568,
+          39.69115
+        ]
+      },
+      "properties": {
+        "id": "fuel-station",
+        "category": "fuel_station",
+        "notes": "A fuel canopy next to a small shop: the canopy and forecourt are part of the lot.",
+        "placeholder": false
       }
     }
   ]
