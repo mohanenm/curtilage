@@ -27,8 +27,12 @@ class PreviewTest < Minitest::Test
     policy = html[/<meta http-equiv="Content-Security-Policy" content="([^"]+)"/, 1]
 
     assert_includes policy, "default-src 'none'"
-    style = html[%r{<style\b[^>]*>(.*?)</style\s*>}im, 1]
-    script = html[%r{<script\b[^>]*>(.*?)</script\s*>}im, 1]
+    # The page's only inline code is these two constants, exactly; the
+    # policy allows each by its hash, and nothing else.
+    style = Curtilage::Preview::STYLE
+    script = Curtilage::Preview::SCRIPT
+    assert_includes html, "<style>#{style}</style>"
+    assert_includes html, "<script>#{script}</script>"
     assert_includes policy, "'sha256-#{Digest::SHA256.base64digest(style)}'"
     assert_includes policy, "'sha256-#{Digest::SHA256.base64digest(script)}'"
     assert_equal 1, html.scan(/<script\b/i).size
