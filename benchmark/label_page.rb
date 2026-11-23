@@ -81,7 +81,7 @@ module CurtilageBenchmark
       .other-g { background: #888; } .n { margin-left: auto; color: #666; }
       button { font: inherit; padding: 4px 10px; margin: 0 4px 4px 0; cursor: pointer; }
       #save { background: #1a7f37; color: #fff; border: 0; border-radius: 4px; }
-      #status { margin: 6px 0; } #note { margin: 0 0 6px; padding: 6px 8px; background: #f2f2f2; border-radius: 4px; }
+      #where { margin: 4px 0 8px; font-weight: 600; } #status { margin: 6px 0; } #note { margin: 0 0 6px; padding: 6px 8px; background: #f2f2f2; border-radius: 4px; }
       @media (max-width: 700px) { #app { flex-direction: column; } #side { width: 100%%; height: 45%%; } }
     </style></head><body>
     <div id="app"><div id="side">
@@ -91,6 +91,8 @@ module CurtilageBenchmark
       <p class="muted"><b>Random points:</b> the page picks 15 spots near the pin that nobody chose (the same ones
         every time) and shows them one by one in a yellow ring. Press the key for what's there. They catch mistakes
         in places you wouldn't have thought to check, and are scored apart from the points you place.</p>
+      <div><button id="prev">&larr; Previous site</button><button id="next">Next site &rarr;</button></div>
+      <div id="where"></div>
       <div><button id="undo">Undo</button><button id="random">Random points</button><button id="save">Save</button></div>
       <div id="status" class="muted"></div>
       <div id="note"></div>
@@ -143,6 +145,7 @@ module CurtilageBenchmark
       document.getElementById("status").textContent = queue.length
         ? `Random point ${RANDOM - queue.length + 1} of ${RANDOM}: press the key for what's inside the yellow ring (p: unclear).`
         : `${s.id}: ${hand} placed, ${rand} of ${RANDOM} random points labelled.`;
+      document.getElementById("where").textContent = `Site ${current + 1} of ${SITES.length}: ${s.id} (${s.category})`;
       const chosen = KINDS.find(x => x.kind === kind);
       document.getElementById("note").textContent = queue.length ? "" : `${chosen.kind}: ${chosen.note}`;
       renderKinds(); renderList();
@@ -194,6 +197,8 @@ module CurtilageBenchmark
       labels.push({ kind, point: [e.latlng.lng, e.latlng.lat].map(v => Math.round(v * 1e7) / 1e7), source: "hand" });
       save(); redraw();
     });
+    document.getElementById("prev").onclick = () => select((current + SITES.length - 1) %% SITES.length);
+    document.getElementById("next").onclick = () => select((current + 1) %% SITES.length);
     document.getElementById("undo").onclick = () => { labels.pop(); save(); redraw(); };
     document.getElementById("random").onclick = () => {
       const done = labels.filter(l => l.source === "random").map(l => l.point.join());
