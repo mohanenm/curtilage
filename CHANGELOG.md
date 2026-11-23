@@ -15,6 +15,7 @@
 - One pin check for every entry point: coordinates must be finite plain decimals in range. Hexadecimal (`0x1A`) and underscores (`1_0`) used to be read as numbers from pin files and `--pin`, out-of-range values from files reached the results, and `Curtilage.generate` didn't check its pin. A bad `--pin` now gives a message instead of a stack trace.
 - Pin files are refused up front if they aren't valid UTF-8 or contain NUL bytes, and capped as they're read (field length, columns, rows, GeoJSON features), so an oversized file fails early with a clear message.
 - Generation options are range-checked (no negative or kilometre-scale distances, whole-number vertex counts), and an Overture `release:` must look like a release name (it goes into a URL path).
+- Text placed into DuckDB SQL (paths, bucket URLs, folders) may not contain line breaks or NUL bytes, `memory_limit` must look like `"400MB"`, and `threads` must be 1 to 64. Tests push crafted values through every path into SQL.
 
 ### Fixed
 

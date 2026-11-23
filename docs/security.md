@@ -41,7 +41,7 @@ What curtilage trusts, what it doesn't, who might attack it, and how each attack
 ## Defences in the code
 
 - **Pins**: every entry point goes through `Validation.pin`: two finite plain decimal numbers, in range.
-- **SQL**: text values go through `DuckDB.quote`; numbers through `Float()`/`Integer()`; pins through `Validation.pin`.
+- **SQL**: text values go through `DuckDB.quote`, which also refuses line breaks and NUL bytes (the DuckDB CLI treats a line starting with `.` as its own command); numbers through `Float()`/`Integer()`; pins through `Validation.pin`; `memory_limit` must match a size pattern and `threads` must be 1 to 64. `test/sql_safety_test.rb` pushes crafted values through each path into SQL.
 - **Commands**: every external program (DuckDB, `curl`, `unzip`, `git` in the benchmark) runs through `Open3`, `system` or `IO.popen` with an argument list, never a shell string.
 - **Downloads** (`Download`): only `ALLOWED_HOSTS`; HTTPS only (`curl --proto =https`); no redirects followed; size capped while streaming; written to a `.part` file and renamed only when complete; transient failures retried three times.
 - **Zip extraction** (`ZipRange`): only plain file names (no folders, so nothing can be written outside the target, and no symlinks are created); at most 1,000 entries; compressed size capped; inflated size must match the header; CRC-32 checked.

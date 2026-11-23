@@ -211,9 +211,16 @@ module Curtilage
     def setup(opts)
       ext = opts[:extension_directory]
       [(DuckDB.extension_sql(ext, opts[:duckdb]) if ext),
-       "SET memory_limit = #{quote(opts[:memory_limit])};",
-       "SET threads = #{Integer(opts[:threads])};",
+       DuckDB.memory_limit(opts[:memory_limit]),
+       "SET threads = #{threads(opts[:threads])};",
        ("SET temp_directory = #{quote(opts[:temp_directory])};" if opts[:temp_directory])].compact.join("\n")
+    end
+
+    def threads(value)
+      count = Integer(value, exception: false)
+      raise ArgumentError, "threads must be a whole number from 1 to 64: #{value.inspect}" unless count&.between?(1, 64)
+
+      count
     end
 
     def run_duckdb(sql, duckdb, *)

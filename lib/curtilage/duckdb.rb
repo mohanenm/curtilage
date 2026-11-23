@@ -41,9 +41,26 @@ module Curtilage
       end
     end
 
-    # A SQL string literal.
+    # A SQL string literal. Line breaks and NUL bytes are refused: no real
+    # path or URL has them, and the CLI reads a line starting with "." as one
+    # of its own commands.
     def quote(text)
-      "'#{text.to_s.gsub("'", "''")}'"
+      text = text.to_s
+      raise ArgumentError, "text for DuckDB can't contain line breaks or NUL bytes: #{text.inspect}" \
+        if text.match?(/[\r\n\0]/)
+
+      "'#{text.gsub("'", "''")}'"
+    end
+
+    # A DuckDB memory size ("400MB", "1.5 GiB"), checked rather than only
+    # quoted, so a mistake fails clearly instead of inside DuckDB.
+    MEMORY = /\A\d+(\.\d+)?\s?(KB|MB|GB|TB|KiB|MiB|GiB|TiB)\z/i
+
+    def memory_limit(value)
+      raise ArgumentError, "memory_limit looks like \"400MB\" or \"2GB\": #{value.inspect}" \
+        unless value.to_s.match?(MEMORY)
+
+      "SET memory_limit = #{quote(value)};"
     end
   end
 end
