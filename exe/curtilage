@@ -15,8 +15,9 @@ USAGE = <<~TEXT
     curtilage doctor
 
   generate   The premises (and store zone) for one or more pins, as GeoJSON,
-             CSV or KML. Pins from --pin or a CSV/GeoJSON file. Map data is
-             fetched as needed: nothing to set up or host.
+             NDJSON, CSV or KML. Pins from --pin, a CSV/GeoJSON/NDJSON file or
+             standard input. Map data is fetched as needed: nothing to set up
+             or host.
   preview    Generate, then write an HTML page with a map of each site to
              check by eye (it loads nothing from the internet).
   build      Build a region's map data ahead of time (a US state such as
@@ -47,8 +48,13 @@ end
 
 def io_flags(o, opts, command)
   o.on("--pin LNG,LAT", "A location; repeat for several") { |v| opts[:pins] << v }
-  o.on("--in FILE", "Pins from a CSV (lng and lat columns, optional id) or GeoJSON (Point features)") do |v|
+  o.on("--in FILE", "Pins from a CSV (lng and lat columns, optional id), GeoJSON (Point features) or NDJSON;",
+       "- reads standard input (NDJSON unless --in-format says otherwise)") do |v|
     opts[:in] = v
+  end
+  o.on("--in-format NAME", Curtilage::Formats::INPUTS.map(&:to_s),
+       "csv, geojson or ndjson (default: from --in's extension)") do |v|
+    opts[:in_format] = v.to_sym
   end
   if command == "preview"
     o.on("--out FILE", "Where to write the page (default: curtilage-preview.html)") { |v| opts[:out] = v }
@@ -57,7 +63,7 @@ def io_flags(o, opts, command)
     end
   else
     o.on("--out FILE", "Write here instead of printing; the format follows the extension") { |v| opts[:out] = v }
-    o.on("--format NAME", Curtilage::Formats::OUTPUTS.map(&:to_s), "geojson (default), csv or kml") do |v|
+    o.on("--format NAME", Curtilage::Formats::OUTPUTS.map(&:to_s), "geojson (default), ndjson, csv or kml") do |v|
       opts[:format] = v.to_sym
     end
   end
@@ -66,13 +72,20 @@ end
 # [pins, ids] from --pin and --in.
 def read_sites(opts, command)
   sites = opts[:pins].map.with_index(1) { |pin, i| { id: i.to_s, pin: Curtilage::Formats.pin_from_text(pin) } }
-  sites += Curtilage::Formats.read_pins(opts[:in]) if opts[:in]
+  sites += read_input(opts) if opts[:in]
   abort "curtilage #{command}: give --pin LNG,LAT or --in FILE" if sites.empty?
   bad = sites.find { |s| !Curtilage::Formats.pin?(s[:pin]) }
   abort "curtilage #{command}: #{bad[:id]}: a pin is LNG,LAT (longitude first)" if bad
   [sites.map { |s| s[:pin] }, sites.map { |s| s[:id] }]
 rescue ArgumentError, SystemCallError => e
   abort "curtilage #{command}: #{e.message}"
+end
+
+def read_input(opts)
+  return Curtilage::Formats.read_pins(opts[:in], format: opts[:in_format]) unless opts[:in] == "-"
+
+  text = $stdin.binmode.read(Curtilage::Formats::MAX_BYTES + 1).to_s
+  Curtilage::Formats.parse_pins(text, opts[:in_format] || :ndjson)
 end
 
 def run(opts, pins, **extra)

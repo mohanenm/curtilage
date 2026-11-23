@@ -30,7 +30,7 @@ Or from the shell:
 
 ```sh
 curtilage generate --pin -80.0,35.0                     # one pin: GeoJSON to the screen
-curtilage generate --in sites.csv --out premises.csv    # a file of pins in; CSV, GeoJSON or KML out
+curtilage generate --in sites.csv --out premises.csv    # a file of pins in; CSV, GeoJSON, NDJSON or KML out
 curtilage preview --in sites.csv                        # a page with a map of each site, to check by eye
 ```
 
@@ -106,10 +106,11 @@ end
 
 ### Files
 
-`curtilage generate --in FILE --out FILE` reads pins from a CSV (as above) or a GeoJSON file of points, and writes:
+`curtilage generate --in FILE --out FILE` reads pins from a CSV (as above), a GeoJSON file of points or NDJSON (one site per line; `--in -` reads standard input), and writes:
 
 - **CSV** (`.csv`): one row per pin with its id, `ok`, flags, the details, the polygons as WKT and the attribution. Opens in any spreadsheet.
 - **GeoJSON** (`.geojson`): one FeatureCollection, the premises and store zone of each pin, with the id in each feature's properties.
+- **NDJSON** (`.ndjson`, or `--format ndjson`): one GeoJSON Feature per site per line, with a [versioned schema](docs/schema/site-v1.json). For scripts in any language, and for GDAL, QGIS or DuckDB.
 - **KML** (`.kml`): for Google Earth, with the attribution in its description.
 
 From Ruby, `Curtilage::Formats` does the same ([reference](docs/reference.md#files-curtilageformats)).
@@ -213,7 +214,7 @@ Pins never leave the machine as coordinates: they aren't put in any URL or reque
 | `lib/curtilage/generator_store.rb` | The store zone |
 | `lib/curtilage/generator_details.rb` | Facts about the site: parking, frontage, entrances |
 | `lib/curtilage/result.rb` | What generation returns: GeoJSON, WKT, buffering |
-| `lib/curtilage/formats.rb` | Pins in from CSV or GeoJSON; results out as GeoJSON, CSV or KML |
+| `lib/curtilage/formats.rb` | Pins in from CSV, GeoJSON or NDJSON; results out as GeoJSON, NDJSON, CSV or KML |
 | `lib/curtilage/preview.rb` | The HTML review page |
 | `lib/curtilage/features.rb` | Parses nearby map features (untrusted) and projects them to metres |
 | `lib/curtilage/geometry.rb` | Plain-Ruby planar geometry |

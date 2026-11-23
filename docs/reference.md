@@ -157,9 +157,10 @@ The same list is `Curtilage::FLAGS` (flag => what it asks a person to check).
 
 Reading pins:
 
-- `Formats.read_pins(path)`: pins from a `.csv` or `.geojson`/`.json` file, as `[{ id:, pin: [lng, lat] }, ...]`. `Formats.parse_pins(text, :csv | :geojson)` does the same from a string.
+- `Formats.read_pins(path, format: nil)`: pins from a `.csv`, `.geojson`/`.json` or `.ndjson`/`.jsonl` file, as `[{ id:, pin: [lng, lat] }, ...]`. `Formats.parse_pins(text, :csv | :geojson | :ndjson)` does the same from a string.
 - CSV: a header row, then one pin per row. Longitude is the column named `lng`, `lon`, `long` or `longitude`; latitude is `lat` or `latitude`; the id, if any, is `id`, `site_id` or `name` (names are case-insensitive). Quoted fields, a byte-order mark and blank lines are fine.
 - GeoJSON: a FeatureCollection of Point features (or one Point feature). The id is the feature's `id`, or its `id` or `name` property.
+- NDJSON (`.ndjson`/`.jsonl`, or `:ndjson`): one site per line, as `{"id": "a", "lng": -80.1, "lat": 35.2}` (any of the CSV column names), `{"id": "a", "pin": [-80.1, 35.2]}` or a GeoJSON Point Feature. Blank lines are skipped; a bad line is named by number.
 - Pins without an id are numbered from 1. Files are capped at 50 MB and 100,000 pins; CSV fields (and ids) at 10,000 characters and rows at 1,000 columns; GeoJSON nesting at 20 levels. Files must be UTF-8 (a byte-order mark is fine) without NUL bytes.
 - Coordinates must be plain decimal numbers (`-80.25`, `35`, `1e-3`), longitude first, longitude within 180 and latitude within 90. Hexadecimal, underscores (`1_0`), `NaN` and infinite values are refused with the line or feature named. Every entry point (Ruby calls, `--pin`, files) checks pins the same way.
 
@@ -168,6 +169,7 @@ Writing results: `Formats.write(results, format, ids: nil, store: true)` returns
 | Format | What |
 |---|---|
 | `:geojson` | One FeatureCollection: for each pin, its premises and (unless `store: false`) its store zone, with `properties.id`, `properties.role` and everything `to_geojson` carries. |
+| `:ndjson` | One line per pin: a GeoJSON Feature of its premises (`geometry` is `null` when none could be made) with everything `to_geojson` carries in its properties, and the store zone's geometry in `properties.store` (absent with `store: false`). The schema is [`docs/schema/site-v1.json`](schema/site-v1.json) (it ships in the gem); version 1 only gains optional properties, and anything that would break a reader gets a new schema version. |
 | `:csv` | One row per pin. Columns: `id`, `lng`, `lat`, `ok`, `problem`, `method`, `flags` and `errors` (`;`-separated), `building`, `building_area_m2`, `parking_area_m2`, `parking_spaces_estimate`, `frontage_m`, `premises_area_m2`, `premises_wkt`, `store_wkt`, `attribution` (`; `-separated), then `gem_version`, `data_source`, `data_release` (the Overture release or the Geofabrik extract dates, `;`-separated) and `features_sha256` from `provenance` (the options are only in GeoJSON). Cells a spreadsheet would run as a formula (starting with `=`, `+`, `-`, `@`, `|` or `%`, or their full-width forms, even after spaces) get a leading `'`; plain numbers don't. |
 | `:kml` | A placemark per polygon (premises and store zone), with the flags, attribution, gem version and data release in its description, and every source credited in the document's description, for Google Earth. |
 
@@ -223,15 +225,15 @@ DuckDB's `spatial` and `httpfs` extensions install themselves on first use.
 ## Command line
 
 ```
-curtilage generate (--pin LNG,LAT ... | --in FILE) [--out FILE] [options]
+curtilage generate (--pin LNG,LAT ... | --in FILE|-) [--out FILE] [options]
 curtilage preview (--pin LNG,LAT ... | --in FILE) [--out FILE] [options]
 curtilage build REGION [options]
 curtilage doctor
 ```
 
 - `generate`: premises and store zones for one or more pins.
-  - Pins: `--pin LNG,LAT` (repeat for several; ids 1, 2, ...) and/or `--in FILE` (CSV or GeoJSON; see [Files](#files-curtilageformats)).
-  - Output: printed as GeoJSON, or `--out FILE` in the format its extension names (`.geojson`/`.json`, `.csv`, `.kml`). `--format geojson|csv|kml` overrides. The file is written whole (to a temporary name, then renamed) and replaces any file there; a symbolic link at that path is refused.
+  - Pins: `--pin LNG,LAT` (repeat for several; ids 1, 2, ...) and/or `--in FILE` (CSV, GeoJSON or NDJSON; see [Files](#files-curtilageformats)). `--in -` reads standard input, as NDJSON unless `--in-format csv|geojson|ndjson` says otherwise; `--in-format` also overrides a file's extension.
+  - Output: printed as GeoJSON, or `--out FILE` in the format its extension names (`.geojson`/`.json`, `.ndjson`/`.jsonl`, `.csv`, `.kml`). `--format geojson|ndjson|csv|kml` overrides. The file is written whole (to a temporary name, then renamed) and replaces any file there; a symbolic link at that path is refused.
   - Data: `--source auto|geofabrik|overture` (default auto), `--cache-dir DIR`, `--catalogue DIR`, `--parquet FILE`.
   - Style: `--preset whole_lot|tight|centre`, `--buildings osm|osm_filled|ml`, `--[no-]store`.
   - DuckDB: `--duckdb PATH`, `--extension-directory DIR`.

@@ -5,7 +5,8 @@ require "json"
 require "strscan"
 
 module Curtilage
-  # Pins in from CSV or GeoJSON; results out as GeoJSON, CSV or KML. Used by
+  # Pins in from CSV, GeoJSON or NDJSON; results out as GeoJSON, NDJSON, CSV
+  # or KML. Used by
   # the command line, and handy from Ruby:
   #
   #   sites = Curtilage::Formats.read_pins("sites.csv")
@@ -15,8 +16,8 @@ module Curtilage
   # Plain Ruby (no csv gem): CSV is read and written per RFC 4180 (quoted
   # fields, doubled quotes, commas and newlines inside quotes).
   module Formats
-    INPUTS = %i[csv geojson].freeze
-    OUTPUTS = %i[geojson csv kml].freeze
+    INPUTS = %i[csv geojson ndjson].freeze
+    OUTPUTS = %i[geojson ndjson csv kml].freeze
     LNG_COLUMNS = %w[lng lon long longitude].freeze
     LAT_COLUMNS = %w[lat latitude].freeze
     ID_COLUMNS = %w[id site_id name].freeze
@@ -32,21 +33,25 @@ module Curtilage
 
     module_function
 
-    # The format a path's extension names (.csv, .geojson/.json, .kml), or nil.
+    # The format a path's extension names (.csv, .geojson/.json,
+    # .ndjson/.jsonl, .kml), or nil.
     def format_of(path)
       case File.extname(path.to_s).downcase
       when ".csv" then :csv
       when ".geojson", ".json" then :geojson
+      when ".ndjson", ".jsonl" then :ndjson
       when ".kml" then :kml
       end
     end
 
     # [{ id:, pin: [lng, lat] }, ...] from a CSV (a header row with lng/lon/
-    # longitude and lat/latitude columns, and optionally id/site_id/name) or
+    # longitude and lat/latitude columns, and optionally id/site_id/name),
     # GeoJSON (Point features; id from the feature's id or properties id or
-    # name). Rows without an id are numbered from 1.
+    # name) or NDJSON (one site per line, see ndjson_pins). Rows without an
+    # id are numbered from 1.
     def read_pins(path, format: nil)
-      format ||= format_of(path) or raise ArgumentError, "can't tell the format of #{path}: use .csv or .geojson"
+      format ||= format_of(path) or
+        raise ArgumentError, "can't tell the format of #{path}: use .csv, .geojson or .ndjson"
       raise ArgumentError, "#{path} is over #{MAX_BYTES / 1024 / 1024} MB" if File.size(path) > MAX_BYTES
 
       text = File.read(path, encoding: "bom|utf-8")
@@ -58,6 +63,7 @@ module Curtilage
       sites = case format
               when :csv then csv_pins(text)
               when :geojson then geojson_pins(text)
+              when :ndjson then ndjson_pins(text)
               else raise ArgumentError, "unknown input format #{format.inspect} (have: #{INPUTS.join(", ")})"
               end
       raise ArgumentError, "more than #{MAX_PINS} pins" if sites.size > MAX_PINS
@@ -104,12 +110,39 @@ module Curtilage
       raise ArgumentError, "not valid GeoJSON: #{e.message[0, 200]}"
     end
 
-    # The results as text in format (:geojson, :csv or :kml). ids: one per
-    # result (default 1, 2, ...). store: include the store zones.
+    # One site per line: a GeoJSON Point Feature, {"id", "pin": [lng, lat]}
+    # or {"id", "lng", "lat"} (any of the CSV column names). Blank lines are
+    # skipped.
+    def ndjson_pins(text)
+      lines = text.each_line.with_index(1).reject { |line, _| line.strip.empty? }
+      raise ArgumentError, "more than #{MAX_PINS} pins" if lines.size > MAX_PINS
+
+      lines.map { |line, n| ndjson_pin(line, "line #{n}") }
+    end
+
+    def ndjson_pin(line, where)
+      row = JSON.parse(line, max_nesting: 20)
+      raise ArgumentError, "#{where} isn't a JSON object" unless row.is_a?(Hash)
+      return geojson_pin(row, where) if row["type"] == "Feature"
+
+      coords = row["pin"] || [row.values_at(*LNG_COLUMNS).compact.first, row.values_at(*LAT_COLUMNS).compact.first]
+      unless coords.is_a?(Array) && coords.size == 2 && coords.none?(&:nil?)
+        raise ArgumentError, "#{where} needs pin: [lng, lat] or lng and lat"
+      end
+
+      id = row["id"] || row["site_id"] || row["name"]
+      { id: present(id), pin: coords.map { |v| number(v, where) } }
+    rescue JSON::ParserError => e
+      raise ArgumentError, "#{where} isn't valid JSON: #{e.message[0, 200]}"
+    end
+
+    # The results as text in format (:geojson, :ndjson, :csv or :kml). ids:
+    # one per result (default 1, 2, ...). store: include the store zones.
     def write(results, format, ids: nil, store: true)
       ids ||= (1..results.size).map(&:to_s)
       case format.to_sym
       when :geojson then JSON.pretty_generate(geojson(results, ids, store))
+      when :ndjson then ndjson(results, ids, store)
       when :csv then csv(results, ids)
       when :kml then kml(results, ids, store)
       else raise ArgumentError, "unknown output format #{format.inspect} (have: #{OUTPUTS.join(", ")})"
@@ -124,6 +157,16 @@ module Curtilage
         store ? list : list.first(1)
       end
       { type: "FeatureCollection", features: features }
+    end
+
+    # One GeoJSON Feature per line (docs/schema/site-v1.json): the premises,
+    # with the store zone's geometry in properties.store.
+    def ndjson(results, ids, store)
+      results.zip(ids).map do |result, id|
+        premises, store_zone = result.geojson_features(properties: { id: id })
+        premises[:properties][:store] = store_zone[:geometry] if store
+        "#{JSON.generate(premises)}\n"
+      end.join
     end
 
     def csv(results, ids)

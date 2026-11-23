@@ -28,7 +28,7 @@ Gem::Specification.new do |spec|
 
   # Docs are listed by name: design notes, recipes and drafts under docs/
   # stay out of the gem unless added here.
-  spec.files = Dir["lib/**/*.rb", "sql/**/*.sql", "exe/*"] +
+  spec.files = Dir["lib/**/*.rb", "sql/**/*.sql", "exe/*", "docs/schema/*.json"] +
                %w[docs/reference.md docs/security.md README.md CHANGELOG.md LICENSE.txt SECURITY.md]
   spec.bindir = "exe"
   spec.executables = spec.files.grep(%r{\Aexe/}) { |f| File.basename(f) }
