@@ -1,0 +1,11 @@
+# curtilage
+
+Free, explainable premises polygons and geofences for any store: the building plus its parking lot, up to the kerb, from OpenStreetMap and Overture.
+
+- [Gallery](gallery/): every public benchmark site, with its premises, zones, flags and steps, and what its labels say it got wrong.
+- [Reference](reference.md): every option, flag and command.
+- [Recipes](recipes/README.md): PostGIS, QGIS, GeoPandas, DuckDB, geofences, Rails.
+- [Security](security.md) and the [HTTP API spec](openapi.yaml).
+- [Benchmark](https://github.com/mohanenm/curtilage/blob/main/benchmark/README.md), [source code](https://github.com/mohanenm/curtilage) and the [gem](https://rubygems.org/gems/curtilage).
+
+Results are derived from OpenStreetMap data, © OpenStreetMap contributors, under the [ODbL](https://opendatacommons.org/licenses/odbl/1-0/) ([what that means for you](https://github.com/mohanenm/curtilage#data-licence)).
