@@ -95,6 +95,14 @@ class PreviewTest < Minitest::Test
       refute status.success?
       refute_includes err, ".rb:" # a message, not a stack trace
 
+      target = File.join(dir, "elsewhere.geojson")
+      File.symlink(target, File.join(dir, "link.geojson"))
+      _, err, status = Open3.capture3("ruby", "-I", lib, exe, "generate", "--pin", "-80,35",
+                                      "--out", File.join(dir, "link.geojson"))
+      assert_includes err, "symbolic link"
+      refute status.success?
+      refute_path_exists target
+
       _, err, = Open3.capture3("ruby", "-I", lib, exe, "generate", "--in", File.join(dir, "missing.csv"))
 
       assert_includes err, "No such file"

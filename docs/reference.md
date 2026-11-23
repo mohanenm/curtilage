@@ -200,7 +200,7 @@ curtilage doctor
 
 - `generate`: premises and store zones for one or more pins.
   - Pins: `--pin LNG,LAT` (repeat for several; ids 1, 2, ...) and/or `--in FILE` (CSV or GeoJSON; see [Files](#files-curtilageformats)).
-  - Output: printed as GeoJSON, or `--out FILE` in the format its extension names (`.geojson`/`.json`, `.csv`, `.kml`). `--format geojson|csv|kml` overrides.
+  - Output: printed as GeoJSON, or `--out FILE` in the format its extension names (`.geojson`/`.json`, `.csv`, `.kml`). `--format geojson|csv|kml` overrides. The file is written whole (to a temporary name, then renamed) and replaces any file there; a symbolic link at that path is refused.
   - Data: `--source auto|geofabrik|overture` (default auto), `--cache-dir DIR`, `--catalogue DIR`, `--parquet FILE`.
   - Style: `--preset whole_lot|tight|centre`, `--buildings osm|osm_filled|ml`, `--[no-]store`.
   - DuckDB: `--duckdb PATH`, `--extension-directory DIR`.
