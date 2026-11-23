@@ -68,6 +68,11 @@ What the data allows today:
 - Opt-in: every candidate is a full generation. On the held-out set with 3: 112 of 164 sites got at least one (74 whole-centre, 89 other-building, 7 rectangle offers before the cap), about 230 ms a site against 90.
 - In batches, candidates drop their map data with their result unless `keep_features: true`.
 
+## 6.8 Rule profiles
+
+- **Your own profiles: done.** A profile is a named set of generation options, so nothing new reaches `generate`: `Profiles.load` returns option hashes, checked at load with the same checks as direct options, and the CLI turns `--preset NAME` into a profile when `--profiles` has it. YAML through the standard library's safe loader (no aliases, no objects), so no new dependency.
+- **Named site-type profiles (`drive_through`, `fuel`, `big_box`, `pharmacy`, `grocery`, `urban_storefront`): waiting.** The brief says tune them on the public benchmark only, and its reference polygons aren't drawn yet. Shipping untuned guesses as named presets would look authoritative without being so. Once references exist: one profile per category with enough sites, each judged on aerial imagery and the benchmark, with per-profile results reported.
+
 ## 8.2 A stable CLI contract
 
 (Pulled ahead of Phase 8 because the provenance and NDJSON schema go together.)

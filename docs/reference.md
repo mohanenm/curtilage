@@ -110,6 +110,22 @@ Every error the gem raises on purpose is a `Curtilage::Error` (or a subclass: `L
 
 Any option passed with a preset overrides it.
 
+**Your own profiles.** `Curtilage::Profiles.load(path)` reads named sets of generation options from a JSON (`.json`) or YAML (`.yml`, `.yaml`) file and returns `{ name => options }` to pass to `generate` or `generate_many`. A profile may start from a built-in `preset:`; names (`method`, `scope`, `buildings`, `preset`) are written as text. Every profile is checked like options passed directly, so a mistake fails at load, naming the profile. Files are capped at 1 MB and 100 profiles; YAML is read safely (no aliases or objects).
+
+```yaml
+big_box:
+  preset: whole_lot
+  parking_max_extent_m: 150
+  validation: { max_area_error_m2: 300000 }
+```
+
+```ruby
+options = Curtilage::Profiles.load("profiles.yml")[:big_box]
+Curtilage.generate_many(pins, **options)
+```
+
+On the command line: `--profiles FILE --preset big_box`; other flags given with it override the profile.
+
 ### Generation options
 
 All distances in metres, areas in square metres. These are `Curtilage::Generator::DEFAULTS`. An unknown or misspelt option raises `ArgumentError`, and so does a value out of range: distances must be 0 to 1,000 m, areas 0 to 10,000,000 m2, `max_vertices` a whole number from 4 to 50, `max_store_vertices` from 3 to 200, `shared_lot_buildings` from 1 to 1,000, `precision` a whole number from 5 to 15 (`Generator::RANGES`).
@@ -338,7 +354,7 @@ curtilage doctor
   - Pins: `--pin LNG,LAT` (repeat for several; ids 1, 2, ...) and/or `--in FILE` (CSV, GeoJSON or NDJSON; see [Files](#files-curtilageformats)). `--in -` reads standard input, as NDJSON unless `--in-format csv|geojson|ndjson` says otherwise; `--in-format` also overrides a file's extension.
   - Output: printed as GeoJSON, or `--out FILE` in the format its extension names (`.geojson`/`.json`, `.ndjson`/`.jsonl`, `.csv`, `.kml`). `--format geojson|ndjson|csv|kml` overrides. The file is written whole (to a temporary name, then renamed) and replaces any file there; a symbolic link at that path is refused.
   - Data: `--source auto|geofabrik|overture` (default auto), `--cache-dir DIR`, `--catalogue DIR`, `--parquet FILE`.
-  - Style: `--preset whole_lot|tight|centre`, `--buildings osm|osm_filled|ml`, `--[no-]store`.
+  - Style: `--preset whole_lot|tight|centre` or a profile name with `--profiles FILE`, `--buildings osm|osm_filled|ml`, `--[no-]store`.
   - Ambiguous sites: `--candidates N` (1 to 5) adds up to N other premises ([Candidates](#candidates)).
   - Pins: `--snap [METRES]` (default 30) moves pins that aren't on a building onto the nearest one (`snap_m:`).
   - Zones: `--approach [METRES]` (default 150) and `--pickup [METRES]` (default 25) add the [zones](#zones).
