@@ -22,6 +22,24 @@ class PreviewTest < Minitest::Test
     refute_match(/(src|href)=|url\(|@import/, html)
   end
 
+  # A background image per site, from the page's own folder only: drawn
+  # under the map, credited, allowed by the policy as 'self'; anything that
+  # could load from elsewhere is refused.
+  def test_backgrounds_are_local_images_under_the_map
+    results = [Curtilage.generate(PIN, scene), Curtilage.generate(PIN, scene)]
+    html = Curtilage::Preview.html(results, backgrounds: ["images/a.jpg", nil], background_credit: "USGS")
+    policy = html[/<meta http-equiv="Content-Security-Policy" content="([^"]+)"/, 1]
+
+    assert_includes html, %(<image href="images/a.jpg" x="-120" y="-120" width="240" height="240")
+    assert_equal 1, html.scan("<image ").size
+    assert_includes policy, "img-src 'self' data:"
+    assert_includes html, "drawn over aerial imagery (USGS)"
+    refute_includes Curtilage::Preview.html(results), "'self'"
+    ["https://example.com/a.jpg", "../a.jpg", "/a.jpg", "a.svg", "javascript:a.jpg"].each do |bad|
+      assert_raises(ArgumentError) { Curtilage::Preview.html(results, backgrounds: [bad]) }
+    end
+  end
+
   # Only the page's own style and script may run, and it names no URL.
   def test_content_security_policy_allows_only_the_pages_own_code
     html = Curtilage::Preview.html([Curtilage.generate(PIN, scene)])

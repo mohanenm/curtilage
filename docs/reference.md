@@ -345,13 +345,13 @@ GeoParquet (`.parquet`, GeoParquet 1.0 metadata), GeoPackage (`.gpkg`) and FlatG
 
 ### Preview: `Curtilage::Preview`
 
-`Preview.html(results, ids: nil, title: "curtilage preview", buffer_m: nil, notes: nil)` returns a self-contained HTML page with a card per result (`notes:`: one line of text per result, or nil, shown under its heading):
+`Preview.html(results, ids: nil, title: "curtilage preview", buffer_m: nil, notes: nil, backgrounds: nil, background_credit: nil)` returns a self-contained HTML page with a card per result (`notes:`: one line of text per result, or nil, shown under its heading; `backgrounds:`: one image per result, or nil, drawn under its map, which must be a relative path to a `.jpg`, `.png` or `.webp` file served with the page and cover exactly the map's square, 120 m either side of the pin in plain longitude and latitude; `background_credit:` names the imagery's source on the page):
 
 - A map 240 m across, north up, with a 50 m scale bar: the premises, store zone and pin; the site's building (darker) and other buildings, mapped parking, public roads (hover for the name), service roads and driveways, railways; driveway entrances (blue dots); with `buffer_m:`, the premises grown by that much (dashed).
 - Under it: the flags (hover for their meaning), the building and premises areas, parking area and estimated spaces, street frontage, the number of entrances, and the step-by-step explanation. Invalid results say why.
 - At the top, a count of sites that are ok, flagged or without usable premises, and two controls: **Show** (all sites; those that need a look, meaning flagged or not valid; not valid; ok with no flags; or those with a given flag, with counts) and **Sort by** (input order, needs a look first, lowest confidence first, id, largest or smallest premises). Each card shows its confidence. The choice is remembered in the browser. The controls are a short inline script; without it every card shows, in input order.
 
-The surroundings come from `Result#features`, so pass results from `generate_many(pins, keep_features: true)`; without them only the premises, store zone and entrances are drawn. The page loads nothing from the internet (no tiles, scripts or fonts), so opening it reveals no locations; it does contain the coordinates, so share it only as you would them. Its Content-Security-Policy allows only its own inline style and script, and text from map data is escaped.
+The surroundings come from `Result#features`, so pass results from `generate_many(pins, keep_features: true)`; without them only the premises, store zone and entrances are drawn. The page loads nothing from the internet (no tiles, scripts or fonts; background images, when given, come from the page's own folder), so opening it reveals no locations; it does contain the coordinates, so share it only as you would them. Its Content-Security-Policy allows only its own inline style and script, and text from map data is escaped.
 
 ### Other entry points
 

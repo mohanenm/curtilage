@@ -25,16 +25,40 @@ module Curtilage
     # ids: one label per result (default 1, 2, ...). buffer_m: also draw the
     # premises grown by this many metres (Result#buffered), e.g. a geofence
     # margin. notes: one line of text per result (or nil), shown under its
-    # heading. Results without features (generate_many without
-    # keep_features: true) show only the premises, store zone and entrances.
-    def html(results, ids: nil, title: "curtilage preview", buffer_m: nil, notes: nil)
-      ids ||= (1..results.size).map(&:to_s)
-      notes ||= []
-      cards = results.zip(ids).each_with_index.map { |(result, id), i| card(result, id, i, buffer_m, notes[i]) }
+    # heading. backgrounds: one image per result (or nil), drawn under its
+    # map: a relative path to a JPEG, PNG or WebP served with the page,
+    # covering exactly the map's square (VIEW_M either side of the pin, in
+    # plain longitude and latitude); background_credit names its source.
+    # Results without features (generate_many without keep_features: true)
+    # show only the premises, store zone and entrances.
+    def html(results, ids: nil, title: "curtilage preview", buffer_m: nil, notes: nil, backgrounds: nil,
+             background_credit: nil)
+      backgrounds = Array(backgrounds).each { |b| check_background(b) }
+      cards = cards(results, ids || (1..results.size).map(&:to_s), buffer_m, Array(notes), backgrounds)
       credits = results.flat_map { |r| r.attribution || Result::OSM_ATTRIBUTION }.uniq
+      imagery = backgrounds.compact.empty? ? nil : background_credit.to_s
+      page(title, cards, toolbar(results), credits, [buffer_m, zones(results), imagery])
+    end
+
+    def cards(results, ids, buffer_m, notes, backgrounds)
+      results.zip(ids).each_with_index.map do |(result, id), i|
+        card(result, id, i, buffer_m: buffer_m, note: notes[i], background: backgrounds[i])
+      end
+    end
+
+    def zones(results)
       zones = %w[approach pickup].select { |z| results.any? { |r| r.public_send("#{z}_ring") } }
-      zones << "candidate" if results.any? { |r| r.candidates&.any? }
-      page(title, cards, toolbar(results), credits, [buffer_m, zones])
+      results.any? { |r| r.candidates&.any? } ? zones << "candidate" : zones
+    end
+
+    BACKGROUND = %r{\A(?!/)(?!.*\.\.)[\w./-]{1,200}\.(jpe?g|png|webp)\z}i
+
+    # Only a relative image file served with the page: nothing is loaded from
+    # anywhere else.
+    def check_background(path)
+      return if path.nil? || path.to_s.match?(BACKGROUND)
+
+      raise ArgumentError, "background #{path.inspect}: a relative path to a .jpg, .png or .webp file next to the page"
     end
 
     # ok, flagged (ok, with flags) or invalid.
@@ -77,15 +101,21 @@ module Curtilage
         "#{states.fetch("invalid", 0)} without usable premises"
     end
 
-    def card(result, id, index, buffer_m, note = nil)
+    def card(result, id, index, buffer_m: nil, note: nil, background: nil)
       status = result.ok? ? "" : %(<span class="bad">#{h(result.problem)}</span>)
       notes = result.explanation.map { |n| "<li>#{h(n)}</li>" }.join
       note = note ? %(<p class="facts">#{h(note)}</p>) : ""
+      under = background ? under_image(background) : ""
       <<~HTML
         <section #{card_data(result, id, index)}><h2>#{h(id)} #{status}</h2>#{note}
-        <svg viewBox="#{-VIEW_M} #{-VIEW_M} #{VIEW_M * 2} #{VIEW_M * 2}" role="img" aria-label="site #{h(id)}">#{shapes(result, buffer_m).join}</svg>
+        <svg#{' class="over"' if background} viewBox="#{-VIEW_M} #{-VIEW_M} #{VIEW_M * 2} #{VIEW_M * 2}" role="img" aria-label="site #{h(id)}">#{under}#{shapes(result, buffer_m).join}</svg>
         <p>#{flag_tags(result.flags)}</p>#{facts(result)}<details><summary>How it was made</summary><ol>#{notes}</ol></details></section>
       HTML
+    end
+
+    def under_image(path)
+      box = %(x="#{-VIEW_M}" y="#{-VIEW_M}" width="#{VIEW_M * 2}" height="#{VIEW_M * 2}")
+      %(<image href="#{h(path)}" #{box} preserveAspectRatio="none"/>)
     end
 
     # What the filter and sort read.
@@ -192,21 +222,27 @@ module Curtilage
 
     # Only the page's own inline style and script may run, by hash; nothing
     # can be loaded from anywhere. A missed escape can't run script.
-    def csp
+    # With backgrounds, images from the page's own folder too.
+    def csp(images: false)
       "default-src 'none'; style-src 'sha256-#{Digest::SHA256.base64digest(STYLE)}'; " \
-        "script-src 'sha256-#{Digest::SHA256.base64digest(SCRIPT)}'; img-src data:; base-uri 'none'; form-action 'none'"
+        "script-src 'sha256-#{Digest::SHA256.base64digest(SCRIPT)}'; img-src #{"'self' " if images}data:; " \
+        "base-uri 'none'; form-action 'none'"
     end
 
     # extras: [buffer_m, zones drawn on some card], for the legend.
+    # extras: [buffer_m, zones drawn on some card, the backgrounds' credit or
+    # nil without backgrounds].
     def page(title, cards, toolbar, credits, extras)
+      imagery = extras[2]
+      drawn = imagery ? "drawn over aerial imagery (#{h(imagery)})" : "drawn from the map data only (no imagery)"
       <<~HTML
         <!doctype html><html lang="en"><head><meta charset="utf-8">
-        <meta http-equiv="Content-Security-Policy" content="#{csp}">
+        <meta http-equiv="Content-Security-Policy" content="#{csp(images: !imagery.nil?)}">
         <meta name="viewport" content="width=device-width, initial-scale=1">
         <title>#{h(title)}</title><style>#{STYLE}</style></head><body>
         <h1>#{h(title)}</h1>#{toolbar}
-        <p class="legend">#{legend(*extras)}</p>
-        <p class="muted">Each map is #{VIEW_M * 2} m across, north up, drawn from the map data only (no imagery).
+        <p class="legend">#{legend(*extras.first(2))}</p>
+        <p class="muted">Each map is #{VIEW_M * 2} m across, north up, #{drawn}.
         Hover over a flag for what it means, or a road for its name. Map data: #{h(credits.join("; "))}.</p>
         <main>#{cards.join}</main><script>#{SCRIPT}</script></body></html>
       HTML
@@ -282,6 +318,7 @@ module Curtilage
       section { border: 1px solid var(--line); border-radius: 6px; padding: 8px; min-width: 0; }
       svg { width: 100%; background: var(--card); display: block; }
       .building { fill: var(--building); } .site { fill: var(--site); } .parking { fill: var(--parking); }
+      .over .building, .over .site, .over .parking { fill-opacity: .2; stroke: #fff; stroke-width: .6; }
       .road { fill: none; stroke: var(--road); stroke-width: 2; }
       .service { fill: none; stroke: var(--road); stroke-width: 1; stroke-dasharray: 3 2; opacity: .6; }
       .rail { fill: none; stroke: var(--fg); stroke-width: 2; stroke-dasharray: 6 3; }

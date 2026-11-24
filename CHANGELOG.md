@@ -4,6 +4,7 @@
 
 ### Added
 
+- `Preview.html(backgrounds:, background_credit:)`: an image per site drawn under its map, from the page's own folder only. The gallery uses it to draw every site over a public-domain USGS aerial snapshot, fetched once when it's built and stored with the page, so the published page still loads nothing from anywhere.
 - `CONTRIBUTING.md` (setup, tests, the benchmark, the no-real-site-data rule, how to report a bad polygon), issue templates (bad polygon, bug, feature request) and a pull request checklist, a code of conduct (Contributor Covenant 2.1) and a governance note. The README's Versioning section lists what 1.0 waits for.
 
 ### Changed
