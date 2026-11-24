@@ -152,6 +152,7 @@ class LabelPageTest < Minitest::Test
     policy = ->(html) { html[/<meta http-equiv="Content-Security-Policy" content="([^"]+)"/, 1] }
 
     refute_match(/<(script|link|img)[^>]+(src|href)=/, on)
+    refute_includes on, "\r", "browsers hash inline code after turning CRLF into LF"
     %w[script style].each do |tag|
       on.scan(%r{<#{tag}>(.*?)</#{tag}>}m).each do |(code)|
         assert_includes policy.call(on), "'sha256-#{Digest::SHA256.base64digest(code)}'"

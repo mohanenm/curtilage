@@ -61,10 +61,14 @@ module CurtilageBenchmark
     end
     html = format(PAGE, sites: safe_json(data), kinds: safe_json(kinds), random: RANDOM_POINTS,
                         radius: RANDOM_RADIUS_M, imagery: imagery, csp: "__CSP__",
-                        leaflet_js: File.read(File.join(LEAFLET, "leaflet.js")),
-                        leaflet_css: File.read(File.join(LEAFLET, "leaflet.css")))
+                        leaflet_js: leaflet_file("leaflet.js"), leaflet_css: leaflet_file("leaflet.css"))
     html.sub("__CSP__", label_csp(html, imagery))
   end
+
+  # Leaflet's CSS ships with CRLF line endings, and browsers turn those into
+  # LF before hashing an inline block: inline it with LF, or its hash in the
+  # policy never matches and the map is blank.
+  def leaflet_file(name) = File.read(File.join(LEAFLET, name)).gsub(/\r\n?/, "\n")
 
   # Only the page's own inline code may run, by hash; images only from the
   # USGS hosts (none with imagery off); nothing else can load.
