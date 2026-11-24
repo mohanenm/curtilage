@@ -8,6 +8,7 @@
 
 ### Changed
 
+- README: held-out results on all 7 held-out sites (default view 47% of "in" points caught, 14.5% of "out" points taken in).
 - Public benchmark: two held-out sites are replaced by new seeded random picks, as their Overture points were far from the business (no gas station within 45 m of `md-gas-station`; the store 160 m from `nc-pharmacy`'s): `md-gas-station-2` and `nc-pharmacy-2`.
 
 ### Fixed
