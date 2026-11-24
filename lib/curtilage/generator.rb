@@ -382,8 +382,7 @@ module Curtilage
     # The smallest building under the pin, else the nearest one close enough.
     # Flags a large one: the site may be one unit of it.
     def find_building(features, opts, log)
-      target = building_under_pin(features, log) || nearest_building(features, opts, log)
-      target = shop_by_canopy(target, features, opts, log) if target && LOT_TYPES.include?(target.category)
+      target = site_building(features, opts, log)
       if target&.kind == "ml_building"
         log.flag(:ml_footprint, "building #{target.id} is a machine-learned footprint, not mapped in OSM: " \
                                 "check it exists", step: "check_building", features: [target.id])
@@ -404,19 +403,26 @@ module Curtilage
       target
     end
 
+    def site_building(features, opts, log)
+      target = building_under_pin(features, log) || nearest_building(features, opts, log)
+      target && LOT_TYPES.include?(target.category) ? shop_by_canopy(target, features, opts, log) : target
+    end
+
     # A pin on a canopy (fuel pumps, a drive-through roof, mapped as
     # building=roof) means the business in the building beside it: that is
     # the store, and the canopy counts as part of its lot. Kept when no
     # building stands within CANOPY_SHOP_M.
     def shop_by_canopy(canopy, features, opts, log)
-      shop = features.buildings.select do |b|
+      gap = ->(b) { Geometry.closest_points(b.xy, canopy.xy).first }
+      shops = features.buildings.select do |b|
         !LOT_TYPES.include?(b.category) && b.area >= opts[:neighbour_min_area_m2] && !home?(b, features, opts) &&
-          Geometry.closest_points(b.xy, canopy.xy).first <= CANOPY_SHOP_M
-      end.min_by { |b| Geometry.closest_points(b.xy, canopy.xy).first }
-      return canopy unless shop
+          gap.call(b) <= CANOPY_SHOP_M
+      end
+      shop = shops.min_by(&gap) or return canopy
 
-      log.note("building #{canopy.id} is a #{canopy.category} (a canopy): the store is building #{shop.id} beside " \
-               "it (#{shop.area.round} m2), the canopy part of its lot", step: "find_building", features: [canopy.id, shop.id])
+      log.note("building #{canopy.id} is a #{canopy.category} (a canopy): the store is building #{shop.id} " \
+               "beside it (#{shop.area.round} m2), the canopy part of its lot",
+               step: "find_building", features: [canopy.id, shop.id])
       shop
     end
 

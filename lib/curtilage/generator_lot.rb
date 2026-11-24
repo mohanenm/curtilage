@@ -99,14 +99,20 @@ module Curtilage
       far = fence(site, site.opts[:parking_max_extent_m])
       parts = lots.map { |lot| lot_part(Geometry.clip_convex(lot.xy, far), lot, site) }
       grown = lot_box(poly + parts.select { |p| p.size >= 3 }.flatten(1), far, site.target)
-      # Strips along service roads already reach the kerb; joining a lot of
-      # strips alone to each driveway mouth only draws diagonal edges.
-      grown = add_entrances(grown, far, site) unless lots.all? { |l| l.category == "aisle" }
+      grown = add_entrances(grown, far, site) unless only_aisles?(lots)
+      note_lot_taken(poly, grown, lots, site)
+      keep_off_neighbours(grown, site.features, site.target, site.opts, site.log)
+    end
+
+    def note_lot_taken(poly, grown, lots, site)
       site.log.note("took in the lot: premises #{m2(poly)} m2 to #{m2(grown)} m2",
                     step: "add_lot", rule: "parking_max_extent_m", features: lots.map(&:id),
                     distance_m: site.opts[:parking_max_extent_m], area_before_m2: m2(poly), area_after_m2: m2(grown))
-      keep_off_neighbours(grown, site.features, site.target, site.opts, site.log)
     end
+
+    # Strips along service roads already reach the kerb; joining a lot of
+    # strips alone to each driveway mouth only draws diagonal edges.
+    def only_aisles?(lots) = lots.all? { |l| l.category == "aisle" }
 
     # The rectangle, square to the building, around the premises and the
     # claimed lot, kept inside the fence (roads trimmed). A plain hull would
