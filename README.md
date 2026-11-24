@@ -198,7 +198,7 @@ PostGIS, geofences on your own server, circles for mobile geofences, geofence pl
 
 Under each map: the flags (hover for what they mean), the building and premises areas, parking and an estimate of spaces, street frontage, the number of entrances, and "How it was made", the step-by-step explanation. Invalid results say why.
 
-For examples, the [gallery](https://mohanenm.github.io/curtilage/gallery/) is this page for the public benchmark sites (all but the held-out ones), with each site's category and what its labels say it got wrong, failures included. It is rebuilt with `rake benchmark:gallery`.
+For examples, the [gallery](https://mohanenm.github.io/curtilage/gallery/) is this page, drawn over public-domain USGS aerial snapshots, for the public benchmark sites (all but the held-out ones), with each site's category and what its labels say it got wrong, failures included. It is rebuilt with `rake benchmark:gallery`.
 
 At the top, a count of sites that are ok, flagged or unusable, and controls to show only some (sites that need a look, invalid ones, or those with a given flag) and to sort them (input order, needs a look first, lowest confidence first, id, or premises size).
 
@@ -303,7 +303,7 @@ Pins never leave the machine as coordinates: they aren't put in any URL or reque
 - The gem's own downloads go only to Geofabrik, Overture's catalogue and Microsoft's footprint host, and anything else is refused. DuckDB reads Overture's storage, your bucket and its extension repository itself.
 - If a DuckDB query fails, its error message can quote part of the query, including the coordinates of the box around a pin. That stays on your machine unless your app forwards errors to an outside service.
 - To guarantee nothing leaves the machine, set `CURTILAGE_OFFLINE=1` and use prebuilt files or a cache: downloads, extension installs and Overture or bucket reads are then refused.
-- The benchmark's labelling page (repository tooling, not the gem) loads public-domain imagery from USGS (`imagery.nationalmap.gov`, `basemap.nationalmap.gov`), which learns the area of each site you label; build it with `LABEL_IMAGERY=off` to load nothing, the default for a private benchmark folder. `rake benchmark:parcels` sends the public benchmark sites' locations to the state parcel services. Neither runs during generation.
+- The benchmark's labelling page (repository tooling, not the gem) loads public-domain imagery from USGS (`imagery.nationalmap.gov`, `basemap.nationalmap.gov`), which learns the area of each site you label; build it with `LABEL_IMAGERY=off` to load nothing, the default for a private benchmark folder. `rake benchmark:parcels` sends the public benchmark sites' locations to the state parcel services, and `rake benchmark:gallery` fetches one USGS snapshot per public site (the published gallery then loads nothing). None of these run during generation.
 - The preview page loads nothing from the internet. Building the Docker image fetches DuckDB from its GitHub releases and its extensions from DuckDB's repository.
 
 ## Layout

@@ -13,7 +13,7 @@ bundle exec rake benchmark                                  # run every site, pr
 bundle exec rake "benchmark:compare[OLD.json,NEW.json]"     # what changed between two runs
 bundle exec rake benchmark:baseline                         # run, and save the numbers as benchmark/baseline.json
 bundle exec rake benchmark:label_page                       # write the labelling page (data/benchmark/label.html)
-bundle exec rake benchmark:gallery                          # write the gallery (docs/gallery/index.html)
+bundle exec rake benchmark:gallery                          # write the gallery (docs/gallery/index.html), over USGS snapshots
 CURTILAGE_BENCHMARK_HOLDOUT=1 bundle exec rake benchmark     # score only the held-out sites (final checks)
 bundle exec rake benchmark:parcels                          # fetch each site's tax parcel (data/benchmark/parcels)
 ```

@@ -12,6 +12,7 @@ What curtilage trusts, what it doesn't, who might attack it, and how each attack
 The benchmark's tools (in the repository, not the gem) reach two more kinds of host, and never from generation or any `curtilage` command:
 
 - **The labelling page** (`rake benchmark:label_page`) shows public-domain aerial imagery from USGS The National Map, `imagery.nationalmap.gov` (NAIP photos) and `basemap.nationalmap.gov` (cached tiles). Opening it sends USGS the area of each site viewed. Its Content-Security-Policy allows images from those two hosts only, and the page's own inline code (Leaflet is bundled, `benchmark/vendor/`) by hash; nothing else loads. `LABEL_IMAGERY=off` builds it with no imagery at all (`img-src 'none'`), drawing the cached map data instead; for a private benchmark folder that is the default, and `ALLOW_IMAGERY=1` turns USGS on.
+- **`rake benchmark:gallery`** fetches one public-domain snapshot per public benchmark site from `imagery.nationalmap.gov` (sending USGS each site's area once), checks it is a JPEG under 3 MB, and stores it next to the page, so the published gallery itself loads nothing from anywhere (its policy allows images from its own folder only).
 - **`rake benchmark:parcels`** asks each state's parcel service (listed in `benchmark/parcels.rb`) for the parcel under each public benchmark site, sending it the site's location. It refuses a private benchmark folder, keeps only the geometry, and caches it under `data/` (never committed).
 
 ## Trust boundaries
