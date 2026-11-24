@@ -13,8 +13,10 @@ module CurtilageBenchmark
     neighbour_building residential railway open_land construction unclear centre_building
   ].freeze
   # Missing one of these, or taking one of these in, fails the site whatever
-  # its rates (when the view scores that kind at all).
-  MUST_IN = %w[building entrance drive_through forecourt].freeze
+  # its rates (when the view scores that kind at all). A missed entrance is
+  # only a missed point: a centre's far gates would otherwise fail every
+  # store's share of it.
+  MUST_IN = %w[building drive_through forecourt].freeze
   MUST_OUT = %w[public_road neighbour_building residential railway].freeze
   # A wrong point this close to the premises edge is within GPS error.
   TOLERANCE_M = 3

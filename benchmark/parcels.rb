@@ -73,11 +73,36 @@ module CurtilageBenchmark
     Array(polygons).filter_map { |p| p.is_a?(Array) ? p.first : nil }
   end
 
+  # Geometry only: anything else a server sends back stays out of the cache.
+  # Some servers refuse queries but allow identify (Texas): then that.
   def parcel_doc(layer, pin)
     query = URI.encode_www_form(geometry: pin.join(","), geometryType: "esriGeometryPoint", inSR: 4326,
                                 spatialRel: "esriSpatialRelIntersects", outFields: "", returnGeometry: true,
                                 outSR: 4326, f: "geojson")
-    uri = URI("#{layer}/query?#{query}")
+    doc = arcgis_get(URI("#{layer}/query?#{query}"))
+    doc = identify_doc(layer, pin) if doc.dig("error", "message").to_s.include?("not supported")
+    raise "#{URI(layer).host}: #{doc.dig("error", "message")}" if doc["error"]
+
+    { "type" => "FeatureCollection", "source" => layer,
+      "features" => Array(doc["features"]).map { |f| { "type" => "Feature", "geometry" => f["geometry"] } } }
+  end
+
+  # The identify answer as GeoJSON-like features: each Esri ring a polygon.
+  def identify_doc(layer, pin)
+    service, id = layer.match(%r{\A(.+)/(\d+)\z}).captures
+    x, y = pin
+    form = URI.encode_www_form(geometry: "#{x},#{y}", geometryType: "esriGeometryPoint", sr: 4326,
+                               layers: "all:#{id}", tolerance: 0, returnGeometry: true, f: "json",
+                               mapExtent: [x - 0.001, y - 0.001, x + 0.001, y + 0.001].join(","),
+                               imageDisplay: "400,400,96")
+    doc = arcgis_get(URI("#{service}/identify?#{form}"))
+    return doc if doc["error"]
+
+    rings = Array(doc["results"]).flat_map { |r| Array(r.dig("geometry", "rings")) }
+    { "features" => rings.map { |ring| { "geometry" => { "type" => "Polygon", "coordinates" => [ring] } } } }
+  end
+
+  def arcgis_get(uri)
     response = Net::HTTP.start(uri.host, uri.port, use_ssl: true, open_timeout: 20, read_timeout: 60) do |http|
       http.request(Net::HTTP::Get.new(uri))
     end
@@ -85,11 +110,6 @@ module CurtilageBenchmark
     raise "#{uri.host}: HTTP #{response.code}" unless response.is_a?(Net::HTTPSuccess)
     raise "#{uri.host}: answer over #{MAX_PARCEL_BYTES} bytes" if body.bytesize > MAX_PARCEL_BYTES
 
-    doc = JSON.parse(body)
-    raise "#{uri.host}: #{doc.dig("error", "message")}" if doc["error"]
-
-    # Geometry only: anything else a server sends back stays out of the cache.
-    { "type" => "FeatureCollection", "source" => layer,
-      "features" => Array(doc["features"]).map { |f| { "type" => "Feature", "geometry" => f["geometry"] } } }
+    JSON.parse(body)
   end
 end

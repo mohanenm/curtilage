@@ -32,7 +32,7 @@ class BenchmarkLabelsTest < Minitest::Test
     assert_equal [3, 2, 3, 1], score.values_at("in", "caught", "out", "included")
     assert_equal 2, B.errors(score)
     assert_equal 1, score["wrong_near_edge"] # the road point 1 m inside the edge
-    assert_equal ["missed entrance", "took in public_road"], score["hard"]
+    assert_equal ["took in public_road"], score["hard"] # a missed entrance is only a missed point
     assert_equal({ "n" => 2, "right" => 1 }, score["kinds"]["public_road"])
     refute score["kinds"].key?("sidewalk")
   end
@@ -61,7 +61,7 @@ class BenchmarkLabelsTest < Minitest::Test
 
     assert_includes html, "standalone: A made-up site. Not labelled yet."
     refute_match(%r{https?://|(src|href)=}, html)
-    assert_match(/caught \d of 3 .* took in \d of 3 .* Failed: missed entrance/, note)
+    assert_match(/caught \d of 3 points that should be in, took in \d of 3/, note)
   end
 
   # The gallery is published: a site not in the public benchmark, or one
@@ -82,7 +82,7 @@ class BenchmarkLabelsTest < Minitest::Test
 
     assert_in_delta (2.0 / 3) / 2, stats["in_caught"], 0.001
     assert_in_delta (1.0 / 3) / 2, stats["out_included"], 0.001
-    assert_equal 2, stats["hard_failures"]
+    assert_equal 1, stats["hard_failures"] # the road taken in; missed entrances are only missed points
 
     old = { "sites" => [{ "id" => "a", "views" => { "test" => none } }] }
     new = { "sites" => [{ "id" => "a", "views" => { "test" => good } }] }
