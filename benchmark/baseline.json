@@ -1,11 +1,11 @@
 {
   "gem_version": "0.5.0",
-  "commit": "5e665fa-dirty",
+  "commit": "da84b32-dirty",
   "overture_release": "2026-11-18.0",
   "options": {
     "buildings": "osm_or_ml"
   },
-  "run_at": "2026-11-24T05:31:49Z",
+  "run_at": "2026-11-24T05:33:23Z",
   "summary": {
     "all": {
       "sites": 33,
@@ -23,7 +23,7 @@
         "near_houses": 2,
         "store_may_be_unit": 8
       },
-      "total_ms": 1797
+      "total_ms": 1804
     },
     "categories": {
       "backs_onto_houses": {
@@ -36,7 +36,7 @@
         "median_area_ratio": 0.27,
         "fallbacks": 0,
         "flags": {},
-        "total_ms": 50
+        "total_ms": 49
       },
       "big_box": {
         "sites": 1,
@@ -51,7 +51,7 @@
           "large_building": 1,
           "store_may_be_unit": 1
         },
-        "total_ms": 28
+        "total_ms": 26
       },
       "corner_lot": {
         "sites": 1,
@@ -63,7 +63,7 @@
         "median_area_ratio": 1.38,
         "fallbacks": 0,
         "flags": {},
-        "total_ms": 25
+        "total_ms": 24
       },
       "deep_lot": {
         "sites": 1,
@@ -89,7 +89,7 @@
         "median_area_ratio": 0.53,
         "fallbacks": 0,
         "flags": {},
-        "total_ms": 70
+        "total_ms": 74
       },
       "missing_building": {
         "sites": 2,
@@ -103,7 +103,7 @@
         "flags": {
           "ml_footprint": 2
         },
-        "total_ms": 13
+        "total_ms": 12
       },
       "next_to_railway": {
         "sites": 1,
@@ -133,7 +133,7 @@
           "near_houses": 1,
           "store_may_be_unit": 5
         },
-        "total_ms": 1427
+        "total_ms": 1435
       },
       "shared_lot": {
         "sites": 1,
@@ -147,7 +147,7 @@
         "flags": {
           "near_houses": 1
         },
-        "total_ms": 25
+        "total_ms": 26
       },
       "shopping_centre_unit": {
         "sites": 1,
@@ -159,7 +159,7 @@
         "median_area_ratio": 0.11,
         "fallbacks": 0,
         "flags": {},
-        "total_ms": 83
+        "total_ms": 85
       },
       "standalone": {
         "sites": 1,
@@ -173,7 +173,7 @@
         "flags": {
           "store_may_be_unit": 1
         },
-        "total_ms": 18
+        "total_ms": 17
       },
       "urban_storefront": {
         "sites": 1,
@@ -243,7 +243,7 @@
             "right": 7
           },
           "own_parking": {
-            "n": 386,
+            "n": 382,
             "right": 342
           },
           "public_road": {
@@ -267,7 +267,7 @@
             "right": 62
           },
           "shared_parking_near": {
-            "n": 216,
+            "n": 220,
             "right": 70
           },
           "walkway": {
@@ -338,7 +338,7 @@
             "right": 8
           },
           "own_parking": {
-            "n": 386,
+            "n": 382,
             "right": 338
           },
           "public_road": {
@@ -362,7 +362,7 @@
             "right": 17
           },
           "shared_parking_near": {
-            "n": 216,
+            "n": 220,
             "right": 79
           },
           "walkway": {
@@ -381,11 +381,11 @@
       },
       "core": {
         "sites": 23,
-        "points": 1027,
-        "in_caught": 0.768,
+        "points": 1023,
+        "in_caught": 0.777,
         "out_included": 0.04,
-        "errors": 98,
-        "errors_beyond_tolerance": 85,
+        "errors": 94,
+        "errors_beyond_tolerance": 81,
         "hard_failures": 3,
         "kinds": {
           "building": {
@@ -417,7 +417,7 @@
             "right": 7
           },
           "own_parking": {
-            "n": 386,
+            "n": 382,
             "right": 342
           },
           "public_road": {
@@ -492,7 +492,7 @@
             "right": 7
           },
           "own_parking": {
-            "n": 386,
+            "n": 382,
             "right": 342
           },
           "public_road": {
@@ -512,7 +512,7 @@
             "right": 62
           },
           "shared_parking_near": {
-            "n": 216,
+            "n": 220,
             "right": 70
           },
           "walkway": {
@@ -578,8 +578,8 @@
               "right": 8
             },
             "own_parking": {
-              "n": 386,
-              "right": 277
+              "n": 382,
+              "right": 276
             },
             "public_road": {
               "n": 329,
@@ -602,8 +602,8 @@
               "right": 63
             },
             "shared_parking_near": {
-              "n": 216,
-              "right": 124
+              "n": 220,
+              "right": 125
             },
             "walkway": {
               "n": 14,
@@ -673,8 +673,8 @@
               "right": 8
             },
             "own_parking": {
-              "n": 386,
-              "right": 277
+              "n": 382,
+              "right": 276
             },
             "public_road": {
               "n": 329,
@@ -697,8 +697,8 @@
               "right": 13
             },
             "shared_parking_near": {
-              "n": 216,
-              "right": 124
+              "n": 220,
+              "right": 125
             },
             "walkway": {
               "n": 14,
@@ -716,11 +716,11 @@
         },
         "core": {
           "sites": 23,
-          "points": 1027,
-          "in_caught": 0.66,
+          "points": 1023,
+          "in_caught": 0.661,
           "out_included": 0.096,
-          "errors": 186,
-          "errors_beyond_tolerance": 144,
+          "errors": 183,
+          "errors_beyond_tolerance": 141,
           "hard_failures": 5,
           "kinds": {
             "building": {
@@ -752,8 +752,8 @@
               "right": 8
             },
             "own_parking": {
-              "n": 386,
-              "right": 277
+              "n": 382,
+              "right": 276
             },
             "public_road": {
               "n": 329,
@@ -827,8 +827,8 @@
               "right": 8
             },
             "own_parking": {
-              "n": 386,
-              "right": 277
+              "n": 382,
+              "right": 276
             },
             "public_road": {
               "n": 329,
@@ -847,8 +847,8 @@
               "right": 63
             },
             "shared_parking_near": {
-              "n": 216,
-              "right": 124
+              "n": 220,
+              "right": 125
             },
             "walkway": {
               "n": 14,
@@ -882,7 +882,7 @@
       "reference_area_m2": 9987,
       "iou": 0.729,
       "area_ratio": 1.14,
-      "ms": 17.7,
+      "ms": 16.9,
       "views": {
         "arrival": {
           "in": 56,
@@ -2110,7 +2110,7 @@
       "reference_area_m2": 3176,
       "iou": 0.435,
       "area_ratio": 1.38,
-      "ms": 25.4,
+      "ms": 24.2,
       "views": {
         "arrival": {
           "in": 30,
@@ -3132,7 +3132,7 @@
       "reference_area_m2": 20550,
       "iou": 0.172,
       "area_ratio": 0.38,
-      "ms": 8.4,
+      "ms": 8.1,
       "views": {
         "arrival": {
           "in": 15,
@@ -3752,7 +3752,7 @@
       "reference_area_m2": 16050,
       "iou": 0.409,
       "area_ratio": 0.48,
-      "ms": 31.3,
+      "ms": 31.1,
       "views": {
         "arrival": {
           "in": 15,
@@ -4636,7 +4636,7 @@
       "reference_area_m2": 20785,
       "iou": 0.172,
       "area_ratio": 0.27,
-      "ms": 50.4,
+      "ms": 48.9,
       "parcel": {
         "reference_area_m2": 20936,
         "iou": 0.261,
@@ -4659,7 +4659,7 @@
       "reference_area_m2": 42883,
       "iou": 0.504,
       "area_ratio": 0.76,
-      "ms": 27.8,
+      "ms": 25.6,
       "views": {
         "arrival": {
           "in": 26,
@@ -5223,7 +5223,7 @@
       "reference_area_m2": 5608,
       "iou": 0.489,
       "area_ratio": 0.71,
-      "ms": 24.7,
+      "ms": 25.8,
       "views": {
         "arrival": {
           "in": 30,
@@ -6581,7 +6581,7 @@
       "reference_area_m2": 55412,
       "iou": 0.109,
       "area_ratio": 0.11,
-      "ms": 83.3,
+      "ms": 84.5,
       "views": {
         "arrival": {
           "in": 59,
@@ -7867,7 +7867,7 @@
       "reference_area_m2": 5450,
       "iou": 0.182,
       "area_ratio": 0.18,
-      "ms": 17.6,
+      "ms": 18.2,
       "views": {
         "arrival": {
           "in": 11,
@@ -8697,7 +8697,7 @@
       "reference_area_m2": 7898,
       "iou": 0.476,
       "area_ratio": 0.53,
-      "ms": 69.9,
+      "ms": 74.1,
       "views": {
         "arrival": {
           "in": 59,
@@ -10852,7 +10852,7 @@
         "near_houses"
       ],
       "area_m2": 2197,
-      "ms": 168.2,
+      "ms": 172.4,
       "views": {
         "arrival": {
           "in": 18,
@@ -11567,7 +11567,7 @@
         "store_may_be_unit"
       ],
       "area_m2": 14545,
-      "ms": 37.6,
+      "ms": 37.1,
       "views": {
         "arrival": {
           "in": 84,
@@ -12339,7 +12339,7 @@
         "store_may_be_unit"
       ],
       "area_m2": 23666,
-      "ms": 30.1,
+      "ms": 37.4,
       "views": {
         "arrival": {
           "in": 47,
@@ -13286,7 +13286,7 @@
         "building_not_under_pin"
       ],
       "area_m2": 10920,
-      "ms": 29.9,
+      "ms": 21.2,
       "parcel": {
         "reference_area_m2": 17237,
         "iou": 0.033,
@@ -13303,7 +13303,7 @@
       "fallback": false,
       "flags": [],
       "area_m2": 8227,
-      "ms": 6.7,
+      "ms": 6.0,
       "views": {
         "arrival": {
           "in": 18,
@@ -13824,7 +13824,7 @@
         "building_not_under_pin"
       ],
       "area_m2": 12073,
-      "ms": 55.0,
+      "ms": 57.3,
       "views": {
         "arrival": {
           "in": 33,
@@ -14825,7 +14825,7 @@
       "fallback": false,
       "flags": [],
       "area_m2": 6562,
-      "ms": 11.9,
+      "ms": 12.3,
       "views": {
         "arrival": {
           "in": 38,
@@ -15309,7 +15309,7 @@
         "store_may_be_unit"
       ],
       "area_m2": 174158,
-      "ms": 747.4,
+      "ms": 741.0,
       "views": {
         "arrival": {
           "in": 26,
@@ -15335,11 +15335,11 @@
               "right": 18
             },
             "own_parking": {
-              "n": 10,
+              "n": 6,
               "right": 6
             },
             "shared_parking_near": {
-              "n": 12,
+              "n": 16,
               "right": 2
             },
             "shared_parking_far": {
@@ -15382,11 +15382,11 @@
               "right": 18
             },
             "own_parking": {
-              "n": 10,
+              "n": 6,
               "right": 6
             },
             "shared_parking_near": {
-              "n": 12,
+              "n": 16,
               "right": 2
             },
             "shared_parking_far": {
@@ -15406,7 +15406,7 @@
           }
         },
         "core": {
-          "in": 14,
+          "in": 10,
           "caught": 7,
           "out": 18,
           "included": 0,
@@ -15425,7 +15425,7 @@
               "right": 18
             },
             "own_parking": {
-              "n": 10,
+              "n": 6,
               "right": 6
             }
           },
@@ -15464,11 +15464,11 @@
               "right": 18
             },
             "own_parking": {
-              "n": 10,
+              "n": 6,
               "right": 6
             },
             "shared_parking_near": {
-              "n": 12,
+              "n": 16,
               "right": 2
             },
             "shared_parking_far": {
@@ -15518,12 +15518,12 @@
                 "right": 18
               },
               "own_parking": {
-                "n": 10,
-                "right": 3
+                "n": 6,
+                "right": 2
               },
               "shared_parking_near": {
-                "n": 12,
-                "right": 5
+                "n": 16,
+                "right": 6
               },
               "shared_parking_far": {
                 "n": 24,
@@ -15637,7 +15637,7 @@
                 "source": "hand"
               },
               {
-                "kind": "own_parking",
+                "kind": "shared_parking_near",
                 "point": [
                   -80.2998662,
                   36.0677294
@@ -15645,7 +15645,7 @@
                 "source": "hand"
               },
               {
-                "kind": "own_parking",
+                "kind": "shared_parking_near",
                 "point": [
                   -80.2997589,
                   36.0681977
@@ -15653,7 +15653,7 @@
                 "source": "hand"
               },
               {
-                "kind": "own_parking",
+                "kind": "shared_parking_near",
                 "point": [
                   -80.2996731,
                   36.0684405
@@ -15776,12 +15776,12 @@
                 "right": 18
               },
               "own_parking": {
-                "n": 10,
-                "right": 3
+                "n": 6,
+                "right": 2
               },
               "shared_parking_near": {
-                "n": 12,
-                "right": 5
+                "n": 16,
+                "right": 6
               },
               "shared_parking_far": {
                 "n": 24,
@@ -15967,7 +15967,7 @@
                 "source": "hand"
               },
               {
-                "kind": "own_parking",
+                "kind": "shared_parking_near",
                 "point": [
                   -80.2998662,
                   36.0677294
@@ -15975,7 +15975,7 @@
                 "source": "hand"
               },
               {
-                "kind": "own_parking",
+                "kind": "shared_parking_near",
                 "point": [
                   -80.2997589,
                   36.0681977
@@ -15983,7 +15983,7 @@
                 "source": "hand"
               },
               {
-                "kind": "own_parking",
+                "kind": "shared_parking_near",
                 "point": [
                   -80.2996731,
                   36.0684405
@@ -16299,8 +16299,8 @@
             }
           },
           "core": {
-            "in": 14,
-            "caught": 4,
+            "in": 10,
+            "caught": 3,
             "out": 18,
             "included": 0,
             "wrong_near_edge": 1,
@@ -16318,8 +16318,8 @@
                 "right": 18
               },
               "own_parking": {
-                "n": 10,
-                "right": 3
+                "n": 6,
+                "right": 2
               }
             },
             "hard": [],
@@ -16379,30 +16379,6 @@
                   36.0685966
                 ],
                 "source": "hand"
-              },
-              {
-                "kind": "own_parking",
-                "point": [
-                  -80.2998662,
-                  36.0677294
-                ],
-                "source": "hand"
-              },
-              {
-                "kind": "own_parking",
-                "point": [
-                  -80.2997589,
-                  36.0681977
-                ],
-                "source": "hand"
-              },
-              {
-                "kind": "own_parking",
-                "point": [
-                  -80.2996731,
-                  36.0684405
-                ],
-                "source": "hand"
               }
             ],
             "random": {
@@ -16440,12 +16416,12 @@
                 "right": 18
               },
               "own_parking": {
-                "n": 10,
-                "right": 3
+                "n": 6,
+                "right": 2
               },
               "shared_parking_near": {
-                "n": 12,
-                "right": 5
+                "n": 16,
+                "right": 6
               },
               "shared_parking_far": {
                 "n": 24,
@@ -16559,7 +16535,7 @@
                 "source": "hand"
               },
               {
-                "kind": "own_parking",
+                "kind": "shared_parking_near",
                 "point": [
                   -80.2998662,
                   36.0677294
@@ -16567,7 +16543,7 @@
                 "source": "hand"
               },
               {
-                "kind": "own_parking",
+                "kind": "shared_parking_near",
                 "point": [
                   -80.2997589,
                   36.0681977
@@ -16575,7 +16551,7 @@
                 "source": "hand"
               },
               {
-                "kind": "own_parking",
+                "kind": "shared_parking_near",
                 "point": [
                   -80.2996731,
                   36.0684405
@@ -16689,7 +16665,7 @@
         "ml_footprint"
       ],
       "area_m2": 5411,
-      "ms": 15.6,
+      "ms": 16.1,
       "views": {
         "arrival": {
           "in": 30,
@@ -17166,7 +17142,7 @@
         "store_may_be_unit"
       ],
       "area_m2": 30338,
-      "ms": 64.2,
+      "ms": 61.5,
       "views": {
         "arrival": {
           "in": 0,
@@ -17584,7 +17560,7 @@
         "building_not_under_pin"
       ],
       "area_m2": 3656,
-      "ms": 37.2,
+      "ms": 42.2,
       "views": {
         "arrival": {
           "in": 22,
@@ -18100,7 +18076,7 @@
         "ml_footprint"
       ],
       "area_m2": 3126,
-      "ms": 20.6
+      "ms": 20.9
     },
     {
       "id": "nc-convenience-store",
@@ -18618,7 +18594,7 @@
       "fallback": false,
       "flags": [],
       "area_m2": 5654,
-      "ms": 26.1,
+      "ms": 25.0,
       "views": {
         "arrival": {
           "in": 31,
@@ -19283,7 +19259,7 @@
       "fallback": false,
       "flags": [],
       "area_m2": 4750,
-      "ms": 37.7,
+      "ms": 46.2,
       "views": {
         "arrival": {
           "in": 27,
@@ -20134,7 +20110,7 @@
         "building_not_under_pin"
       ],
       "area_m2": 2851,
-      "ms": 7.5,
+      "ms": 8.1,
       "views": {
         "arrival": {
           "in": 13,
@@ -20911,7 +20887,7 @@
       "fallback": false,
       "flags": [],
       "area_m2": 6587,
-      "ms": 16.1,
+      "ms": 17.1,
       "parcel": {
         "reference_area_m2": 6872,
         "iou": 0.637,
@@ -20928,7 +20904,7 @@
       "fallback": false,
       "flags": [],
       "area_m2": 9437,
-      "ms": 32.5,
+      "ms": 31.1,
       "parcel": {
         "reference_area_m2": 10684,
         "iou": 0.563,
@@ -20948,7 +20924,7 @@
         "store_may_be_unit"
       ],
       "area_m2": 8950,
-      "ms": 34.9,
+      "ms": 32.6,
       "parcel": {
         "reference_area_m2": 4448,
         "iou": 0.497,
@@ -20965,7 +20941,7 @@
       "fallback": false,
       "flags": [],
       "area_m2": 2712,
-      "ms": 12.5,
+      "ms": 15.0,
       "parcel": {
         "reference_area_m2": 1771,
         "iou": 0.621,
@@ -20984,7 +20960,7 @@
         "building_not_under_pin"
       ],
       "area_m2": 4766,
-      "ms": 24.0,
+      "ms": 23.3,
       "parcel": {
         "reference_area_m2": 3079,
         "iou": 0.6,
@@ -21003,7 +20979,7 @@
         "ml_footprint"
       ],
       "area_m2": 2939,
-      "ms": 8.5,
+      "ms": 8.1,
       "parcel": {
         "reference_area_m2": 3042,
         "iou": 0.328,
@@ -21022,7 +20998,7 @@
         "ml_footprint"
       ],
       "area_m2": 6577,
-      "ms": 4.8,
+      "ms": 3.5,
       "parcel": {
         "reference_area_m2": 4173,
         "iou": 0.48,
