@@ -6,6 +6,11 @@
 
 - `CONTRIBUTING.md` (setup, tests, the benchmark, the no-real-site-data rule, how to report a bad polygon), issue templates (bad polygon, bug, feature request) and a pull request checklist, a code of conduct (Contributor Covenant 2.1) and a governance note. The README's Versioning section lists what 1.0 waits for.
 
+### Changed
+
+- README: held-out results on all 7 held-out sites (default view 47% of "in" points caught, 14.5% of "out" points taken in).
+- Public benchmark: two held-out sites are replaced by new seeded random picks, as their Overture points were far from the business (no gas station within 45 m of `md-gas-station`; the store 160 m from `nc-pharmacy`'s): `md-gas-station-2` and `nc-pharmacy-2`.
+
 ### Fixed
 
 - `SECURITY.md` and `docs/security.md` name the HTTP API, the benchmark tooling's hosts and NDJSON input.
