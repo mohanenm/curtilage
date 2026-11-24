@@ -518,22 +518,6 @@
       "geometry": {
         "type": "Point",
         "coordinates": [
-          -80.74434255,
-          35.41764848
-        ]
-      },
-      "properties": {
-        "id": "nc-pharmacy",
-        "category": "random",
-        "holdout": true,
-        "notes": "Random pick (seed 20261123): Harris Teeter #0190, pharmacy in North carolina. Overture place 3e855d87-dbfa-47ce-9ab4-4d9129d84526."
-      }
-    },
-    {
-      "type": "Feature",
-      "geometry": {
-        "type": "Point",
-        "coordinates": [
           -80.1646696,
           25.9858717
         ]
@@ -639,6 +623,22 @@
         "category": "random",
         "holdout": true,
         "notes": "Random pick (seed 20261125), replacing md-gas-station, whose Overture point had no gas station within 45 m: Fair Price Market, gas station in Maryland. Overture place 4fed62dc-e22d-4b14-80d2-eee4dded618e."
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          -77.3834406,
+          35.5781125
+        ]
+      },
+      "properties": {
+        "id": "nc-pharmacy-2",
+        "category": "random",
+        "holdout": true,
+        "notes": "Random pick (seed 20261126), replacing nc-pharmacy, whose Overture point was 160 m from the store: Cvs Pharmacy, pharmacy in North Carolina. Overture place 3b66daac-2b81-4268-bce3-ab49273acdcd."
       }
     }
   ]

@@ -8,7 +8,7 @@
 
 ### Changed
 
-- Public benchmark: the held-out site `md-gas-station` is replaced by `md-gas-station-2` (a new seeded random pick): its Overture point had no gas station within 45 m, so there was no business to label.
+- Public benchmark: two held-out sites are replaced by new seeded random picks, as their Overture points were far from the business (no gas station within 45 m of `md-gas-station`; the store 160 m from `nc-pharmacy`'s): `md-gas-station-2` and `nc-pharmacy-2`.
 
 ### Fixed
 
