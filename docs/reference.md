@@ -147,7 +147,7 @@ All distances in metres, areas in square metres. These are `Curtilage::Generator
 |---|---|---|
 | `store_zone` | `true` | Also return the building's outline as the store zone. |
 | `buildings` | `:osm` (`:osm_or_ml` for Overture reads) | Sites read from Overture (`source: :overture`, and `:auto`'s scattered pins) default to `:osm_or_ml`, since Overture's non-OSM buildings come with the data; pass `buildings: :osm` to turn that off. Choices: `:osm`, `:osm_or_ml` (OSM alone unless no OSM building is under the pin or within `building_max_distance_m`; then as `:osm_filled`, so only sites missing from OSM change), `:osm_filled` (machine-learned footprints added wherever they don't overlap an OSM building) or `:ml`. The footprints have to be in the data: a build with `--ml-footprints microsoft`, or Overture's non-OSM buildings. |
-| `scope` | `:site` | `:site`, or `:centre` for the whole shopping centre when on a shared lot. |
+| `scope` | `:site` | `:site`, or `:centre` for the whole shopping centre (for arrival detection: anywhere in the centre is on site). A centre is a mapped lot shared with three or more businesses, or, where OSM maps a centre's lot only as aisles, the service roads joined to the site's (within 150 m, not alleys behind homes) when three or more businesses front them; it's outlined round those strips and buildings. Homes are never part of a centre. A centre over `centre_max_m2` keeps the site's own share (flag `large_centre`). |
 | `grow_m` | `30` | How far the building's rectangle grows toward its lot before trimming. |
 | `road_offset_m` | `nil` | How far short of road centrelines to stop; `nil` uses half a typical road width by class: motorway 12 m, trunk 8.5, primary 7.5, secondary 7, tertiary 6, unclassified 5, residential 4.5, links 5. |
 | `building_clearance_m` | `3` | Road trims stop at least this far from the building. |
@@ -159,6 +159,7 @@ All distances in metres, areas in square metres. These are `Curtilage::Generator
 | `parking_reach_m` | `20` | Mapped parking this close to the building is its lot. |
 | `aisle_m` | `9` | Treat this much either side of each service road near the building (within `parking_reach_m` plus this) as parking, for lots OpenStreetMap maps only as aisles and driveways. The strips are claimed, shared, trimmed and fenced like mapped parking. 9 m is half an aisle plus a stall. `nil` turns it off. |
 | `neighbour_cut` | `:line` | How the premises keep off neighbouring buildings after the lot is taken in: `:line` cuts straight across, square to the building; `:notch` (experimental) cuts round each neighbour 1 m clear, so a lot running past a neighbour keeps the part beyond it. Neighbours the premises surround still get a line cut. |
+| `centre_max_m2` | `50000` | With `scope: :centre`, a centre bigger than this (a regional mall) isn't used: the site keeps its own share of the lot (flag `large_centre`), as "anywhere in the mall" is too coarse to mean at the store. |
 | `lot_share_reach_m` | `5` | Another building this close to the site's lot (across a walkway) shares it: with `shared_lot_buildings` or more such buildings the lot is split between them. Buildings farther off, across an aisle or behind, don't count. The site itself takes a share of such a shared lot only when it's this close too; a shared lot across an aisle or planting strip belongs to the others. |
 | `parking_max_extent_m` | `60` | Parking is claimed at most this far from the building. |
 | `shared_lot_buildings` | `3` | A lot touching this many other buildings is a shopping-centre lot. |
@@ -306,6 +307,7 @@ The same list is `Curtilage::FLAGS` (flag => what it asks a person to check).
 | `pin_moved` | The pin wasn't on a building and was moved onto the nearest one (`snap_m:`): check it's the right one. |
 | `store_may_be_unit` | The store zone is a building over 1,500 m2: the store may be one unit of it. |
 | `shopping_centre` | `scope: :centre` mapped the whole centre. |
+| `large_centre` | `scope: :centre`, but the centre is over `centre_max_m2` (50,000 m2 by default): the premises are the site's own share, not the whole centre. |
 | `shared_lot` | The lot is shared with other buildings and was split by nearest building: where it really divides isn't in the map, so check the line. |
 | `fallback` | The main method failed validation; the building rectangle was used. |
 | `ml_footprint` | Built on a machine-learned footprint, not an OSM building. |

@@ -4,11 +4,14 @@
 
 ### Added
 
+- `scope: :centre` finds centres whose lot OSM maps only as aisles: the service roads joined to the site's (within 150 m, not alleys behind homes), when three or more businesses front them, outlined round those strips and buildings rather than as a convex hull. On 24 unseen public sites rated by eye with the arrival settings, sites accepted as they are went from 14 to 19 (none got worse).
+- `centre_max_m2` (default 50,000 m2): with `scope: :centre`, a bigger centre (a regional mall) keeps the site's own share instead, flagged `large_centre`.
 - `Preview.html(backgrounds:, background_credit:)`: an image per site drawn under its map, from the page's own folder only. The gallery uses it to draw every site over a public-domain USGS aerial snapshot, fetched once when it's built and stored with the page, so the published page still loads nothing from anywhere.
 - `CONTRIBUTING.md` (setup, tests, the benchmark, the no-real-site-data rule, how to report a bad polygon), issue templates (bad polygon, bug, feature request) and a pull request checklist, a code of conduct (Contributor Covenant 2.1) and a governance note. The README's Versioning section lists what 1.0 waits for.
 
 ### Changed
 
+- `scope: :centre` never counts homes as part of a centre, and needs three or more businesses besides the site: a lot shared only with houses is no longer mapped as a "shopping centre".
 - README: held-out results on all 7 held-out sites (default view 47% of "in" points caught, 14.5% of "out" points taken in).
 - Public benchmark: two held-out sites are replaced by new seeded random picks, as their Overture points were far from the business (no gas station within 45 m of `md-gas-station`; the store 160 m from `nc-pharmacy`'s): `md-gas-station-2` and `nc-pharmacy-2`.
 

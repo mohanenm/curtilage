@@ -100,6 +100,7 @@ module Curtilage
       parking_reach_m: 20,           # grow_trim: parking this close (an aisle and a walkway) is its lot
       shared_lot_buildings: 3,       # grow_trim: a lot touching this many other buildings is shared
       aisle_m: 9,                    # grow_trim: this much either side of service roads by the building is parking
+      centre_max_m2: 50_000,         # scope: :centre: a bigger centre keeps the site's share (flag large_centre)
       lot_share_reach_m: 5,          # grow_trim: another building this close to a lot (across a walkway) shares it
       small_building_m2: 50,         # flag: a building this small may be a kiosk or shed, not the site
       parking_max_extent_m: 60,      # grow_trim: claim parking at most this far from the building
@@ -136,7 +137,7 @@ module Curtilage
       building_margin_m: DISTANCE,
       approach_m: DISTANCE, pickup_m: DISTANCE, aisle_m: DISTANCE, snap_m: DISTANCE, unit_m: DISTANCE,
       large_building_m2: AREA, large_building_note_m2: AREA, neighbour_min_area_m2: AREA,
-      neighbour_strip_min_area_m2: AREA, house_max_m2: AREA, small_building_m2: AREA,
+      neighbour_strip_min_area_m2: AREA, house_max_m2: AREA, small_building_m2: AREA, centre_max_m2: AREA,
       shared_lot_buildings: [1, 1_000, true], max_vertices: [4, 50, true], max_store_vertices: [3, 200, true],
       precision: [5, 15, true]
     }.freeze
@@ -331,7 +332,8 @@ module Curtilage
                                                                     distance_m: opts[:grow_m], area_after_m2: m2(poly))
       poly = trim_at_roads(poly, features, target, opts, log)
       lots, shared = own_parking(features, target, opts, log)
-      return [centre(shared, Site.new(features, target, opts, log)), target] if opts[:scope] == :centre && shared.any?
+      whole = whole_centre(shared, Site.new(features, target, opts, log)) if opts[:scope] == :centre
+      return [whole, target] if whole
 
       claimed = lots.select { |lot| lot.kind == "building" }
       features = features.with_buildings(features.buildings - claimed) unless claimed.empty?
