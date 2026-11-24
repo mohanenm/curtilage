@@ -9,6 +9,7 @@
 - A pin on a canopy (fuel pumps or a drive-through roof, mapped as `building=roof`) now means the building beside it, within 15 m: that's the store, and the canopy part of its lot. The shop was treated as a neighbour, so a fuel station's premises stopped short of its own forecourt.
 - Premises reach closer to the kerb: the half road widths by class are measured on the public benchmark's labels instead of guessed, and set halfway back toward the old figures, as OSM centrelines are often off-centre. Trunk 10 to 8.5 m, primary 9 to 7.5, secondary 8 to 7, tertiary 7 to 6, residential 5 to 4.5. Entrances caught on the labels went from 21 to 26 of 65, with one road point of 329 taken in.
 - Premises stop at the edge of mapped parking that isn't the site's (another business's lot), as they stop short of a neighbour's building; the cut never removes the site's own claimed lot. A store takes a share of a shared lot only when it fronts it (within `lot_share_reach_m`), not across an aisle or a planting strip. On the public benchmark's labels, neighbours' lot points taken in fell from 18 of 75 to 12.
+- New flag `shared_lot` when a lot shared with other buildings is split between them (where it really divides isn't in the map), and a matching confidence factor `own_lot` (weight 0.10).
 - Faster: the driveway search measures only the roads near each driveway. Median time per site on the benchmark 25 ms to 17 ms without aisle strips, 32 ms with them (results unchanged).
 
 ## [0.5.0] - 2026-11-23

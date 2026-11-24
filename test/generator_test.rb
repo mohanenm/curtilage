@@ -162,6 +162,8 @@ class GeneratorTest < Minitest::Test
 
     assert(result.explanation.any? { |n| n.include?("is shared with 3 other buildings") })
     assert_in_delta(-29, xy(result).map(&:first).min, 0.5)
+    assert_includes result.flags, :shared_lot
+    refute result.confidence_factors.find { |f| f[:name] == :own_lot }[:met]
   end
 
   # Buildings across an aisle (10 m off the lot) don't share it: the lot
@@ -247,6 +249,7 @@ class GeneratorTest < Minitest::Test
     result = Curtilage.generate(PIN, centre, preset: :centre)
 
     assert_includes result.flags, :shopping_centre
+    refute_includes result.flags, :shared_lot, "the whole centre is taken: nothing was split"
     xs = xy(result).map(&:first)
     assert_in_delta(-58, xs.min, 0.5)
     refute_includes Curtilage.generate(PIN, scene, preset: :centre).flags, :shopping_centre

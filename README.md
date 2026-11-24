@@ -229,6 +229,7 @@ The current folder is mounted at `/work`, so file names are relative to it. The 
 | `pin_moved` | The pin wasn't on a building and was moved onto the nearest one (`snap_m:`): check it's the right one |
 | `store_may_be_unit` | Store zone is a building over 1,500 m2: the store may be one unit of it |
 | `shopping_centre` | `scope: :centre` mapped the whole centre |
+| `shared_lot` | The lot is shared with other buildings and was split by nearest building: where it really divides isn't in the map |
 | `fallback` | The main method failed validation; the building rectangle was used |
 | `partial_data` | Part of the area around the pin is in a region that isn't built |
 | `ml_footprint` | Built on a machine-learned footprint, not an OSM building |

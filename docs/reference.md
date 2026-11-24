@@ -287,6 +287,7 @@ New step names may be added in minor versions; treat an unknown one as a plain n
 | `osm_building` | 0.10 | The building is from OpenStreetMap (no `ml_footprint`). |
 | `single_building_store` | 0.10 | The building is small enough to be one store (no `large_building` or `store_may_be_unit`). |
 | `no_homes_next_door` | 0.10 | No home borders the lot (no `near_houses`). |
+| `own_lot` | 0.10 | The lot isn't split with other buildings (no `shared_lot`). |
 | `no_warnings` | 0.05 | Validation raised no warnings. |
 
 The weights are judgement for now, to be calibrated on the public benchmark once its reference polygons are drawn; treat the score as an order, not a probability. Data age isn't a factor, so the same inputs always score the same.
@@ -304,6 +305,7 @@ The same list is `Curtilage::FLAGS` (flag => what it asks a person to check).
 | `pin_moved` | The pin wasn't on a building and was moved onto the nearest one (`snap_m:`): check it's the right one. |
 | `store_may_be_unit` | The store zone is a building over 1,500 m2: the store may be one unit of it. |
 | `shopping_centre` | `scope: :centre` mapped the whole centre. |
+| `shared_lot` | The lot is shared with other buildings and was split by nearest building: where it really divides isn't in the map, so check the line. |
 | `fallback` | The main method failed validation; the building rectangle was used. |
 | `ml_footprint` | Built on a machine-learned footprint, not an OSM building. |
 | `unit_estimated` | The store zone is an estimated unit of a large building (`unit_m:`): check it. |

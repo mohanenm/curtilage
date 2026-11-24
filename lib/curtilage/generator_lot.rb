@@ -107,9 +107,11 @@ module Curtilage
 
     def note_lot(log, lot, others, opts)
       if others >= opts[:shared_lot_buildings]
-        log.note("parking #{lot.id} (#{lot.area.round} m2) is shared with #{others} other buildings: " \
-                 "claimed the part nearer this building than the others",
-                 step: "claim_lot", rule: "shared_lot_buildings", features: [lot.id])
+        text = "parking #{lot.id} (#{lot.area.round} m2) is shared with #{others} other buildings: " \
+               "claimed the part nearer this building than the others"
+        args = { step: "claim_lot", rule: "shared_lot_buildings", features: [lot.id] }
+        # With scope: :centre the whole lot is taken, so nothing was split.
+        opts[:scope] == :centre ? log.note(text, **args) : log.flag(:shared_lot, text, **args)
       else
         log.note("#{lot_label(lot)} (#{lot.area.round} m2) touches the building, so it's part of the lot",
                  step: "claim_lot", rule: "parking_reach_m", features: [lot.id], distance_m: opts[:parking_reach_m])
