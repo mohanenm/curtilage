@@ -312,7 +312,7 @@
   {
    "type": "Feature",
    "properties": {
-    "kind": "entrance",
+    "kind": "centre_entrance",
     "source": "hand"
    },
    "geometry": {
@@ -326,7 +326,7 @@
   {
    "type": "Feature",
    "properties": {
-    "kind": "entrance",
+    "kind": "public_road",
     "source": "hand"
    },
    "geometry": {
@@ -340,7 +340,7 @@
   {
    "type": "Feature",
    "properties": {
-    "kind": "entrance",
+    "kind": "centre_entrance",
     "source": "hand"
    },
    "geometry": {
@@ -354,7 +354,7 @@
   {
    "type": "Feature",
    "properties": {
-    "kind": "entrance",
+    "kind": "centre_entrance",
     "source": "hand"
    },
    "geometry": {
@@ -362,20 +362,6 @@
     "coordinates": [
      -80.2976131,
      36.0698627
-    ]
-   }
-  },
-  {
-   "type": "Feature",
-   "properties": {
-    "kind": "entrance",
-    "source": "hand"
-   },
-   "geometry": {
-    "type": "Point",
-    "coordinates": [
-     -80.2988577,
-     36.0734876
     ]
    }
   },
@@ -466,7 +452,7 @@
   {
    "type": "Feature",
    "properties": {
-    "kind": "own_parking",
+    "kind": "shared_parking_near",
     "source": "hand"
    },
    "geometry": {
@@ -480,7 +466,7 @@
   {
    "type": "Feature",
    "properties": {
-    "kind": "own_parking",
+    "kind": "shared_parking_near",
     "source": "hand"
    },
    "geometry": {
@@ -494,7 +480,7 @@
   {
    "type": "Feature",
    "properties": {
-    "kind": "own_parking",
+    "kind": "shared_parking_near",
     "source": "hand"
    },
    "geometry": {
@@ -508,7 +494,7 @@
   {
    "type": "Feature",
    "properties": {
-    "kind": "own_parking",
+    "kind": "shared_parking_near",
     "source": "hand"
    },
    "geometry": {
@@ -1200,48 +1186,6 @@
    "geometry": {
     "type": "Point",
     "coordinates": [
-     -80.3075266,
-     36.066602
-    ]
-   }
-  },
-  {
-   "type": "Feature",
-   "properties": {
-    "kind": "public_road",
-    "source": "hand"
-   },
-   "geometry": {
-    "type": "Point",
-    "coordinates": [
-     -80.306797,
-     36.0671743
-    ]
-   }
-  },
-  {
-   "type": "Feature",
-   "properties": {
-    "kind": "public_road",
-    "source": "hand"
-   },
-   "geometry": {
-    "type": "Point",
-    "coordinates": [
-     -80.3059602,
-     36.0679028
-    ]
-   }
-  },
-  {
-   "type": "Feature",
-   "properties": {
-    "kind": "public_road",
-    "source": "hand"
-   },
-   "geometry": {
-    "type": "Point",
-    "coordinates": [
      -80.3051019,
      36.0685446
     ]
@@ -1300,20 +1244,6 @@
     "coordinates": [
      -80.30375,
      36.0714931
-    ]
-   }
-  },
-  {
-   "type": "Feature",
-   "properties": {
-    "kind": "public_road",
-    "source": "hand"
-   },
-   "geometry": {
-    "type": "Point",
-    "coordinates": [
-     -80.3034925,
-     36.0720307
     ]
    }
   },

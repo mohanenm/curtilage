@@ -144,7 +144,7 @@
   {
    "type": "Feature",
    "properties": {
-    "kind": "own_parking",
+    "kind": "shared_parking_near",
     "source": "hand"
    },
    "geometry": {
@@ -158,7 +158,7 @@
   {
    "type": "Feature",
    "properties": {
-    "kind": "own_parking",
+    "kind": "shared_parking_near",
     "source": "hand"
    },
    "geometry": {
@@ -172,7 +172,7 @@
   {
    "type": "Feature",
    "properties": {
-    "kind": "own_parking",
+    "kind": "shared_parking_near",
     "source": "hand"
    },
    "geometry": {
@@ -186,7 +186,7 @@
   {
    "type": "Feature",
    "properties": {
-    "kind": "own_parking",
+    "kind": "shared_parking_near",
     "source": "hand"
    },
    "geometry": {
@@ -200,7 +200,7 @@
   {
    "type": "Feature",
    "properties": {
-    "kind": "own_parking",
+    "kind": "shared_parking_near",
     "source": "hand"
    },
    "geometry": {
@@ -214,7 +214,7 @@
   {
    "type": "Feature",
    "properties": {
-    "kind": "own_parking",
+    "kind": "shared_parking_near",
     "source": "hand"
    },
    "geometry": {
@@ -340,48 +340,6 @@
   {
    "type": "Feature",
    "properties": {
-    "kind": "forecourt",
-    "source": "hand"
-   },
-   "geometry": {
-    "type": "Point",
-    "coordinates": [
-     -75.5558431,
-     39.6911743
-    ]
-   }
-  },
-  {
-   "type": "Feature",
-   "properties": {
-    "kind": "forecourt",
-    "source": "hand"
-   },
-   "geometry": {
-    "type": "Point",
-    "coordinates": [
-     -75.5558646,
-     39.6911082
-    ]
-   }
-  },
-  {
-   "type": "Feature",
-   "properties": {
-    "kind": "forecourt",
-    "source": "hand"
-   },
-   "geometry": {
-    "type": "Point",
-    "coordinates": [
-     -75.5558646,
-     39.6910628
-    ]
-   }
-  },
-  {
-   "type": "Feature",
-   "properties": {
     "kind": "entrance",
     "source": "hand"
    },
@@ -396,7 +354,7 @@
   {
    "type": "Feature",
    "properties": {
-    "kind": "entrance",
+    "kind": "centre_entrance",
     "source": "hand"
    },
    "geometry": {
@@ -410,7 +368,7 @@
   {
    "type": "Feature",
    "properties": {
-    "kind": "entrance",
+    "kind": "centre_road",
     "source": "hand"
    },
    "geometry": {
@@ -424,7 +382,7 @@
   {
    "type": "Feature",
    "properties": {
-    "kind": "entrance",
+    "kind": "centre_entrance",
     "source": "hand"
    },
    "geometry": {

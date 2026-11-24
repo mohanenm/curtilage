@@ -22,14 +22,57 @@ module Curtilage
       end
       shared = []
       lots = (features.parking + structures + aisles(features, target, opts)).select do |lot|
-        next false unless Geometry.contains?(lot.xy, [0.0, 0.0]) || touches?(lot, target, opts)
+        at_pin = Geometry.contains?(lot.xy, [0.0, 0.0])
+        next false unless at_pin || touches?(lot, target, opts)
 
         others = sharers(lot, features, target, opts)
-        shared << lot if others >= opts[:shared_lot_buildings]
+        if others >= opts[:shared_lot_buildings]
+          # A store shares a lot the way its neighbours do: by fronting it.
+          # One across an aisle or a planting strip belongs to the others.
+          next false unless at_pin || touches?(lot, target, opts, opts[:lot_share_reach_m])
+
+          shared << lot
+        end
         note_lot(log, lot, others, opts)
         true
       end
       [lots, shared]
+    end
+
+    # Mapped parking that isn't the site's (not claimed, not at the pin) is
+    # another business's lot: the premises stop at its edge, as they stop
+    # short of a neighbour's building. Without this the first 30 m of growth
+    # runs into it whenever it lies across an aisle or a planting strip.
+    def keep_off_other_lots(poly, features, target, lots, log)
+      return poly unless poly
+
+      features.parking.each do |lot|
+        next if lots.include?(lot) || Geometry.contains?(lot.xy, [0.0, 0.0]) || !Geometry.overlap?(lot.hull, poly)
+        next if Geometry.overlap?(lot.hull, target.hull)
+
+        cut = split_from_neighbour(poly, target.hull, lot.hull, target.rectangle[:angle], stop: ->(_near, far) { far })
+        next if cut.size < 3 || takes_own_lot?(poly, cut, lots, lot.hull)
+
+        log.note("stopped at parking #{lot.id}, another business's lot",
+                 step: "keep_off_lot", features: [lot.id], area_before_m2: m2(poly), area_after_m2: m2(cut))
+        poly = cut
+      end
+      poly
+    end
+
+    # A cut at another business's lot may drop the site's claimed lots
+    # (parking, aisle strips) only where they run into that lot: never the
+    # site's own lot or drive-through elsewhere.
+    def takes_own_lot?(poly, cut, lots, other)
+      rings = lots.map(&:xy)
+      inside = rings.map { |r| Geometry.clip_convex(r, other) }.select { |r| r.size >= 3 }
+      lost = held_area(poly, rings) - held_area(cut, rings)
+      lost > held_area(poly, inside) + (0.02 * held_area(poly, rings)) + 1
+    end
+
+    def held_area(poly, rings)
+      xy = Geometry.counter_clockwise(poly)
+      rings.sum { |r| Geometry.overlap_area(xy, Geometry.counter_clockwise(r)) }
     end
 
     # aisle_m: OSM often maps a lot's aisles and driveways as service roads
@@ -64,9 +107,11 @@ module Curtilage
 
     def note_lot(log, lot, others, opts)
       if others >= opts[:shared_lot_buildings]
-        log.note("parking #{lot.id} (#{lot.area.round} m2) is shared with #{others} other buildings: " \
-                 "claimed the part nearer this building than the others",
-                 step: "claim_lot", rule: "shared_lot_buildings", features: [lot.id])
+        text = "parking #{lot.id} (#{lot.area.round} m2) is shared with #{others} other buildings: " \
+               "claimed the part nearer this building than the others"
+        args = { step: "claim_lot", rule: "shared_lot_buildings", features: [lot.id] }
+        # With scope: :centre the whole lot is taken, so nothing was split.
+        opts[:scope] == :centre ? log.note(text, **args) : log.flag(:shared_lot, text, **args)
       else
         log.note("#{lot_label(lot)} (#{lot.area.round} m2) touches the building, so it's part of the lot",
                  step: "claim_lot", rule: "parking_reach_m", features: [lot.id], distance_m: opts[:parking_reach_m])
@@ -247,19 +292,73 @@ module Curtilage
     def keep_off_neighbours(poly, features, target, opts, log)
       area = Geometry.bounds(poly)
       near = neighbours(features, target, opts).select { |other| Geometry.bounds_near?(area, other.bounds) }
-      nearest_first(near, target).each do |other|
-        next if Geometry.overlap?(other.hull, target.hull) || !Geometry.overlap?(other.hull, poly)
-
-        trimmed = split_from_neighbour(poly, target.hull, other.hull, target.rectangle[:angle],
-                                       stop: ->(near, far) { [far - 1, near].max })
-        next if trimmed.size < 3
-
-        log.note("stopped 1 m short of building #{other.id}", step: "keep_off_neighbour", features: [other.id],
-                                                              distance_m: 1, area_before_m2: m2(poly),
-                                                              area_after_m2: m2(trimmed))
-        poly = trimmed
-      end
+      # A neighbour the premises surround would be a hole, which the notch
+      # grid fills: those still get a line cut.
+      poly = notch_neighbours(poly, near, target, log) || poly if opts[:neighbour_cut] == :notch
+      nearest_first(near, target).each { |other| poly = line_off_neighbour(poly, other, target, log) }
       poly
+    end
+
+    def line_off_neighbour(poly, other, target, log)
+      return poly if Geometry.overlap?(other.hull, target.hull) || !Geometry.overlap?(other.hull, poly)
+
+      trimmed = split_from_neighbour(poly, target.hull, other.hull, target.rectangle[:angle],
+                                     stop: ->(near, far) { [far - 1, near].max })
+      return poly if trimmed.size < 3
+
+      log.note("stopped 1 m short of building #{other.id}", step: "keep_off_neighbour", features: [other.id],
+                                                            distance_m: 1, area_before_m2: m2(poly),
+                                                            area_after_m2: m2(trimmed))
+      trimmed
+    end
+
+    # Corners non-convex premises may keep: max_vertices, plus four for
+    # each entrance taken in and each neighbour cut round.
+    def outline_budget(opts, log)
+      extra = log.steps.to_a.any? { |s| s[:step] == "take_entrance" } ? 4 * (log.access || []).size : 0
+      extra += 4 * log.steps.to_a.count { |s| s[:step] == "keep_off_neighbour" && s[:rule] == "neighbour_cut" }
+      [opts[:max_vertices] + extra, Validation::DEFAULTS[:max_vertices]].min
+    end
+
+    NEIGHBOUR_CUTS = %i[line notch].freeze
+    NOTCH_GAP_M = 1
+
+    # neighbour_cut: :notch. Cuts each neighbour out of the premises with a
+    # NOTCH_GAP_M margin instead of a line across them, so a lot that runs
+    # past a neighbour keeps the part beyond it. nil (line cuts) if that fails.
+    def notch_neighbours(poly, near, target, log)
+      hits = near.reject { |o| Geometry.overlap?(o.hull, target.hull) || !Geometry.overlap?(o.hull, poly) }
+      return poly if hits.empty?
+
+      xy = notched(poly, hits)
+      return nil unless xy
+
+      hits.each do |o|
+        log.note("cut round building #{o.id}, #{NOTCH_GAP_M} m clear",
+                 step: "keep_off_neighbour", rule: "neighbour_cut", features: [o.id], distance_m: NOTCH_GAP_M)
+      end
+      xy
+    end
+
+    # On a grid of a metre or so; the piece holding the pin, outlined.
+    def notched(poly, hits)
+      extent = Geometry.bounds(poly)
+      cell = ((extent[2] - extent[0]) + (extent[3] - extent[1])).fdiv(400).clamp(0.5, 1.5)
+      grid = Grid.new(extent, cell).paint(poly)
+      hits.each { |o| grid.erase(grown_hull(o.hull, NOTCH_GAP_M)) }
+      return nil unless grid.keep_part?([0.0, 0.0])
+
+      xy = Geometry.counter_clockwise(Geometry.douglas_peucker(grid.outline, cell))
+      xy.size < 3 || Geometry.self_intersects?(xy) ? nil : xy
+    end
+
+    # A convex ring metres outside a convex hull (corners cut at 45 degrees).
+    def grown_hull(hull, metres)
+      d = metres / Math.sqrt(2)
+      Geometry.convex_hull(hull.flat_map do |x, y|
+        [[x + metres, y], [x - metres, y], [x, y + metres], [x, y - metres],
+         [x + d, y + d], [x - d, y + d], [x + d, y - d], [x - d, y - d]]
+      end)
     end
 
     # scope: :centre on a shared lot: the whole shopping centre, i.e. the

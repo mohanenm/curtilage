@@ -80,20 +80,6 @@
    "geometry": {
     "type": "Point",
     "coordinates": [
-     -75.6013227,
-     39.7595749
-    ]
-   }
-  },
-  {
-   "type": "Feature",
-   "properties": {
-    "kind": "walkway",
-    "source": "hand"
-   },
-   "geometry": {
-    "type": "Point",
-    "coordinates": [
      -75.6007057,
      39.7591481
     ]
@@ -850,20 +836,6 @@
    "geometry": {
     "type": "Point",
     "coordinates": [
-     -75.5998313,
-     39.7598429
-    ]
-   }
-  },
-  {
-   "type": "Feature",
-   "properties": {
-    "kind": "shared_parking_far",
-    "source": "hand"
-   },
-   "geometry": {
-    "type": "Point",
-    "coordinates": [
      -75.6002283,
      39.7583749
     ]
@@ -1460,21 +1432,7 @@
   {
    "type": "Feature",
    "properties": {
-    "kind": "sidewalk",
-    "source": "hand"
-   },
-   "geometry": {
-    "type": "Point",
-    "coordinates": [
-     -75.6015265,
-     39.7588161
-    ]
-   }
-  },
-  {
-   "type": "Feature",
-   "properties": {
-    "kind": "sidewalk",
+    "kind": "walkway",
     "source": "hand"
    },
    "geometry": {
@@ -1488,7 +1446,7 @@
   {
    "type": "Feature",
    "properties": {
-    "kind": "sidewalk",
+    "kind": "walkway",
     "source": "hand"
    },
    "geometry": {
@@ -1734,62 +1692,6 @@
     "coordinates": [
      -75.6018591,
      39.7600491
-    ]
-   }
-  },
-  {
-   "type": "Feature",
-   "properties": {
-    "kind": "walkway",
-    "source": "hand"
-   },
-   "geometry": {
-    "type": "Point",
-    "coordinates": [
-     -75.6009096,
-     39.7597399
-    ]
-   }
-  },
-  {
-   "type": "Feature",
-   "properties": {
-    "kind": "walkway",
-    "source": "hand"
-   },
-   "geometry": {
-    "type": "Point",
-    "coordinates": [
-     -75.6008613,
-     39.75981
-    ]
-   }
-  },
-  {
-   "type": "Feature",
-   "properties": {
-    "kind": "walkway",
-    "source": "hand"
-   },
-   "geometry": {
-    "type": "Point",
-    "coordinates": [
-     -75.6007594,
-     39.7598801
-    ]
-   }
-  },
-  {
-   "type": "Feature",
-   "properties": {
-    "kind": "walkway",
-    "source": "hand"
-   },
-   "geometry": {
-    "type": "Point",
-    "coordinates": [
-     -75.6007165,
-     39.7599625
     ]
    }
   },

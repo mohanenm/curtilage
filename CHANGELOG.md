@@ -2,12 +2,24 @@
 
 ## [Unreleased]
 
+## [0.6.0] - 2026-11-24
+
+Benchmark numbers below were measured on the labels as they stood at each change; the README has the current totals.
+
+### Added
+
+- Public benchmark: 30 new public sites in seven more states (28 seeded random picks, a quarter held out for a final check and never scored with the rest; 2 with buildings missing from OSM), labels for most of them, a **core** view that counts only what every use case agrees on, label kinds `centre_building` and `centre_entrance`, and each site's tax parcel from its state's parcel service as an independent baseline (`rake benchmark:parcels`). A missed entrance now counts as a missed point, not a failed site, and the benchmark generates with `buildings: :osm_or_ml`, as Overture reads do for users.
+- Labelling page: Leaflet bundled, a Content-Security-Policy allowing images from the two USGS hosts only, a no-imagery mode (`LABEL_IMAGERY=off`, the default for a private benchmark folder), and each site's business shown. The gallery refuses any site that isn't in the public benchmark, and covers every public site but the held-out ones.
+- `neighbour_cut: :notch` (experimental, off by default): cuts round a neighbouring building instead of straight across the premises, so a lot running past a neighbour keeps the part beyond it.
+
 ### Changed
 
 - A lot counts as shared only with buildings within 5 m of it (`lot_share_reach_m`, new), not every building within 20 m (`parking_reach_m`, which still decides whether a lot is the site's). Buildings across an aisle or behind the lot no longer split it, so more of a site's own parking is taken in. On the public benchmark's labels: own-parking points caught 306 to 316 of 413, with no more far shared parking taken in. `lot_share_reach_m: 20` restores the old behaviour.
 - Lots that OpenStreetMap maps only as service roads (aisles and driveways, no parking area drawn) are taken in: a 9 m strip either side of each service road near the building counts as parking (`aisle_m`, new; `aisle_m: nil` turns it off). On the public benchmark's labels: own-parking points caught 316 to 335 of 413, the share of uncontested "in" points caught 67.5% to 70.9%, with no more roads, homes, neighbours' lots or far shared parking taken in.
 - A pin on a canopy (fuel pumps or a drive-through roof, mapped as `building=roof`) now means the building beside it, within 15 m: that's the store, and the canopy part of its lot. The shop was treated as a neighbour, so a fuel station's premises stopped short of its own forecourt.
 - Premises reach closer to the kerb: the half road widths by class are measured on the public benchmark's labels instead of guessed, and set halfway back toward the old figures, as OSM centrelines are often off-centre. Trunk 10 to 8.5 m, primary 9 to 7.5, secondary 8 to 7, tertiary 7 to 6, residential 5 to 4.5. Entrances caught on the labels went from 21 to 26 of 65, with one road point of 329 taken in.
+- Premises stop at the edge of mapped parking that isn't the site's (another business's lot), as they stop short of a neighbour's building; the cut never removes the site's own claimed lot. A store takes a share of a shared lot only when it fronts it (within `lot_share_reach_m`), not across an aisle or a planting strip. On the public benchmark's labels, neighbours' lot points taken in fell from 18 of 75 to 12.
+- New flag `shared_lot` when a lot shared with other buildings is split between them (where it really divides isn't in the map), and a matching confidence factor `own_lot` (weight 0.10).
 - Faster: the driveway search measures only the roads near each driveway. Median time per site on the benchmark 25 ms to 17 ms without aisle strips, 32 ms with them (results unchanged).
 
 ## [0.5.0] - 2026-11-23

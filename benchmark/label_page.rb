@@ -12,7 +12,7 @@ require "json"
 # loads nothing at all and draws the cached map data instead.
 module CurtilageBenchmark
   # Shortcut keys, in the order of the kinds table.
-  KEYS = "1234567890qwertyuiopa"
+  KEYS = "1234567890qwertyuiopas"
   # One line per kind, shown on the page (the full table is in LABELS.md).
   KIND_NOTES = {
     "building" => "Inside this site's building.",
@@ -38,6 +38,8 @@ module CurtilageBenchmark
     "unclear" => "You can't tell. Use it rather than guessing.",
     "centre_building" => "Inside another business's separate building on the same shared lot or in the same centre " \
                          "(a pad, another strip). Units in this site's own building are building.",
+    "centre_entrance" => "Where a shopping centre's or shared lot's driveway meets a public road, serving the whole " \
+                         "centre rather than this site.",
   }.freeze
   IMAGERY_HOSTS = %w[https://imagery.nationalmap.gov https://basemap.nationalmap.gov].freeze
   LEAFLET = File.join(__dir__, "vendor", "leaflet-1.9.4")
@@ -61,10 +63,14 @@ module CurtilageBenchmark
     end
     html = format(PAGE, sites: safe_json(data), kinds: safe_json(kinds), random: RANDOM_POINTS,
                         radius: RANDOM_RADIUS_M, imagery: imagery, csp: "__CSP__",
-                        leaflet_js: File.read(File.join(LEAFLET, "leaflet.js")),
-                        leaflet_css: File.read(File.join(LEAFLET, "leaflet.css")))
+                        leaflet_js: leaflet_file("leaflet.js"), leaflet_css: leaflet_file("leaflet.css"))
     html.sub("__CSP__", label_csp(html, imagery))
   end
+
+  # Leaflet's CSS ships with CRLF line endings, and browsers turn those into
+  # LF before hashing an inline block: inline it with LF, or its hash in the
+  # policy never matches and the map is blank.
+  def leaflet_file(name) = File.read(File.join(LEAFLET, name)).gsub(/\r\n?/, "\n")
 
   # Only the page's own inline code may run, by hash; images only from the
   # USGS hosts (none with imagery off); nothing else can load.
@@ -87,7 +93,7 @@ module CurtilageBenchmark
   # Colours group kinds by what they are, not by any view's in or out.
   def kind_group(kind)
     case kind
-    when "shared_parking_near", "shared_parking_far", "centre_road", "centre_building" then "shared"
+    when "shared_parking_near", "shared_parking_far", "centre_road", "centre_building", "centre_entrance" then "shared"
     when "sidewalk", "public_road", "neighbour_lot", "neighbour_building", "residential", "railway", "open_land"
       "outside"
     when "construction", "unclear" then "other"

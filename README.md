@@ -48,22 +48,23 @@ sites = json.load(urllib.request.urlopen("http://127.0.0.1:8754/premises", body)
 
 ## How it compares
 
-Scored on the public benchmark's labelled points (default view, nine sites): the share of points that should be inside that are, and of points that should stay out (roads, neighbours, homes) that are taken in anyway. Simple alternatives were scored the same way; paid datasets and hand-drawing weren't.
+Scored on the public benchmark's labelled points (default view, the 23 labelled tuning sites in eight states; curtilage does worse on the held-out sites, see Status below): the share of points that should be inside that are, and of points that should stay out (roads, neighbours' buildings and lots, homes) that are taken in anyway. Simple alternatives were scored the same way; paid datasets and hand-drawing weren't.
 
 | | Cost | Coverage | On the benchmark (in caught / out taken) | Explainability | Licence of the polygons | Effort |
 |---|---|---|---|---|---|---|
 | Drawing by hand | Staff time, minutes per site | Anywhere with imagery | The yardstick, but people draw it differently | Whatever the drawer notes | Yours, if the imagery's terms allow tracing | High, every site and every change |
-| Circle around the pin | Free | Everywhere | 50 m: 48% / 18%; 75 m: 69% / 36% | None needed | Yours | None |
-| Building outline only | Free (OSM, or ML footprints) | Wherever the building is mapped | 5% / 0% | Simple | ODbL (OSM) | Low |
+| Circle around the pin | Free | Everywhere | 50 m: 58% / 33%; 75 m: 79% / 55% | None needed | Yours | None |
+| Building outline only | Free (OSM, or ML footprints) | Wherever the building is mapped | 5% / 4% | Simple | ODbL (OSM) | Low |
+| Tax parcel (the property line) | Free in some states and counties, paid elsewhere | Where the county's parcels are published | 63% / 14% | A legal boundary, not the customer-facing lot | Varies by county | Collecting and keeping each county's data |
 | Paid POI polygon datasets | A licence fee | The vendor's place list | Not measured | Usually opaque | Proprietary, with use limits | Low, if your places are in the list |
-| curtilage | Free | Wherever OSM has the building (Overture or Geofabrik) | 44% / 1% | Every step, flags, confidence | ODbL (share-alike when you publish a database of them) | Low; review the flagged sites |
+| curtilage | Free | Wherever OSM has the building (Overture or Geofabrik) | 71% / 6.5% | Every step, flags, confidence | ODbL (share-alike when you publish a database of them) | Low; review the flagged sites |
 
-Where curtilage loses: a generous circle catches more of the lot (it just takes the road and the neighbours too); it often stops short of the whole lot, misses entrances on most benchmark sites, and gives nothing where OpenStreetMap has no building. Its polygons are ODbL, which a paid dataset's aren't.
+Where curtilage loses: a 75 m circle catches more of the lot (it just takes the road, the neighbours and their lots too); curtilage still stops short of some lots (deep lots, lots running past a neighbour, shared lots split by guesswork) and gives nothing where no building is mapped at all. Its polygons are ODbL, which a paid dataset's aren't.
 
-**Status:** 0.5, rule-based; the API may change before 1.0. On the [public benchmark](benchmark/README.md) (ten public sites in Delaware, with references drawn to the whole customer-facing lot), all ten get a valid polygon and the median overlap (IoU) is 0.30. Scored on labelled points instead (what's really at each spot), the default takes in 44% of what should be in and under 1% of what should stay out: premises rarely overreach but often fall short of the whole lot ([Known limitations](#known-limitations)). Anyone can rerun it (`rake benchmark`). On private sets of real sites that can't be published:
+**Status:** 0.6, rule-based; the API may change before 1.0. The [public benchmark](benchmark/README.md) has 40 public sites in eight states, each labelled with points saying what is physically there. On the 23 labelled sites used for tuning, the default takes in 71% of what should be in and 6.5% of what should stay out; counting only what every use case agrees on (the site's building, own parking, drive-through, forecourt and entrances in; roads, neighbours, homes out), 89% and 1.5%. Some of those labels were corrected after looking at results, so these numbers flatter the rules. The held-out sites, labelled without seeing any results and never used for tuning, are the unbiased check: on the 3 labelled so far (too few to be sure), the default takes in 63% of what should be in and 16% of what should stay out, and all 7 get a valid polygon. Treat the tuning numbers as optimistic. Anyone can rerun it (`rake benchmark`). On private sets of real sites that can't be published:
 
 - On 164 sites the rules had never seen, 159 (97%) got a polygon that passed the gem's own validation (pin inside, closed, no self-intersection, plausible size). Nearly all five misses were buildings missing from OpenStreetMap. Passing validation means usable, not necessarily right.
-- Against hand-drawn premises for those sites, the median overlap (IoU) was 0.47. Hand-drawn polygons often hug the building more tightly than the whole lot this gem aims for, so IoU undersells generous but correct results.
+- Against hand-drawn premises for those sites, the median overlap (IoU) was 0.48. Hand-drawn polygons often hug the building more tightly than the whole lot this gem aims for, so IoU undersells generous but correct results.
 - The 20 sites used to tune the rules were also reviewed by eye on aerial imagery, which is a subjective check. An earlier version gave similar validity on 51 sites in the US, Brazil and Hungary (47 of 51).
 
 ## Quick start
@@ -116,10 +117,10 @@ The code is MIT-licensed; the polygons are not. Every result is derived from [Op
    - **Scattered pins: Overture Maps, read in place.** The same OpenStreetMap data from Overture's public release, read straight from their storage: about 5-10 s per area, nothing downloaded.
    - **Many pins in one region, or a region already cached: a Geofabrik build.** The gem downloads only the layers it needs from that region's shapefiles and builds a compact Parquet file, 1-5 minutes per US state, then answers instantly.
    - Or force one: `source: :geofabrik` (the host only ever learns the region, never the area) or `source: :overture`. Or use your own prebuilt files (`curtilage build`), local or in a bucket.
-2. **Generate.** Start from the building at the pin and grow its rectangle 30 m toward its lot, then:
+2. **Generate.** Start from the building at the pin (a pin on a fuel or drive-through canopy means the shop beside it) and grow its rectangle 30 m toward its lot, then:
    - stop at public roads, half a typical road width short of the centreline (by road class, measured on the benchmark's labels) but at least 3 m out from the building, following each road's direction; and at railways;
-   - take in the site's mapped parking (a lot shared with a few buildings is claimed whole; a shopping-centre lot is split by nearest building), parking garages, canopies, and driveways to the street;
-   - stop 3 m short of neighbouring buildings, or halfway when the site is behind a house (its back yard);
+   - take in the site's mapped parking (a lot shared with a few buildings is claimed whole; a shopping-centre lot the site fronts is split by nearest building, flagged `shared_lot`), parking garages, canopies, and driveways to the street; where a lot is mapped only as service roads (aisles and driveways), a strip either side of them stands in for it;
+   - stop 3 m short of neighbouring buildings, or halfway when the site is behind a house (its back yard), and at the edge of another business's mapped lot;
    - fall back to the building's rectangle plus a margin if that fails validation.
    Every result explains each step and carries review flags.
 3. **Validate.** Reject or flag polygons that are unsafe to use: pin outside, unclosed, self-intersecting, swapped coordinates, too far from the pin, an implausible size. The store zone always sits inside the premises.
@@ -197,7 +198,7 @@ PostGIS, geofences on your own server, circles for mobile geofences, geofence pl
 
 Under each map: the flags (hover for what they mean), the building and premises areas, parking and an estimate of spaces, street frontage, the number of entrances, and "How it was made", the step-by-step explanation. Invalid results say why.
 
-For examples, the [gallery](https://mohanenm.github.io/curtilage/gallery/) is this page for every public benchmark site, with each site's category and what its labels say it got wrong, failures included. It is rebuilt with `rake benchmark:gallery`.
+For examples, the [gallery](https://mohanenm.github.io/curtilage/gallery/) is this page for the public benchmark sites (all but the held-out ones), with each site's category and what its labels say it got wrong, failures included. It is rebuilt with `rake benchmark:gallery`.
 
 At the top, a count of sites that are ok, flagged or unusable, and controls to show only some (sites that need a look, invalid ones, or those with a given flag) and to sort them (input order, needs a look first, lowest confidence first, id, or premises size).
 
@@ -229,6 +230,7 @@ The current folder is mounted at `/work`, so file names are relative to it. The 
 | `pin_moved` | The pin wasn't on a building and was moved onto the nearest one (`snap_m:`): check it's the right one |
 | `store_may_be_unit` | Store zone is a building over 1,500 m2: the store may be one unit of it |
 | `shopping_centre` | `scope: :centre` mapped the whole centre |
+| `shared_lot` | The lot is shared with other buildings and was split by nearest building: where it really divides isn't in the map |
 | `fallback` | The main method failed validation; the building rectangle was used |
 | `partial_data` | Part of the area around the pin is in a region that isn't built |
 | `ml_footprint` | Built on a machine-learned footprint, not an OSM building |
@@ -239,7 +241,7 @@ The current folder is mounted at `/work`, so file names are relative to it. The 
 
 ### Speed
 
-- Generate: about 10 ms per site for an ordinary building, about 65 ms (median) for the busier commercial sites tested; a few hundred ms in dense blocks.
+- Generate: about 30 ms per site (median on the public benchmark's commercial sites), up to about a second for a large shopping centre.
 - Big batches: 10,000 made-up pins in one state took under 2.5 minutes from a prebuilt file on a laptop (about 70 sites a second), with Ruby under 650 MB however long the batch. `curtilage generate` works in chunks of 500, shows progress on a terminal, streams NDJSON and CSV, and `--resume` carries on an interrupted run.
 - Prebuilt files: about 2 ms a pin in batches (one DuckDB call serves 500 pins); about 85 ms for a single lookup, mostly starting DuckDB.
 - Overture (the default for scattered pins): about 5-10 s per area; pins within a few km of each other share it. A test batch of 51 sites in 17 regions across three continents took 4 minutes from a cold start; the 164 (143 pins read from Geofabrik builds, 21 from Overture) took under 6.
@@ -252,13 +254,14 @@ The current folder is mounted at `/work`, so file names are relative to it. The 
 | What goes wrong | Flag | What helps |
 |---|---|---|
 | **The building isn't in OpenStreetMap** (about 3-8% of sites tested): nothing is generated. | (no premises) | Sites read from Overture (the default for scattered pins) fall back to its machine-learned footprints for those sites, flagged `ml_footprint`. Elsewhere, `buildings: :osm_or_ml` with a build made `--ml-footprints microsoft`; on a private test set it rescued 2 of 5. |
-| **Premises fall short of the whole lot.** On the public benchmark's labelled points the default takes in 44% of what should be in, but almost nothing (under 1%) of what should stay out: unmapped forecourts and parking, lots reaching past 60 m from the building, and **entrances** (missed at 8 of 9 labelled sites). | | `entrances: :all` follows mapped driveways to every entrance (12 of 24 labelled entrances, from 5); `parking_max_extent_m` for deep lots; `lot_split: :voronoi` on shared lots. All experimental, off by default. |
+| **Premises fall short of the whole lot**, more than they overreach: lots reaching past 60 m from the building, and a lot that runs past a neighbouring building (the cut that keeps the premises off the neighbour runs straight across the lot beyond it). | | `neighbour_cut: :notch` cuts round the neighbour instead; `entrances: :all` follows mapped driveways to every entrance; `parking_max_extent_m` for deep lots. All experimental, off by default. |
+| **Fields and open land behind a building:** the premises grow 30 m from the building, and nothing in the map data marks where a field or tree line starts. | | `grow_m` smaller, or a correction. |
 | **A store that's one unit of a large building** (strip malls, urban blocks): the store zone is the whole building, the premises its whole lot. | `store_may_be_unit`, `large_building` | `unit_m: 15` estimates the unit round the pin (flag `unit_estimated`); `preset: :tight`, or `scope: :centre` for the whole centre. |
-| **Shopping centres.** A shared lot is split by nearest building; a centre's internal roads tagged as public streets (ring roads, "Plaza" streets) cut a store off from its car park; a building at an angle to its lot gets an oversized rectangle. | `store_may_be_unit` | `lot_split: :voronoi`, `scope: :centre`, `candidates: 3`. Internal roads mapped as public streets have no fix yet. |
-| **Sites spread over several buildings** (compounds, campuses, a fuel canopy and its shop): only the building at the pin counts as the site, so premises come out too small. | `small_building` for canopies | `candidates: 3`, or a correction. |
+| **Shopping centres.** A shared lot is split by nearest building, but where it really divides between properties isn't in the map; a centre's internal roads tagged as public streets (ring roads, "Plaza" streets) cut a store off from its car park; a building at an angle to its lot gets an oversized rectangle. | `shared_lot`, `store_may_be_unit` | `parcels:` (property lines you supply), `lot_split: :voronoi`, `scope: :centre`, `candidates: 3`. Internal roads mapped as public streets have no fix yet. |
+| **Sites spread over several buildings** (compounds, campuses): only the building at the pin counts as the site, so premises come out too small. (A pin on a fuel canopy is handled: the shop beside it is the site.) | `small_building` | `candidates: 3`, or a correction. |
 | **Property lines aren't known.** Premises follow roads, railways and neighbours, not legal boundaries. | `near_houses` | `parcels:` clips to property lines you supply (flag `beyond_parcel` where the site's parking runs past them). |
-| **Road widths are typical figures by road class**, not measured: no free source maps them (Overture gives a width for about 0.1-0.2% of roads). | | `road_offset_m` for a fixed offset. |
-| **Default premises are convex.** An L-shaped site gets a diagonal edge that can cross a neighbour's corner. | | `entrances: :all` and `parcels:` can give non-convex premises; a general non-convex mode waits for benchmark sites that need it. |
+| **Road widths are typical figures by road class**, measured on the benchmark's labels: no free source maps each road's width (Overture gives one for about 0.1-0.2% of roads), so a wide road can still take a strip of kerbside lot, or a narrow one leave a strip out. | | `road_offset_m` for a fixed offset. |
+| **Default premises are convex.** An L-shaped site gets a diagonal edge that can cross a neighbour's corner. | | `neighbour_cut: :notch`, `entrances: :all` and `parcels:` can give non-convex premises. |
 | **Dense rowhouse blocks:** cuts toward many close neighbours can leave a thin sliver; `near_houses` fires almost everywhere in dense areas. | `near_houses` | |
 | **Sites within about 100 m of the antimeridian** (180° longitude: parts of Fiji, Chukotka, the Aleutians) get no polygon: premises can't cross that line. | (no premises) | |
 

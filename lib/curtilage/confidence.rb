@@ -22,6 +22,7 @@ module Curtilage
       mapped_parking: [0.15, "Mapped parking is inside the premises."],
       road_frontage: [0.15, "At least one side of the premises runs along a public road."],
       no_homes_next_door: [0.10, "No home borders the lot."],
+      own_lot: [0.10, "The lot isn't split with other buildings (where a shared lot divides isn't in the map)."],
       no_warnings: [0.05, "Validation raised no warnings (size, shape and position look typical)."],
     }.freeze
 
@@ -48,7 +49,8 @@ module Curtilage
         single_building_store: !flags.intersect?(%i[large_building store_may_be_unit]),
         plausible_building: !flags.include?(:small_building),
         mapped_parking: details[:parking_area_m2].to_f.positive?, road_frontage: details[:frontage_m].to_f.positive?,
-        no_homes_next_door: !flags.include?(:near_houses), no_warnings: result.validation.warnings.empty?
+        no_homes_next_door: !flags.include?(:near_houses), own_lot: !flags.include?(:shared_lot),
+        no_warnings: result.validation.warnings.empty?
       }
     end
   end

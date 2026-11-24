@@ -10,20 +10,6 @@
    "geometry": {
     "type": "Point",
     "coordinates": [
-     -109.3431231,
-     37.8751223
-    ]
-   }
-  },
-  {
-   "type": "Feature",
-   "properties": {
-    "kind": "building",
-    "source": "hand"
-   },
-   "geometry": {
-    "type": "Point",
-    "coordinates": [
      -109.3432868,
      37.8751943
     ]

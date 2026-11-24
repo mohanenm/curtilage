@@ -32,7 +32,7 @@
   {
    "type": "Feature",
    "properties": {
-    "kind": "own_parking",
+    "kind": "shared_parking_near",
     "source": "hand"
    },
    "geometry": {
@@ -68,34 +68,6 @@
     "coordinates": [
      -75.2600223,
      38.5463865
-    ]
-   }
-  },
-  {
-   "type": "Feature",
-   "properties": {
-    "kind": "entrance",
-    "source": "hand"
-   },
-   "geometry": {
-    "type": "Point",
-    "coordinates": [
-     -75.2607465,
-     38.5462523
-    ]
-   }
-  },
-  {
-   "type": "Feature",
-   "properties": {
-    "kind": "entrance",
-    "source": "hand"
-   },
-   "geometry": {
-    "type": "Point",
-    "coordinates": [
-     -75.2604675,
-     38.5463907
     ]
    }
   },

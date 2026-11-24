@@ -2,9 +2,9 @@
 
 A small set of public sites that anyone can run curtilage against, so changes to the rules can be judged on numbers anyone can reproduce. It lives in the repository only; none of it ships in the gem.
 
-**What it is today: a regression check, not a measure of accuracy.** Ten public sites in one state (Delaware), one per category, each with one hand-drawn reference polygon drawn to the whole lot. Use it to compare two versions of curtilage on the same sites. It can't tell you how good premises are in general, or compare curtilage with other tools: ten sites in one state are too few, and one polygon per site measures agreement with whoever drew it. The low IoU (median 0.30) partly reflects references drawn larger than the default output.
+**What it is:** 40 public sites in eight states (DE, MA, MD, NC, FL, WI, TX, UT): ten picked one per category in Delaware, 28 seeded random picks from Overture places across 13 place types, and 2 sites whose building is missing from OSM. A quarter of the random picks are held out: never scored with the rest, never used for tuning, kept for a final check before each release. Every site has its tax parcel as an independent baseline (`benchmark:parcels`); the ten Delaware sites also have a hand-drawn reference polygon, an IoU guide only (median 0.41 at 0.6.0), since one polygon measures agreement with whoever drew it.
 
-**Where it's going: labelled points.** Each site gets points labelled with what is physically there (a parking stall, the drive-through lane, the road past the kerb, a neighbour's lot). **Views** decide which kinds count as in or out for a use: one table per use case, so the same labels score any of them. See [LABELS.md](LABELS.md) for the kinds, the views and how to label. The reference polygons stay as a secondary IoU number. Nine of the ten sites are labelled so far (hand-placed points only, by one person; `backs-onto-houses` and the random points are still to do). On them, the default settings catch 44% of the "in" points and take in 0.8% of the "out" points: the premises rarely overreach but fall short, missing the entrance at 8 of 9 sites. Sites for `drive_through`, `l_shaped_lot`, `outside_us` and `missing_building` are still to come. A site can be marked `"placeholder": true` (made-up, kept out of the totals) while trying things out.
+**Labelled points.** Each site gets points labelled with what is physically there (a parking stall, the drive-through lane, the road past the kerb, a neighbour's lot). **Views** decide which kinds count as in or out for a use: one table per use case, so the same labels score any of them, and the **core** view counts only what every use case agrees on. See [LABELS.md](LABELS.md) for the kinds, the views and how to label. 26 sites are labelled (by one person; some tuning-site labels were corrected after reviewing results, which is why the held-out sites are the unbiased check). On the 23 labelled tuning sites at 0.6.0, the default settings catch 71% of the "in" points and take in 6.5% of the "out" points (the core view 89% and 1.5%); on the 3 labelled held-out sites, 63% and 16%, so the tuning numbers are optimistic. A site can be marked `"placeholder": true` (made-up, kept out of the totals) while trying things out.
 
 ## Running it
 
@@ -54,12 +54,12 @@ Set `CURTILAGE_BENCHMARK_DIR` to a folder laid out like this one (`sites.geojson
 
 ## Categories
 
-`standalone`, `corner_lot`, `l_shaped_lot`, `deep_lot` (building set back), `shared_lot` (a few buildings), `shopping_centre_unit`, `backs_onto_houses`, `next_to_railway`, `drive_through`, `fuel_station`, `big_box`, `urban_storefront` (no lot), `outside_us`, `missing_building` (not in OpenStreetMap).
+`standalone`, `corner_lot`, `l_shaped_lot`, `deep_lot` (building set back), `shared_lot` (a few buildings), `shopping_centre_unit`, `backs_onto_houses`, `next_to_railway`, `drive_through`, `fuel_station`, `big_box`, `urban_storefront` (no lot), `outside_us`, `missing_building` (not in OpenStreetMap), and `random` for the seeded random picks (a mix of the above, as they come).
 
 ## Adding a site
 
 1. Pick a **public place** that anyone can look up. Never a private or customer site: everything here is public, and running the benchmark sends each site's area to Overture's storage host.
 2. If you hold private site lists, check the new site isn't one of them or next to one: `ruby -Ilib benchmark/check_sites.rb PRIVATE_LIST...` fails if any benchmark site is within 1 km of a site in those lists (CSV, GeoJSON points, or JSON with `pin` entries). The lists are only read locally.
-3. Add it to `sites.geojson` with its category and a note on what makes it hard.
-4. Draw its premises on aerial imagery: the building and its whole customer-facing lot, stopping at the kerb of public roads, at railways and short of neighbours. Save it as `reference/<id>.geojson`. Draw what the site really is, not what curtilage produces.
-5. Run `rake benchmark`, check the new row, and look at the site in `curtilage preview --pin LNG,LAT`.
+3. Add it to `sites.geojson` with its category and a note naming the business and what makes it hard (the labelling page shows the note, so a labeller knows which business "this site" is).
+4. Label it on the labelling page (`rake benchmark:label_page`), following [LABELS.md](LABELS.md), without looking at curtilage's output. Save the file as `labels/<id>.geojson`.
+5. Fetch its parcel (`rake benchmark:parcels`), run `rake benchmark`, and check the new row.

@@ -23,6 +23,7 @@ Pick the most specific kind that fits. "This site" means the business the site's
 | `public_road` | The carriageway of a public road, past the kerb. |
 | `neighbour_lot` | Parking, yard or forecourt of another business with its own access. |
 | `neighbour_building` | Inside another business's building, outside this site's lot or centre. |
+| `centre_entrance` | Where a shopping centre's or shared lot's driveway meets a public road, serving the whole centre rather than this site. This site's own driveway is `entrance`. |
 | `centre_building` | Inside another business's separate building on the same shared lot or in the same centre (a pad, another strip). Units in this site's own building are `building`. |
 | `residential` | A house, its yard or a residential street's frontage. |
 | `railway` | Track, ballast or the lineside strip. |
@@ -52,6 +53,7 @@ Pick the most specific kind that fits. "This site" means the business the site's
 | neighbour_lot | out | out | out | out |
 | neighbour_building | out | out | out | out |
 | centre_building | out | out | in | - |
+| centre_entrance | - | - | in | - |
 | residential | out | out | out | out |
 | railway | out | out | out | out |
 | open_land | out | out | out | out |
@@ -65,6 +67,7 @@ Pick the most specific kind that fits. "This site" means the business the site's
 - `landscaping` is ignored for arrival rather than out: planting islands sit between stalls, inside any sensible outline, so marking them out would punish good outlines. `open_land` is out: an outline may cut around it.
 - `service` is ignored in the default view for now: the goal says "customer-facing", but today's rules take service yards in, and ignoring them rewards neither.
 - `centre_building` is out for default and arrival (another business's building is never this site's premises) and in for centre; core ignores it, as the views disagree. Sites labelled before it existed used `neighbour_building` for these points.
+- `centre_entrance` is in for centre only: a store's share of a centre needn't reach the centre's gates, and the other views don't penalise taking them in either.
 - `sidewalk` is ignored everywhere: it lies within GPS error of the kerb, so it can't tell a good outline from a bad one.
 - `tight` has no view: it's a shape, not a use, and stays unscored until someone needs it scored.
 

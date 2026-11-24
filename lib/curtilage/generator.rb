@@ -117,6 +117,7 @@ module Curtilage
       unit_m: nil,                   # store zone of a large building: this much frontage round the pin (nil: all)
       entrances: :near,              # :near, or :all (follow driveways to every entrance; premises not convex)
       lot_split: :square,            # shared lots: :square (cut square to the building) or :voronoi (nearest building)
+      neighbour_cut: :line,          # after taking the lot: :line (cut across) or :notch (cut round the neighbour)
     }.freeze
 
     BUILDING_SOURCES = %i[osm osm_or_ml osm_filled ml].freeze
@@ -206,7 +207,8 @@ module Curtilage
 
     # The options that take one of a few names, and the names.
     def choices
-      { scope: SCOPES, buildings: BUILDING_SOURCES, entrances: ENTRANCES, lot_split: LOT_SPLITS }
+      { scope: SCOPES, buildings: BUILDING_SOURCES, entrances: ENTRANCES, lot_split: LOT_SPLITS,
+        neighbour_cut: NEIGHBOUR_CUTS }
     end
 
     def check_range(key, value, min, max, whole)
@@ -306,11 +308,6 @@ module Curtilage
       premises_xy(Geometry.convex_hull(xy), target, opts, log)
     end
 
-    def outline_budget(opts, log)
-      extra = log.steps.to_a.any? { |s| s[:step] == "take_entrance" } ? 4 * (log.access || []).size : 0
-      [opts[:max_vertices] + extra, Validation::DEFAULTS[:max_vertices]].min
-    end
-
     def inside?(xy, point)
       Geometry.contains?(xy, point) || Geometry.distance_to_edges(xy, point) < 0.01
     end
@@ -339,7 +336,8 @@ module Curtilage
       claimed = lots.select { |lot| lot.kind == "building" }
       features = features.with_buildings(features.buildings - claimed) unless claimed.empty?
       poly = trim_at_neighbours(poly, features, target, opts, log)
-      [take_lot(poly, lots, Site.new(features, target, opts, log, shared)), target]
+      poly = take_lot(poly, lots, Site.new(features, target, opts, log, shared))
+      [keep_off_other_lots(poly, features, target, lots, log), target]
     end
 
     def take_lot(poly, lots, site)

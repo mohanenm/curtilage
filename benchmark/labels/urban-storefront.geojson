@@ -18,7 +18,7 @@
   {
    "type": "Feature",
    "properties": {
-    "kind": "entrance",
+    "kind": "public_road",
     "source": "hand"
    },
    "geometry": {
@@ -32,7 +32,7 @@
   {
    "type": "Feature",
    "properties": {
-    "kind": "entrance",
+    "kind": "public_road",
     "source": "hand"
    },
    "geometry": {

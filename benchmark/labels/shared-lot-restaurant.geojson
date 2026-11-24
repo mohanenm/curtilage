@@ -32,7 +32,7 @@
   {
    "type": "Feature",
    "properties": {
-    "kind": "own_parking",
+    "kind": "shared_parking_far",
     "source": "hand"
    },
    "geometry": {
@@ -74,7 +74,7 @@
   {
    "type": "Feature",
    "properties": {
-    "kind": "own_parking",
+    "kind": "shared_parking_near",
     "source": "hand"
    },
    "geometry": {
@@ -242,21 +242,7 @@
   {
    "type": "Feature",
    "properties": {
-    "kind": "drive_through",
-    "source": "hand"
-   },
-   "geometry": {
-    "type": "Point",
-    "coordinates": [
-     -75.4648921,
-     39.0093949
-    ]
-   }
-  },
-  {
-   "type": "Feature",
-   "properties": {
-    "kind": "entrance",
+    "kind": "public_road",
     "source": "hand"
    },
    "geometry": {
@@ -270,7 +256,7 @@
   {
    "type": "Feature",
    "properties": {
-    "kind": "entrance",
+    "kind": "sidewalk",
     "source": "hand"
    },
    "geometry": {

@@ -162,6 +162,8 @@ class GeneratorTest < Minitest::Test
 
     assert(result.explanation.any? { |n| n.include?("is shared with 3 other buildings") })
     assert_in_delta(-29, xy(result).map(&:first).min, 0.5)
+    assert_includes result.flags, :shared_lot
+    refute result.confidence_factors.find { |f| f[:name] == :own_lot }[:met]
   end
 
   # Buildings across an aisle (10 m off the lot) don't share it: the lot
@@ -175,6 +177,44 @@ class GeneratorTest < Minitest::Test
     refute(result.explanation.any? { |n| n.include?("is shared with") })
     assert_in_delta(-45, xy(result).map(&:first).min, 0.5)
     assert(wide.explanation.any? { |n| n.include?("is shared with 3 other buildings") })
+  end
+
+  # neighbour_cut: :notch cuts round a neighbour beside the lot instead of
+  # across it, so the lot running past the neighbour stays in.
+  def test_notch_keeps_the_lot_beyond_a_neighbour
+    raw = [polygon("building", 1, -10, -7.5, 10, 7.5), polygon("parking", 3, -45, -50, 10, -9),
+           polygon("building", 2, -45, -20, -25, -10), road(4, "secondary", [[-200, -60], [200, -60]])]
+    line = Curtilage.generate(PIN, raw, method: :grow_trim)
+    notch = Curtilage.generate(PIN, raw, method: :grow_trim, neighbour_cut: :notch)
+    lot_corner = [-40, -45]
+
+    refute Curtilage::Geometry.contains?(xy(line), lot_corner), "a line cut drops the lot beyond the neighbour"
+    assert Curtilage::Geometry.contains?(xy(notch), lot_corner)
+    refute Curtilage::Geometry.contains?(xy(notch), [-35, -15]), "the neighbour stays out"
+    assert notch.ok?
+  end
+
+  # Another business's lot across an aisle (mapped parking 25 m south, not
+  # the site's): the premises stop at its edge instead of growing into it.
+  def test_premises_stop_at_another_business_lot
+    raw = [polygon("building", 1, -10, -7.5, 10, 7.5), polygon("parking", 3, -40, -60, 40, -32.5),
+           polygon("building", 2, -10, -100, 10, -80)]
+    result = Curtilage.generate(PIN, raw, method: :grow_trim)
+
+    assert_in_delta(-32.5, xy(result).map(&:last).min, 0.5)
+    assert(result.explanation.any? { |n| n.include?("stopped at parking 3, another business's lot") })
+  end
+
+  # A lot shared by three other buildings, 15 m from the site: the site
+  # doesn't front it, so it isn't the site's to share.
+  def test_a_shared_lot_the_site_does_not_front_is_left_to_the_others
+    raw = [polygon("building", 1, -10, -7.5, 10, 7.5), polygon("parking", 3, -60, -60, 60, -22.5),
+           polygon("building", 11, -60, -70, -40, -62), polygon("building", 12, -10, -70, 10, -62),
+           polygon("building", 13, 40, -70, 60, -62)]
+    result = Curtilage.generate(PIN, raw, method: :grow_trim)
+
+    refute(result.explanation.any? { |n| n.include?("is shared with") })
+    assert_operator xy(result).map(&:last).min, :>=, -23
   end
 
   # A pin on a fuel canopy (building=roof) means the shop beside it: that is
@@ -224,6 +264,7 @@ class GeneratorTest < Minitest::Test
     result = Curtilage.generate(PIN, centre, preset: :centre)
 
     assert_includes result.flags, :shopping_centre
+    refute_includes result.flags, :shared_lot, "the whole centre is taken: nothing was split"
     xs = xy(result).map(&:first)
     assert_in_delta(-58, xs.min, 0.5)
     refute_includes Curtilage.generate(PIN, scene, preset: :centre).flags, :shopping_centre

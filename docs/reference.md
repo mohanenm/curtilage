@@ -158,7 +158,8 @@ All distances in metres, areas in square metres. These are `Curtilage::Generator
 | `house_street_m` | `25` | ... when two more small buildings are this close. |
 | `parking_reach_m` | `20` | Mapped parking this close to the building is its lot. |
 | `aisle_m` | `9` | Treat this much either side of each service road near the building (within `parking_reach_m` plus this) as parking, for lots OpenStreetMap maps only as aisles and driveways. The strips are claimed, shared, trimmed and fenced like mapped parking. 9 m is half an aisle plus a stall. `nil` turns it off. |
-| `lot_share_reach_m` | `5` | Another building this close to the site's lot (across a walkway) shares it: with `shared_lot_buildings` or more such buildings the lot is split between them. Buildings farther off, across an aisle or behind, don't count. |
+| `neighbour_cut` | `:line` | How the premises keep off neighbouring buildings after the lot is taken in: `:line` cuts straight across, square to the building; `:notch` (experimental) cuts round each neighbour 1 m clear, so a lot running past a neighbour keeps the part beyond it. Neighbours the premises surround still get a line cut. |
+| `lot_share_reach_m` | `5` | Another building this close to the site's lot (across a walkway) shares it: with `shared_lot_buildings` or more such buildings the lot is split between them. Buildings farther off, across an aisle or behind, don't count. The site itself takes a share of such a shared lot only when it's this close too; a shared lot across an aisle or planting strip belongs to the others. |
 | `parking_max_extent_m` | `60` | Parking is claimed at most this far from the building. |
 | `shared_lot_buildings` | `3` | A lot touching this many other buildings is a shopping-centre lot. |
 | `building_max_distance_m` | `30` | When the pin isn't on a building, use the nearest one only this close. |
@@ -252,6 +253,7 @@ In GeoJSON they're extra features with `properties.role` `approach`, `pickup` an
 | `share_lot` | A claimed lot also touches other buildings. | |
 | `split_neighbour` | Cut short of, or halfway to, a neighbouring building. | `neighbour_gap_m` or `halfway` |
 | `keep_neighbour` | A neighbour touching the building couldn't be split off. | |
+| `keep_off_lot` | Stopped at the edge of mapped parking that isn't the site's (another business's lot). | |
 | `take_driveway` | A driveway to the street was taken in. | `ENTRANCE_REACH_M` |
 | `add_lot` | The claimed lot was added to the premises. | `parking_max_extent_m` |
 | `keep_off_neighbour` | Kept 1 m off a neighbour the lot reached. | |
@@ -286,6 +288,7 @@ New step names may be added in minor versions; treat an unknown one as a plain n
 | `osm_building` | 0.10 | The building is from OpenStreetMap (no `ml_footprint`). |
 | `single_building_store` | 0.10 | The building is small enough to be one store (no `large_building` or `store_may_be_unit`). |
 | `no_homes_next_door` | 0.10 | No home borders the lot (no `near_houses`). |
+| `own_lot` | 0.10 | The lot isn't split with other buildings (no `shared_lot`). |
 | `no_warnings` | 0.05 | Validation raised no warnings. |
 
 The weights are judgement for now, to be calibrated on the public benchmark once its reference polygons are drawn; treat the score as an order, not a probability. Data age isn't a factor, so the same inputs always score the same.
@@ -303,6 +306,7 @@ The same list is `Curtilage::FLAGS` (flag => what it asks a person to check).
 | `pin_moved` | The pin wasn't on a building and was moved onto the nearest one (`snap_m:`): check it's the right one. |
 | `store_may_be_unit` | The store zone is a building over 1,500 m2: the store may be one unit of it. |
 | `shopping_centre` | `scope: :centre` mapped the whole centre. |
+| `shared_lot` | The lot is shared with other buildings and was split by nearest building: where it really divides isn't in the map, so check the line. |
 | `fallback` | The main method failed validation; the building rectangle was used. |
 | `ml_footprint` | Built on a machine-learned footprint, not an OSM building. |
 | `unit_estimated` | The store zone is an estimated unit of a large building (`unit_m:`): check it. |

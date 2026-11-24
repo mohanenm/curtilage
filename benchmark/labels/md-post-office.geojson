@@ -501,7 +501,7 @@
     "type": "Point",
     "coordinates": [
      -76.9487572,
-     38.5843083
+     38.584308299999996
     ]
    }
   },
@@ -704,7 +704,7 @@
   {
    "type": "Feature",
    "properties": {
-    "kind": "neighbour_lot",
+    "kind": "shared_parking_near",
     "source": "hand"
    },
    "geometry": {
@@ -718,7 +718,7 @@
   {
    "type": "Feature",
    "properties": {
-    "kind": "neighbour_lot",
+    "kind": "shared_parking_near",
     "source": "hand"
    },
    "geometry": {
@@ -732,7 +732,7 @@
   {
    "type": "Feature",
    "properties": {
-    "kind": "neighbour_lot",
+    "kind": "shared_parking_near",
     "source": "hand"
    },
    "geometry": {
@@ -746,7 +746,7 @@
   {
    "type": "Feature",
    "properties": {
-    "kind": "neighbour_lot",
+    "kind": "shared_parking_near",
     "source": "hand"
    },
    "geometry": {
