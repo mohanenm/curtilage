@@ -16,6 +16,7 @@ bundle exec rake benchmark:label_page                       # write the labellin
 bundle exec rake benchmark:gallery                          # write the gallery (docs/gallery/index.html), over USGS snapshots
 CURTILAGE_BENCHMARK_HOLDOUT=1 CURTILAGE_RELEASE_CHECK=1 bundle exec rake benchmark   # held-out totals (release check only)
 bundle exec rake benchmark:seal                             # seal newly labelled held-out sites
+bundle exec rake "benchmark:review_sample[ID]"              # the four-outcome review sample for one site
 bundle exec rake benchmark:parcels                          # fetch each site's tax parcel (data/benchmark/parcels)
 ```
 
@@ -47,6 +48,17 @@ The held-out rules:
 1. **Labelled before anyone sees results**, on the labelling page, which never shows curtilage's output. Labels are frozen once committed: `rake benchmark:seal` records each file's SHA256 in `holdout_labels.sha256`, and a test fails if a held-out label file differs from its seal or is labelled but unsealed.
 2. **Never used for tuning.** `rake benchmark` leaves held-out sites out. Scoring them needs both `CURTILAGE_BENCHMARK_HOLDOUT=1` and `CURTILAGE_RELEASE_CHECK=1`, and even then prints and saves totals only: nothing per site, per point or per category. The gallery, review pages and parcel tooling skip them.
 3. **Replaced only for data problems visible without running the gem**, decided from the site data alone (the Overture place and the map data around it), such as no matching business at the Overture point or a pin far from any building. Every replacement is logged in `holdout_replacements.md` with its reason.
+
+## Correcting a label
+
+Labels change only to record what's physically there more accurately, never to improve a score. Corrections made while looking at results drift toward them: the corrections log's backfill (127 changes since the 30-site expansion) found that, under the core view, 108 raised the score and 10 lowered it.
+
+So every correction to a tuning or validation site:
+
+1. starts with the site's review sample (`rake "benchmark:review_sample[ID]"`): up to five points of each outcome (in caught, in missed, out taken in, out left out) on aerial imagery, so what the rules get right is looked at as closely as what they get wrong;
+2. goes into `corrections.csv`: site, point, old and new kind, the reason, what was checked, that the sample was reviewed, and whether it raised or lowered the score under the default and core views. A test fails if a correction logged after the backfill doesn't record the sample as reviewed.
+
+Held-out labels are never corrected (see above).
 
 ## Files
 

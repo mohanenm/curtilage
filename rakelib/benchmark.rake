@@ -91,3 +91,19 @@ namespace :benchmark do
     puts sealed.empty? ? "nothing new to seal" : "sealed #{sealed.join(", ")}"
   end
 end
+
+namespace :benchmark do
+  desc "Write the review sample for one site (all four outcomes on imagery): rake \"benchmark:review_sample[ID,view]\""
+  task :review_sample, %i[id view] do |_, args|
+    site = benchmark.sites.find { |s| s["id"] == args[:id] } or abort "no site #{args[:id].inspect}"
+    view = args[:view] || "default"
+    data = benchmark.features([site], benchmark.config.fetch("overture_release"))
+    options = benchmark.symbolised(benchmark.config["options"])
+    ring = Curtilage.generate(site["pin"], data.fetch(site["id"]), **options).ring
+    labels = benchmark.labels(site["id"], benchmark.paths[:labels]) or abort "#{site["id"]} has no labels"
+    sample = benchmark.review_sample(site, ring, labels, benchmark.views(*benchmark.paths[:views]).fetch(view))
+    out = File.join(File.dirname(benchmark.paths[:runs]), "review-#{site["id"]}.html")
+    File.write(out, benchmark.review_page(site, ring, sample, view))
+    puts "wrote #{out}: #{sample.map { |o, l| "#{o} #{l.size}" }.join(", ")}"
+  end
+end
