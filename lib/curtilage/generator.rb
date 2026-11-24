@@ -117,6 +117,7 @@ module Curtilage
       unit_m: nil,                   # store zone of a large building: this much frontage round the pin (nil: all)
       entrances: :near,              # :near, or :all (follow driveways to every entrance; premises not convex)
       lot_split: :square,            # shared lots: :square (cut square to the building) or :voronoi (nearest building)
+      neighbour_cut: :line,          # after taking the lot: :line (cut across) or :notch (cut round the neighbour)
     }.freeze
 
     BUILDING_SOURCES = %i[osm osm_or_ml osm_filled ml].freeze
@@ -206,7 +207,8 @@ module Curtilage
 
     # The options that take one of a few names, and the names.
     def choices
-      { scope: SCOPES, buildings: BUILDING_SOURCES, entrances: ENTRANCES, lot_split: LOT_SPLITS }
+      { scope: SCOPES, buildings: BUILDING_SOURCES, entrances: ENTRANCES, lot_split: LOT_SPLITS,
+        neighbour_cut: NEIGHBOUR_CUTS }
     end
 
     def check_range(key, value, min, max, whole)
@@ -304,11 +306,6 @@ module Curtilage
       log.note("kept the convex outline: the detailed one couldn't be simplified to #{budget} corners",
                step: "simplify", rule: "max_vertices")
       premises_xy(Geometry.convex_hull(xy), target, opts, log)
-    end
-
-    def outline_budget(opts, log)
-      extra = log.steps.to_a.any? { |s| s[:step] == "take_entrance" } ? 4 * (log.access || []).size : 0
-      [opts[:max_vertices] + extra, Validation::DEFAULTS[:max_vertices]].min
     end
 
     def inside?(xy, point)

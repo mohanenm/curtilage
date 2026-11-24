@@ -179,6 +179,21 @@ class GeneratorTest < Minitest::Test
     assert(wide.explanation.any? { |n| n.include?("is shared with 3 other buildings") })
   end
 
+  # neighbour_cut: :notch cuts round a neighbour beside the lot instead of
+  # across it, so the lot running past the neighbour stays in.
+  def test_notch_keeps_the_lot_beyond_a_neighbour
+    raw = [polygon("building", 1, -10, -7.5, 10, 7.5), polygon("parking", 3, -45, -50, 10, -9),
+           polygon("building", 2, -45, -20, -25, -10), road(4, "secondary", [[-200, -60], [200, -60]])]
+    line = Curtilage.generate(PIN, raw, method: :grow_trim)
+    notch = Curtilage.generate(PIN, raw, method: :grow_trim, neighbour_cut: :notch)
+    lot_corner = [-40, -45]
+
+    refute Curtilage::Geometry.contains?(xy(line), lot_corner), "a line cut drops the lot beyond the neighbour"
+    assert Curtilage::Geometry.contains?(xy(notch), lot_corner)
+    refute Curtilage::Geometry.contains?(xy(notch), [-35, -15]), "the neighbour stays out"
+    assert notch.ok?
+  end
+
   # Another business's lot across an aisle (mapped parking 25 m south, not
   # the site's): the premises stop at its edge instead of growing into it.
   def test_premises_stop_at_another_business_lot
