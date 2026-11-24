@@ -4,20 +4,6 @@
   {
    "type": "Feature",
    "properties": {
-    "kind": "building",
-    "source": "hand"
-   },
-   "geometry": {
-    "type": "Point",
-    "coordinates": [
-     -111.9398797,
-     40.7869713
-    ]
-   }
-  },
-  {
-   "type": "Feature",
-   "properties": {
     "kind": "own_parking",
     "source": "hand"
    },

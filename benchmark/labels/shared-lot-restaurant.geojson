@@ -242,20 +242,6 @@
   {
    "type": "Feature",
    "properties": {
-    "kind": "drive_through",
-    "source": "hand"
-   },
-   "geometry": {
-    "type": "Point",
-    "coordinates": [
-     -75.4648921,
-     39.0093949
-    ]
-   }
-  },
-  {
-   "type": "Feature",
-   "properties": {
     "kind": "entrance",
     "source": "hand"
    },

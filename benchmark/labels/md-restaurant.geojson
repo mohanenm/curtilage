@@ -1494,34 +1494,6 @@
    "geometry": {
     "type": "Point",
     "coordinates": [
-     -76.7653263,
-     39.2875373
-    ]
-   }
-  },
-  {
-   "type": "Feature",
-   "properties": {
-    "kind": "drive_through",
-    "source": "hand"
-   },
-   "geometry": {
-    "type": "Point",
-    "coordinates": [
-     -76.7652833,
-     39.2876369
-    ]
-   }
-  },
-  {
-   "type": "Feature",
-   "properties": {
-    "kind": "drive_through",
-    "source": "hand"
-   },
-   "geometry": {
-    "type": "Point",
-    "coordinates": [
      -76.7640656,
      39.2885296
     ]
@@ -1754,63 +1726,7 @@
   {
    "type": "Feature",
    "properties": {
-    "kind": "sidewalk",
-    "source": "hand"
-   },
-   "geometry": {
-    "type": "Point",
-    "coordinates": [
-     -76.7648005,
-     39.286682
-    ]
-   }
-  },
-  {
-   "type": "Feature",
-   "properties": {
-    "kind": "sidewalk",
-    "source": "hand"
-   },
-   "geometry": {
-    "type": "Point",
-    "coordinates": [
-     -76.7646289,
-     39.2866114
-    ]
-   }
-  },
-  {
-   "type": "Feature",
-   "properties": {
-    "kind": "sidewalk",
-    "source": "hand"
-   },
-   "geometry": {
-    "type": "Point",
-    "coordinates": [
-     -76.7644304,
-     39.2865616
-    ]
-   }
-  },
-  {
-   "type": "Feature",
-   "properties": {
-    "kind": "sidewalk",
-    "source": "hand"
-   },
-   "geometry": {
-    "type": "Point",
-    "coordinates": [
-     -76.7642748,
-     39.2865034
-    ]
-   }
-  },
-  {
-   "type": "Feature",
-   "properties": {
-    "kind": "sidewalk",
+    "kind": "public_road",
     "source": "hand"
    },
    "geometry": {
@@ -1824,35 +1740,7 @@
   {
    "type": "Feature",
    "properties": {
-    "kind": "sidewalk",
-    "source": "hand"
-   },
-   "geometry": {
-    "type": "Point",
-    "coordinates": [
-     -76.7651278,
-     39.2868273
-    ]
-   }
-  },
-  {
-   "type": "Feature",
-   "properties": {
-    "kind": "sidewalk",
-    "source": "hand"
-   },
-   "geometry": {
-    "type": "Point",
-    "coordinates": [
-     -76.7652673,
-     39.2868688
-    ]
-   }
-  },
-  {
-   "type": "Feature",
-   "properties": {
-    "kind": "sidewalk",
+    "kind": "public_road",
     "source": "hand"
    },
    "geometry": {
@@ -1866,7 +1754,7 @@
   {
    "type": "Feature",
    "properties": {
-    "kind": "sidewalk",
+    "kind": "public_road",
     "source": "hand"
    },
    "geometry": {

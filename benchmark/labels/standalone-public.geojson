@@ -4,20 +4,6 @@
   {
    "type": "Feature",
    "properties": {
-    "kind": "shared_parking_far",
-    "source": "hand"
-   },
-   "geometry": {
-    "type": "Point",
-    "coordinates": [
-     -75.1649809,
-     38.4911227
-    ]
-   }
-  },
-  {
-   "type": "Feature",
-   "properties": {
     "kind": "building",
     "source": "hand"
    },

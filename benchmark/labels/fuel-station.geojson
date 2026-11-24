@@ -340,48 +340,6 @@
   {
    "type": "Feature",
    "properties": {
-    "kind": "forecourt",
-    "source": "hand"
-   },
-   "geometry": {
-    "type": "Point",
-    "coordinates": [
-     -75.5558431,
-     39.6911743
-    ]
-   }
-  },
-  {
-   "type": "Feature",
-   "properties": {
-    "kind": "forecourt",
-    "source": "hand"
-   },
-   "geometry": {
-    "type": "Point",
-    "coordinates": [
-     -75.5558646,
-     39.6911082
-    ]
-   }
-  },
-  {
-   "type": "Feature",
-   "properties": {
-    "kind": "forecourt",
-    "source": "hand"
-   },
-   "geometry": {
-    "type": "Point",
-    "coordinates": [
-     -75.5558646,
-     39.6910628
-    ]
-   }
-  },
-  {
-   "type": "Feature",
-   "properties": {
     "kind": "entrance",
     "source": "hand"
    },
