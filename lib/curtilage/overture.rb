@@ -37,9 +37,7 @@ module Curtilage
       radius = Float(options.fetch(:radius_deg, Lookup::DEFAULT_RADIUS_DEG))
       boxes = pins.map { |pin| box(pin, radius) }
       Dir.mktmpdir("curtilage-overture") do |dir|
-        index = File.join(dir, "index.parquet")
-        File.binwrite(index, Download.read(STAC_HOST, "/#{release(options)}/collections.parquet",
-                                           max_bytes: MAX_INDEX_BYTES))
+        index = file_index(dir, options)
         boxes.each_slice(Lookup::PINS_PER_CALL).flat_map do |batch|
           rows = run(data_sql(batch, files_for(index, batch, options), options), options)
           Lookup.group_rows(rows, batch.size)
@@ -69,15 +67,24 @@ module Curtilage
         where += " AND confidence >= #{min_confidence.to_f}"
       end
       Dir.mktmpdir("curtilage-places") do |dir|
-        index = File.join(dir, "index.parquet")
-        File.binwrite(index, Download.read(STAC_HOST, "/#{release(options)}/collections.parquet",
-                                           max_bytes: MAX_INDEX_BYTES))
+        index = file_index(dir, options)
         files = place_files(index, bbox, options)
         rows = files.empty? ? [] : run(places_sql(files, bbox, where, max, options), options)
         raise ArgumentError, "more than #{max} places match: narrow the box or the filter" if rows.size > max
 
         rows.map { |r| place(r) }
       end
+    end
+
+    # Overture's file index for the release, written into dir; one cut short
+    # in transit is fetched again (Download.parquet?).
+    def file_index(dir, options)
+      path = File.join(dir, "index.parquet")
+      body = Download.read(STAC_HOST, "/#{release(options)}/collections.parquet", max_bytes: MAX_INDEX_BYTES) do |b|
+        Download.parquet?(b)
+      end
+      File.binwrite(path, body)
+      path
     end
 
     PLACE_TEXT = /\A[^[:cntrl:]]{1,200}\z/
@@ -154,7 +161,8 @@ module Curtilage
         return options[:release].to_s
       end
 
-      latest = JSON.parse(Download.read(STAC_HOST, CATALOG, max_bytes: 1_000_000))["latest"].to_s
+      catalog = Download.read(STAC_HOST, CATALOG, max_bytes: 1_000_000) { |body| JSON.parse(body) }
+      latest = JSON.parse(catalog)["latest"].to_s
       raise Error, "no latest Overture release in the catalog" unless latest.match?(RELEASE)
 
       latest

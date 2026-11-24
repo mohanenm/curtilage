@@ -53,6 +53,38 @@ class DownloadTest < Minitest::Test
     assert_includes error.message, "over 5 bytes"
   end
 
+  # A body shorter than its declared length was cut off: retried, not used.
+  # Compressed bodies' lengths count compressed bytes, so they aren't checked.
+  def test_a_body_cut_short_is_a_transient_failure
+    res = Struct.new(:content_length, :headers) do
+      def [](key) = headers[key]
+      def read_body(&) = %w[abc def].each(&)
+    end
+    error = assert_raises(D::Transient) { D.stream(res.new(10, {}), String.new, 100) }
+
+    assert_includes error.message, "6 of 10 bytes"
+    assert_equal "abcdef", D.stream(res.new(6, {}), String.new, 100)
+    assert_equal "abcdef", D.stream(res.new(10, { "content-encoding" => "gzip" }), String.new, 100)
+  end
+
+  # read's completeness check: a body that doesn't parse is fetched again.
+  def test_an_incomplete_read_is_fetched_again
+    bodies = ['{"features": [1, 2', '{"features": [1, 2]}']
+    real_start = D.method(:start)
+    D.define_singleton_method(:start) { |_host, &_| bodies.shift }
+    D.define_singleton_method(:sleep) { |_| nil }
+
+    body = D.read("download.geofabrik.de", "/index-v1.json", max_bytes: 100) { |b| JSON.parse(b) }
+
+    assert_equal '{"features": [1, 2]}', body
+    assert_empty bodies
+    assert D.parquet?("PAR1....PAR1")
+    refute D.parquet?("PAR1....")
+  ensure
+    D.define_singleton_method(:start, real_start)
+    D.singleton_class.send(:remove_method, :sleep)
+  end
+
   def test_only_allowed_hosts_are_contacted
     error = assert_raises(D::Error) { D.start("example.com") { flunk "connected" } }
     assert_includes error.message, "example.com"

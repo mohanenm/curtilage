@@ -14,6 +14,7 @@
 
 ### Fixed
 
+- A download cut short in transit is retried instead of used: a body shorter than its declared length is a network hiccup, and the Geofabrik region index, Overture's catalogue and Overture's file index are checked whole (they must parse, or be complete Parquet) before they're trusted. A truncated region index used to fail the run with "unreadable Geofabrik region index".
 - `SECURITY.md` and `docs/security.md` name the HTTP API, the benchmark tooling's hosts and NDJSON input.
 
 ## [0.6.0] - 2026-11-24
