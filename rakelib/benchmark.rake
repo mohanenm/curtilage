@@ -79,7 +79,8 @@ namespace :benchmark do
     if benchmark.paths[:private]
       abort "benchmark:parcels is for the public benchmark only (CURTILAGE_BENCHMARK_DIR is set)"
     end
-    found = benchmark.fetch_parcels(benchmark.sites)
+    # Held-out sites are left out with the rest of the per-site tooling.
+    found = benchmark.fetch_parcels(benchmark.sites.reject { |s| benchmark.role(s) == "holdout" })
     found.each { |id, ring| puts "#{id}: #{ring ? "parcel" : "none"}" }
   end
 end
