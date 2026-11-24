@@ -129,6 +129,7 @@ module CurtilageBenchmark
         in places you wouldn't have thought to check, and are scored apart from the points you place.</p>
       <div><button id="prev">&larr; Previous site</button><button id="next">Next site &rarr;</button></div>
       <div id="where"></div>
+      <p id="about" class="muted"></p>
       <div><button id="undo">Undo</button><button id="random">Random points</button><button id="save">Save</button></div>
       <div id="status" class="muted"></div>
       <div id="note"></div>
@@ -219,6 +220,8 @@ module CurtilageBenchmark
         ? `Random point ${RANDOM - queue.length + 1} of ${RANDOM}: press the key for what's inside the yellow ring (p: unclear).`
         : `${s.id}: ${hand} placed, ${rand} of ${RANDOM} random points labelled.`;
       document.getElementById("where").textContent = `Site ${current + 1} of ${SITES.length}: ${s.id} (${s.category})`;
+      // Which business "this site" is: the pin can sit on the street, off its building.
+      document.getElementById("about").textContent = s.notes || "";
       const chosen = KINDS.find(x => x.kind === kind);
       document.getElementById("note").textContent = queue.length ? "" : `${chosen.kind}: ${chosen.note}`;
       renderKinds(); renderList();

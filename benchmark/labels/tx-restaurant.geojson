@@ -1,0 +1,187 @@
+{
+ "type": "FeatureCollection",
+ "features": [
+  {
+   "type": "Feature",
+   "properties": {
+    "kind": "own_parking",
+    "source": "random"
+   },
+   "geometry": {
+    "type": "Point",
+    "coordinates": [
+     -95.4623148,
+     29.7421096
+    ]
+   }
+  },
+  {
+   "type": "Feature",
+   "properties": {
+    "kind": "centre_building",
+    "source": "random"
+   },
+   "geometry": {
+    "type": "Point",
+    "coordinates": [
+     -95.4624636,
+     29.7428534
+    ]
+   }
+  },
+  {
+   "type": "Feature",
+   "properties": {
+    "kind": "building",
+    "source": "random"
+   },
+   "geometry": {
+    "type": "Point",
+    "coordinates": [
+     -95.4630326,
+     29.7419305
+    ]
+   }
+  },
+  {
+   "type": "Feature",
+   "properties": {
+    "kind": "centre_building",
+    "source": "random"
+   },
+   "geometry": {
+    "type": "Point",
+    "coordinates": [
+     -95.4616273,
+     29.7419592
+    ]
+   }
+  },
+  {
+   "type": "Feature",
+   "properties": {
+    "kind": "centre_building",
+    "source": "random"
+   },
+   "geometry": {
+    "type": "Point",
+    "coordinates": [
+     -95.4633468,
+     29.742211
+    ]
+   }
+  },
+  {
+   "type": "Feature",
+   "properties": {
+    "kind": "centre_building",
+    "source": "random"
+   },
+   "geometry": {
+    "type": "Point",
+    "coordinates": [
+     -95.4632348,
+     29.7410831
+    ]
+   }
+  },
+  {
+   "type": "Feature",
+   "properties": {
+    "kind": "neighbour_building",
+    "source": "random"
+   },
+   "geometry": {
+    "type": "Point",
+    "coordinates": [
+     -95.4634474,
+     29.7427656
+    ]
+   }
+  },
+  {
+   "type": "Feature",
+   "properties": {
+    "kind": "own_parking",
+    "source": "random"
+   },
+   "geometry": {
+    "type": "Point",
+    "coordinates": [
+     -95.4622173,
+     29.7421538
+    ]
+   }
+  },
+  {
+   "type": "Feature",
+   "properties": {
+    "kind": "shared_parking_near",
+    "source": "random"
+   },
+   "geometry": {
+    "type": "Point",
+    "coordinates": [
+     -95.4621737,
+     29.7414457
+    ]
+   }
+  },
+  {
+   "type": "Feature",
+   "properties": {
+    "kind": "centre_building",
+    "source": "random"
+   },
+   "geometry": {
+    "type": "Point",
+    "coordinates": [
+     -95.4633419,
+     29.7422755
+    ]
+   }
+  },
+  {
+   "type": "Feature",
+   "properties": {
+    "kind": "shared_parking_near",
+    "source": "random"
+   },
+   "geometry": {
+    "type": "Point",
+    "coordinates": [
+     -95.4621814,
+     29.7416811
+    ]
+   }
+  },
+  {
+   "type": "Feature",
+   "properties": {
+    "kind": "centre_building",
+    "source": "random"
+   },
+   "geometry": {
+    "type": "Point",
+    "coordinates": [
+     -95.4630091,
+     29.7411828
+    ]
+   }
+  },
+  {
+   "type": "Feature",
+   "properties": {
+    "kind": "own_parking",
+    "source": "random"
+   },
+   "geometry": {
+    "type": "Point",
+    "coordinates": [
+     -95.4637696,
+     29.7424015
+    ]
+   }
+  }
+ ]
+}

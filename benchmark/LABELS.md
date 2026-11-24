@@ -4,7 +4,7 @@ Instead of one hand-drawn polygon per site, each site gets **labelled points**. 
 
 ## Kinds
 
-Pick the most specific kind that fits. "This site" means the business at the pin. A spot belongs to it when you can only reach it through this site's own entrances, or when kerbs, fences or planting enclose it with this site.
+Pick the most specific kind that fits. "This site" means the business the site's notes name, shown on the labelling page: usually the one at the pin, but a pin can fall on the street or a neighbour (as real inputs do), and it stays where it is. A spot belongs to it when you can only reach it through this site's own entrances, or when kerbs, fences or planting enclose it with this site.
 
 | kind | what it is |
 | --- | --- |
