@@ -59,9 +59,12 @@ namespace :benchmark do
     abort "benchmark:gallery is for the public benchmark only (CURTILAGE_BENCHMARK_DIR is set)" if paths[:private]
     config = benchmark.config
     sites = benchmark.scored_sites
-    html = benchmark.gallery(sites, benchmark.features(sites, config.fetch("overture_release")), paths[:labels],
-                             benchmark.views(*paths[:views]).fetch("default"), config.fetch("options", {}))
     out = File.expand_path("../docs/gallery/index.html", __dir__)
+    # Public-domain USGS snapshots, fetched once into docs/gallery/images.
+    backgrounds = benchmark.snapshots(sites, File.join(File.dirname(out), "images"))
+    html = benchmark.gallery(sites, benchmark.features(sites, config.fetch("overture_release")), paths[:labels],
+                             benchmark.views(*paths[:views]).fetch("default"), config.fetch("options", {}),
+                             backgrounds: backgrounds)
     FileUtils.mkdir_p(File.dirname(out))
     File.write(out, html)
     puts "wrote #{out}"

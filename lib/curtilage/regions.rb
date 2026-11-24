@@ -17,7 +17,7 @@ module Curtilage
     end
 
     def self.download
-      parse(Download.read(HOST, INDEX, max_bytes: MAX_INDEX_BYTES))
+      parse(Download.read(HOST, INDEX, max_bytes: MAX_INDEX_BYTES) { |body| JSON.parse(body) })
     end
 
     def self.parse(json)

@@ -56,18 +56,34 @@ module Curtilage
       FileUtils.rm_f(part) if part && File.exist?(part) # failed or interrupted: no half file left behind
     end
 
-    def read(host, path, max_bytes:)
+    # The whole body as a string. complete: a block that's given the body and
+    # returns true when it's whole (it parses, say): a body cut short without
+    # a declared length to catch it is then fetched again, not trusted.
+    def read(host, path, max_bytes:, &complete)
       with_retries("reading https://#{host}#{path}") do
-        start(host) do |http|
-          body = nil
+        body = start(host) do |http|
+          got = nil
           http.request_get(path) do |res|
             check(res, host, path)
-            body = stream(res, String.new, max_bytes)
+            got = stream(res, String.new, max_bytes)
           end
-          body
+          got
         end
+        raise Transient, "incomplete download: https://#{host}#{path}" if complete && !whole?(body, &complete)
+
+        body
       end
     end
+
+    def whole?(body)
+      yield(body)
+    rescue StandardError
+      false
+    end
+
+    # Overture's file index is Parquet: whole when it starts and ends with
+    # the format's marker.
+    def parquet?(body) = body.start_with?("PAR1") && body.end_with?("PAR1")
 
     # Yields the bytes first..last of https://host/path as they arrive. The
     # caller's block must cope with being restarted if a retry happens.
@@ -148,8 +164,10 @@ module Curtilage
     end
 
     # Appends the response body to out (a file or a binary string), stopping
-    # as soon as it passes max_bytes rather than after it has all arrived.
+    # as soon as it passes max_bytes rather than after it has all arrived. A
+    # body shorter than its declared length was cut off: worth another try.
     def stream(res, out, max_bytes)
+      expected = declared_length(res)
       bytes = 0
       res.read_body do |chunk|
         bytes += chunk.bytesize
@@ -157,7 +175,17 @@ module Curtilage
 
         out << chunk
       end
+      raise Transient, "download cut short: #{bytes} of #{expected} bytes" if expected && bytes < expected
+
       out
+    end
+
+    # The Content-Length, unless the body is compressed in transit (then it
+    # counts the compressed bytes, not the ones read).
+    def declared_length(res)
+      return nil unless res.respond_to?(:content_length) && res.respond_to?(:[])
+
+      res["content-encoding"] ? nil : res.content_length
     end
 
     def start(host, &)

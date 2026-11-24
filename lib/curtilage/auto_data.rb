@@ -151,7 +151,7 @@ module Curtilage
       cached = File.file?(file) && Time.now - File.mtime(file) < @opts[:max_age_days] * 86_400 && read_index(file)
       return cached if cached
 
-      json = Download.read(Regions::HOST, Regions::INDEX, max_bytes: Regions::MAX_INDEX_BYTES)
+      json = Download.read(Regions::HOST, Regions::INDEX, max_bytes: Regions::MAX_INDEX_BYTES) { |body| JSON.parse(body) }
       regions = Regions.parse(json)
       Curtilage.write_atomically(file, json)
       regions
