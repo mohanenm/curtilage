@@ -201,7 +201,7 @@ For examples, [docs/gallery/index.html](docs/gallery/index.html) is this page fo
 
 At the top, a count of sites that are ok, flagged or unusable, and controls to show only some (sites that need a look, invalid ones, or those with a given flag) and to sort them (input order, needs a look first, lowest confidence first, id, or premises size).
 
-![The preview page: two of six randomly chosen sites, each drawn with its premises, store zone, parking, roads and driveway entrances](https://raw.githubusercontent.com/mohanenm/curtilage/main/docs/preview.png)
+![The preview page: two of six public benchmark sites, each drawn with its premises, store zone, parking, roads and driveway entrances](https://raw.githubusercontent.com/mohanenm/curtilage/main/docs/preview.png)
 
 *Randomly chosen locations, not real sites. Map data © OpenStreetMap contributors.*
 
