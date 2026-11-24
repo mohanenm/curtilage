@@ -116,7 +116,7 @@
   {
    "type": "Feature",
    "properties": {
-    "kind": "entrance",
+    "kind": "public_road",
     "source": "hand"
    },
    "geometry": {
@@ -130,7 +130,7 @@
   {
    "type": "Feature",
    "properties": {
-    "kind": "entrance",
+    "kind": "public_road",
     "source": "hand"
    },
    "geometry": {
@@ -290,7 +290,7 @@
    "geometry": {
     "type": "Point",
     "coordinates": [
-     -75.5591583,
+     -75.55915830000001,
      39.7404749
     ]
    }
