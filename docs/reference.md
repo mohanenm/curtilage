@@ -158,7 +158,7 @@ All distances in metres, areas in square metres. These are `Curtilage::Generator
 | `house_street_m` | `25` | ... when two more small buildings are this close. |
 | `parking_reach_m` | `20` | Mapped parking this close to the building is its lot. |
 | `aisle_m` | `9` | Treat this much either side of each service road near the building (within `parking_reach_m` plus this) as parking, for lots OpenStreetMap maps only as aisles and driveways. The strips are claimed, shared, trimmed and fenced like mapped parking. 9 m is half an aisle plus a stall. `nil` turns it off. |
-| `lot_share_reach_m` | `5` | Another building this close to the site's lot (across a walkway) shares it: with `shared_lot_buildings` or more such buildings the lot is split between them. Buildings farther off, across an aisle or behind, don't count. |
+| `lot_share_reach_m` | `5` | Another building this close to the site's lot (across a walkway) shares it: with `shared_lot_buildings` or more such buildings the lot is split between them. Buildings farther off, across an aisle or behind, don't count. The site itself takes a share of such a shared lot only when it's this close too; a shared lot across an aisle or planting strip belongs to the others. |
 | `parking_max_extent_m` | `60` | Parking is claimed at most this far from the building. |
 | `shared_lot_buildings` | `3` | A lot touching this many other buildings is a shopping-centre lot. |
 | `building_max_distance_m` | `30` | When the pin isn't on a building, use the nearest one only this close. |
@@ -252,6 +252,7 @@ In GeoJSON they're extra features with `properties.role` `approach`, `pickup` an
 | `share_lot` | A claimed lot also touches other buildings. | |
 | `split_neighbour` | Cut short of, or halfway to, a neighbouring building. | `neighbour_gap_m` or `halfway` |
 | `keep_neighbour` | A neighbour touching the building couldn't be split off. | |
+| `keep_off_lot` | Stopped at the edge of mapped parking that isn't the site's (another business's lot). | |
 | `take_driveway` | A driveway to the street was taken in. | `ENTRANCE_REACH_M` |
 | `add_lot` | The claimed lot was added to the premises. | `parking_max_extent_m` |
 | `keep_off_neighbour` | Kept 1 m off a neighbour the lot reached. | |

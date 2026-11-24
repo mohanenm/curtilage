@@ -177,6 +177,29 @@ class GeneratorTest < Minitest::Test
     assert(wide.explanation.any? { |n| n.include?("is shared with 3 other buildings") })
   end
 
+  # Another business's lot across an aisle (mapped parking 25 m south, not
+  # the site's): the premises stop at its edge instead of growing into it.
+  def test_premises_stop_at_another_business_lot
+    raw = [polygon("building", 1, -10, -7.5, 10, 7.5), polygon("parking", 3, -40, -60, 40, -32.5),
+           polygon("building", 2, -10, -100, 10, -80)]
+    result = Curtilage.generate(PIN, raw, method: :grow_trim)
+
+    assert_in_delta(-32.5, xy(result).map(&:last).min, 0.5)
+    assert(result.explanation.any? { |n| n.include?("stopped at parking 3, another business's lot") })
+  end
+
+  # A lot shared by three other buildings, 15 m from the site: the site
+  # doesn't front it, so it isn't the site's to share.
+  def test_a_shared_lot_the_site_does_not_front_is_left_to_the_others
+    raw = [polygon("building", 1, -10, -7.5, 10, 7.5), polygon("parking", 3, -60, -60, 60, -22.5),
+           polygon("building", 11, -60, -70, -40, -62), polygon("building", 12, -10, -70, 10, -62),
+           polygon("building", 13, 40, -70, 60, -62)]
+    result = Curtilage.generate(PIN, raw, method: :grow_trim)
+
+    refute(result.explanation.any? { |n| n.include?("is shared with") })
+    assert_operator xy(result).map(&:last).min, :>=, -23
+  end
+
   # A pin on a fuel canopy (building=roof) means the shop beside it: that is
   # the store, and the canopy part of its lot, not a neighbour to stop short of.
   def test_a_pin_on_a_canopy_means_the_shop_beside_it

@@ -339,7 +339,8 @@ module Curtilage
       claimed = lots.select { |lot| lot.kind == "building" }
       features = features.with_buildings(features.buildings - claimed) unless claimed.empty?
       poly = trim_at_neighbours(poly, features, target, opts, log)
-      [take_lot(poly, lots, Site.new(features, target, opts, log, shared)), target]
+      poly = take_lot(poly, lots, Site.new(features, target, opts, log, shared))
+      [keep_off_other_lots(poly, features, target, lots, log), target]
     end
 
     def take_lot(poly, lots, site)

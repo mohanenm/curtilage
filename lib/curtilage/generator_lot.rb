@@ -22,14 +22,57 @@ module Curtilage
       end
       shared = []
       lots = (features.parking + structures + aisles(features, target, opts)).select do |lot|
-        next false unless Geometry.contains?(lot.xy, [0.0, 0.0]) || touches?(lot, target, opts)
+        at_pin = Geometry.contains?(lot.xy, [0.0, 0.0])
+        next false unless at_pin || touches?(lot, target, opts)
 
         others = sharers(lot, features, target, opts)
-        shared << lot if others >= opts[:shared_lot_buildings]
+        if others >= opts[:shared_lot_buildings]
+          # A store shares a lot the way its neighbours do: by fronting it.
+          # One across an aisle or a planting strip belongs to the others.
+          next false unless at_pin || touches?(lot, target, opts, opts[:lot_share_reach_m])
+
+          shared << lot
+        end
         note_lot(log, lot, others, opts)
         true
       end
       [lots, shared]
+    end
+
+    # Mapped parking that isn't the site's (not claimed, not at the pin) is
+    # another business's lot: the premises stop at its edge, as they stop
+    # short of a neighbour's building. Without this the first 30 m of growth
+    # runs into it whenever it lies across an aisle or a planting strip.
+    def keep_off_other_lots(poly, features, target, lots, log)
+      return poly unless poly
+
+      features.parking.each do |lot|
+        next if lots.include?(lot) || Geometry.contains?(lot.xy, [0.0, 0.0]) || !Geometry.overlap?(lot.hull, poly)
+        next if Geometry.overlap?(lot.hull, target.hull)
+
+        cut = split_from_neighbour(poly, target.hull, lot.hull, target.rectangle[:angle], stop: ->(_near, far) { far })
+        next if cut.size < 3 || takes_own_lot?(poly, cut, lots, lot.hull)
+
+        log.note("stopped at parking #{lot.id}, another business's lot",
+                 step: "keep_off_lot", features: [lot.id], area_before_m2: m2(poly), area_after_m2: m2(cut))
+        poly = cut
+      end
+      poly
+    end
+
+    # A cut at another business's lot may drop the site's claimed lots
+    # (parking, aisle strips) only where they run into that lot: never the
+    # site's own lot or drive-through elsewhere.
+    def takes_own_lot?(poly, cut, lots, other)
+      rings = lots.map(&:xy)
+      inside = rings.map { |r| Geometry.clip_convex(r, other) }.select { |r| r.size >= 3 }
+      lost = held_area(poly, rings) - held_area(cut, rings)
+      lost > held_area(poly, inside) + (0.02 * held_area(poly, rings)) + 1
+    end
+
+    def held_area(poly, rings)
+      xy = Geometry.counter_clockwise(poly)
+      rings.sum { |r| Geometry.overlap_area(xy, Geometry.counter_clockwise(r)) }
     end
 
     # aisle_m: OSM often maps a lot's aisles and driveways as service roads
