@@ -46,15 +46,16 @@ module Curtilage
     # Other buildings (not garages or canopies) the lot also touches.
     def sharers(lot, features, target, opts)
       neighbours(features, target, opts).count do |other|
-        !LOT_TYPES.include?(other.category) && touches?(lot, other, opts)
+        !LOT_TYPES.include?(other.category) && touches?(lot, other, opts, opts[:lot_share_reach_m])
       end
     end
 
-    def touches?(lot, building, opts)
-      return false unless lot.near?(building, opts[:parking_reach_m])
+    # reach: parking_reach_m decides whether a lot is the site's;
+    # lot_share_reach_m whether another building shares it.
+    def touches?(lot, building, opts, reach = opts[:parking_reach_m])
+      return false unless lot.near?(building, reach)
 
-      Geometry.overlap?(lot.xy, building.xy) ||
-        Geometry.closest_points(lot.xy, building.xy).first <= opts[:parking_reach_m]
+      Geometry.overlap?(lot.xy, building.xy) || Geometry.closest_points(lot.xy, building.xy).first <= reach
     end
 
     # Claims the site's parking up to the kerb (at most parking_max_extent_m
@@ -191,7 +192,7 @@ module Curtilage
     # nearest first.
     def lot_neighbours(lot, features, target, opts)
       touching = neighbours(features, target, opts).select do |other|
-        touches?(lot, other, opts) && !Geometry.overlap?(other.hull, target.hull)
+        touches?(lot, other, opts, opts[:lot_share_reach_m]) && !Geometry.overlap?(other.hull, target.hull)
       end
       nearest_first(touching, target)
     end

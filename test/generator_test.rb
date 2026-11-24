@@ -143,8 +143,9 @@ class GeneratorTest < Minitest::Test
   end
 
   # A lot touching one other building is still the site's: claimed whole.
+  # (Touching: within lot_share_reach_m, here across a 3 m walkway.)
   def test_lot_touching_one_neighbour_is_claimed_whole
-    shared = scene + [polygon("building", 6, -70, -10, -50, 10)]
+    shared = scene + [polygon("building", 6, -68, -10, -48, 10)]
     result = Curtilage.generate(PIN, shared, method: :grow_trim, grow_m: 10)
 
     assert_in_delta(-45, xy(result).map(&:first).min, 0.5)
@@ -153,21 +154,34 @@ class GeneratorTest < Minitest::Test
 
   # A lot touching three other buildings is a shopping-centre lot: the site
   # gets the part nearer to it than to the others (halfway to the building
-  # at x -60..-50 is x = -30).
+  # at x -58..-48 is x = -29).
   def test_shared_lot_is_split_by_nearest_building
     centre = scene + [polygon("building", 11, -40, 22, -30, 32), polygon("building", 12, -40, -32, -30, -22),
-                      polygon("building", 13, -60, -5, -50, 5)]
+                      polygon("building", 13, -58, -5, -48, 5)]
     result = Curtilage.generate(PIN, centre, method: :grow_trim, grow_m: 10)
 
     assert(result.explanation.any? { |n| n.include?("is shared with 3 other buildings") })
-    assert_in_delta(-30, xy(result).map(&:first).min, 0.5)
+    assert_in_delta(-29, xy(result).map(&:first).min, 0.5)
+  end
+
+  # Buildings across an aisle (10 m off the lot) don't share it: the lot
+  # stays the site's, claimed whole, unless lot_share_reach_m reaches them.
+  def test_buildings_beyond_lot_share_reach_dont_share_the_lot
+    across = scene + [polygon("building", 11, -40, 30, -30, 40), polygon("building", 12, -40, -40, -30, -30),
+                      polygon("building", 13, -65, -5, -55, 5)]
+    result = Curtilage.generate(PIN, across, method: :grow_trim, grow_m: 10)
+    wide = Curtilage.generate(PIN, across, method: :grow_trim, grow_m: 10, lot_share_reach_m: 20)
+
+    refute(result.explanation.any? { |n| n.include?("is shared with") })
+    assert_in_delta(-45, xy(result).map(&:first).min, 0.5)
+    assert(wide.explanation.any? { |n| n.include?("is shared with 3 other buildings") })
   end
 
   # Reusing one Features with other options gives the same result as a
   # fresh one: nothing about an earlier run is left on the features.
   def test_features_can_be_reused_with_other_options
     centre = scene + [polygon("building", 11, -40, 22, -30, 32), polygon("building", 12, -40, -32, -30, -22),
-                      polygon("building", 13, -60, -5, -50, 5)]
+                      polygon("building", 13, -58, -5, -48, 5)]
     features = Curtilage::Features.new(PIN, centre)
     Curtilage.generate(PIN, features, method: :grow_trim, grow_m: 10)
     reused = Curtilage.generate(PIN, features, method: :grow_trim, grow_m: 10, shared_lot_buildings: 10)
@@ -178,12 +192,12 @@ class GeneratorTest < Minitest::Test
 
   def test_centre_scope_maps_the_whole_shopping_centre
     centre = scene + [polygon("building", 11, -40, 22, -30, 32), polygon("building", 12, -40, -32, -30, -22),
-                      polygon("building", 13, -60, -5, -50, 5)]
+                      polygon("building", 13, -58, -5, -48, 5)]
     result = Curtilage.generate(PIN, centre, preset: :centre)
 
     assert_includes result.flags, :shopping_centre
     xs = xy(result).map(&:first)
-    assert_in_delta(-60, xs.min, 0.5)
+    assert_in_delta(-58, xs.min, 0.5)
     refute_includes Curtilage.generate(PIN, scene, preset: :centre).flags, :shopping_centre
   end
 

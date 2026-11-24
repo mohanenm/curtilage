@@ -157,6 +157,7 @@ All distances in metres, areas in square metres. These are `Curtilage::Generator
 | `house_max_m2` | `250` | An untyped building smaller than this, among other small ones, counts as a home. |
 | `house_street_m` | `25` | ... when two more small buildings are this close. |
 | `parking_reach_m` | `20` | Mapped parking this close to the building is its lot. |
+| `lot_share_reach_m` | `5` | Another building this close to the site's lot (across a walkway) shares it: with `shared_lot_buildings` or more such buildings the lot is split between them. Buildings farther off, across an aisle or behind, don't count. |
 | `parking_max_extent_m` | `60` | Parking is claimed at most this far from the building. |
 | `shared_lot_buildings` | `3` | A lot touching this many other buildings is a shopping-centre lot. |
 | `building_max_distance_m` | `30` | When the pin isn't on a building, use the nearest one only this close. |

@@ -12,8 +12,8 @@ class CandidatesTest < Minitest::Test
   # The parking lot west of the building also touches three more buildings:
   # a shopping-centre lot.
   def shared_lot
-    scene + [polygon("building", 21, -60, -20, -50, -12), polygon("building", 22, -60, -8, -50, 0),
-             polygon("building", 23, -60, 4, -50, 12)]
+    scene + [polygon("building", 21, -58, -20, -48, -12), polygon("building", 22, -58, -8, -48, 0),
+             polygon("building", 23, -58, 4, -48, 12)]
   end
 
   def test_none_unless_asked

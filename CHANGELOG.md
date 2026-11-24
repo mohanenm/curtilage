@@ -2,6 +2,10 @@
 
 ## [Unreleased]
 
+### Changed
+
+- A lot counts as shared only with buildings within 5 m of it (`lot_share_reach_m`, new), not every building within 20 m (`parking_reach_m`, which still decides whether a lot is the site's). Buildings across an aisle or behind the lot no longer split it, so more of a site's own parking is taken in. On the public benchmark's labels: own-parking points caught 306 to 316 of 413, with no more far shared parking taken in. `lot_share_reach_m: 20` restores the old behaviour.
+
 ## [0.5.0] - 2026-11-23
 
 ### Added
