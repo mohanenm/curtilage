@@ -438,7 +438,7 @@
   {
    "type": "Feature",
    "properties": {
-    "kind": "entrance",
+    "kind": "centre_entrance",
     "source": "hand"
    },
    "geometry": {
@@ -452,7 +452,7 @@
   {
    "type": "Feature",
    "properties": {
-    "kind": "entrance",
+    "kind": "centre_entrance",
     "source": "hand"
    },
    "geometry": {
@@ -466,7 +466,7 @@
   {
    "type": "Feature",
    "properties": {
-    "kind": "entrance",
+    "kind": "centre_entrance",
     "source": "hand"
    },
    "geometry": {
