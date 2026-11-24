@@ -9,7 +9,7 @@ require "json"
 # imagery tiles from USGS for each site's area.
 module CurtilageBenchmark
   # Shortcut keys, in the order of the kinds table.
-  KEYS = "1234567890qwertyuiop"
+  KEYS = "1234567890qwertyuiopa"
   # One line per kind, shown on the page (the full table is in LABELS.md).
   KIND_NOTES = {
     "building" => "Inside this site's building.",
@@ -33,6 +33,8 @@ module CurtilageBenchmark
     "open_land" => "Field, woods or vacant land that isn't part of any lot.",
     "construction" => "Land being cleared or built on next to the site.",
     "unclear" => "You can't tell. Use it rather than guessing.",
+    "centre_building" => "Inside another business's separate building on the same shared lot or in the same centre " \
+                         "(a pad, another strip). Units in this site's own building are building.",
   }.freeze
   RANDOM_POINTS = 15
   RANDOM_RADIUS_M = 120
@@ -52,7 +54,7 @@ module CurtilageBenchmark
   # Colours group kinds by what they are, not by any view's in or out.
   def kind_group(kind)
     case kind
-    when "shared_parking_near", "shared_parking_far", "centre_road" then "shared"
+    when "shared_parking_near", "shared_parking_far", "centre_road", "centre_building" then "shared"
     when "sidewalk", "public_road", "neighbour_lot", "neighbour_building", "residential", "railway", "open_land"
       "outside"
     when "construction", "unclear" then "other"

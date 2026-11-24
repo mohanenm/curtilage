@@ -22,7 +22,8 @@ Pick the most specific kind that fits. "This site" means the business at the pin
 | `sidewalk` | The public pavement between the kerb and the site. |
 | `public_road` | The carriageway of a public road, past the kerb. |
 | `neighbour_lot` | Parking, yard or forecourt of another business with its own access. |
-| `neighbour_building` | Inside another business's building. |
+| `neighbour_building` | Inside another business's building, outside this site's lot or centre. |
+| `centre_building` | Inside another business's separate building on the same shared lot or in the same centre (a pad, another strip). Units in this site's own building are `building`. |
 | `residential` | A house, its yard or a residential street's frontage. |
 | `railway` | Track, ballast or the lineside strip. |
 | `open_land` | Field, woods or vacant land that isn't part of any lot. |
@@ -50,6 +51,7 @@ Pick the most specific kind that fits. "This site" means the business at the pin
 | public_road | out | out | out | out |
 | neighbour_lot | out | out | out | out |
 | neighbour_building | out | out | out | out |
+| centre_building | out | out | in | - |
 | residential | out | out | out | out |
 | railway | out | out | out | out |
 | open_land | out | out | out | out |
@@ -62,6 +64,7 @@ Pick the most specific kind that fits. "This site" means the business at the pin
 - **core**: only the kinds every other view agrees on. Shared parking, service yards, landscaping and centre roads are ignored, so no convention for shared lots or back of house counts for or against a result. Judge rule changes on it first; the other views then show what a change does for each convention.
 - `landscaping` is ignored for arrival rather than out: planting islands sit between stalls, inside any sensible outline, so marking them out would punish good outlines. `open_land` is out: an outline may cut around it.
 - `service` is ignored in the default view for now: the goal says "customer-facing", but today's rules take service yards in, and ignoring them rewards neither.
+- `centre_building` is out for default and arrival (another business's building is never this site's premises) and in for centre; core ignores it, as the views disagree. Sites labelled before it existed used `neighbour_building` for these points.
 - `sidewalk` is ignored everywhere: it lies within GPS error of the kerb, so it can't tell a good outline from a bad one.
 - `tight` has no view: it's a shape, not a use, and stays unscored until someone needs it scored.
 

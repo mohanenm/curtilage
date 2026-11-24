@@ -10,7 +10,7 @@ module CurtilageBenchmark
   KINDS = %w[
     building walkway own_parking drive_through forecourt entrance service landscaping
     shared_parking_near shared_parking_far centre_road sidewalk public_road neighbour_lot
-    neighbour_building residential railway open_land construction unclear
+    neighbour_building residential railway open_land construction unclear centre_building
   ].freeze
   # Missing one of these, or taking one of these in, fails the site whatever
   # its rates (when the view scores that kind at all).

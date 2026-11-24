@@ -3,5 +3,5 @@
   "description": "Where a customer counts as arrived at the store (opt-in use). Service yards are out: staff aren't customers.",
   "options": {},
   "in": ["building", "walkway", "own_parking", "drive_through", "forecourt", "entrance", "shared_parking_near"],
-  "out": ["service", "shared_parking_far", "public_road", "neighbour_lot", "neighbour_building", "residential", "railway", "open_land"]
+  "out": ["service", "shared_parking_far", "public_road", "neighbour_lot", "neighbour_building", "residential", "railway", "open_land", "centre_building"]
 }
