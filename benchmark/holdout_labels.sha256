@@ -1,0 +1,3 @@
+# SHA256 of each held-out site's label file, recorded once when it's sealed
+# (rake benchmark:seal). Entries are only ever added: a held-out label never
+# changes after it's committed (test/benchmark_test.rb checks).

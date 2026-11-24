@@ -162,7 +162,21 @@ module CurtilageBenchmark
            "#{r["errors"]} (#{r["errors_beyond_tolerance"]} > #{TOLERANCE_M} m)"),
        "  #{s["kinds"].map { |k, t| "#{k} #{t["right"]}/#{t["n"]}" }.join(", ")}"]
     end
-    ["", head, *lines.flatten]
+    ["", head, *lines.flatten, *role_table(run)]
+  end
+
+  # Each view per role, side by side: in caught / out taken, with labelled
+  # site counts.
+  def role_table(run)
+    roles = (run.dig("summary", "roles") || {}).select { |_, r| r["labelled"].to_i.positive? }
+    return [] if roles.size < 2
+
+    views = roles.values.flat_map { |r| r["views"].keys }.uniq
+    ["", "per role (in caught / out taken): #{roles.map { |name, r| "#{name} #{r["labelled"]} sites" }.join(", ")}",
+     *views.map do |v|
+       cells = roles.map { |name, r| (s = r["views"][v]) ? "#{name} #{s["in_caught"]} / #{s["out_included"]}" : nil }
+       "  #{v.ljust(10)} #{cells.compact.join("   ")}"
+     end]
   end
 
   # Per view, per site labelled in both runs: fewer errors, more, or the

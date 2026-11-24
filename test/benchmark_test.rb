@@ -75,14 +75,49 @@ class BenchmarkTest < Minitest::Test
     end
   end
 
-  def test_held_out_sites_are_scored_only_on_request
-    sites = [site("a"), site("h").merge("holdout" => true)]
+  # Held-out labels are frozen: every held-out label file in the repository
+  # matches the hash it was sealed with.
+  def test_held_out_labels_match_their_seals
+    assert_empty B.unsealed, "held-out labels must be sealed once and never changed"
+  end
 
-    assert_equal(["a"], B.scored_sites(sites).map { |s| s["id"] })
+  def test_sealing_adds_new_held_out_labels_and_refuses_changed_ones
+    Dir.mktmpdir do |dir|
+      labels = File.join(dir, "labels")
+      FileUtils.mkdir_p(labels)
+      file = File.join(dir, "seals")
+      File.write(file, "# seals\n")
+      sites = [site("h").merge("role" => "holdout"), site("t")]
+      File.write(File.join(labels, "h.geojson"), "{}")
+      File.write(File.join(labels, "t.geojson"), "{}")
+
+      assert_equal [["h", "labelled but not sealed (rake benchmark:seal)"]],
+                   B.unsealed(sites, labels_dir: labels, file: file)
+      assert_equal ["h"], B.seal!(sites, labels_dir: labels, file: file)
+      assert_empty B.unsealed(sites, labels_dir: labels, file: file)
+      File.write(File.join(labels, "h.geojson"), "{\"changed\": 1}")
+      assert_raises(ArgumentError) { B.seal!(sites, labels_dir: labels, file: file) }
+    end
+  end
+
+  # Roles: tuning and validation are scored together; held-out sites only
+  # for a release check, and then only them; old files' "holdout": true is a
+  # held-out site. A held-out run keeps totals only.
+  def test_held_out_sites_are_scored_only_for_a_release_check
+    sites = [site("a"), site("v").merge("role" => "validation"), site("h").merge("role" => "holdout"),
+             site("o").merge("holdout" => true)]
+
+    assert_equal(%w[a v], B.scored_sites(sites).map { |s| s["id"] })
     ENV["CURTILAGE_BENCHMARK_HOLDOUT"] = "1"
-    assert_equal(["h"], B.scored_sites(sites).map { |s| s["id"] })
+    assert_raises(ArgumentError) { B.scored_sites(sites) }
+    ENV["CURTILAGE_RELEASE_CHECK"] = "1"
+    assert_equal(%w[h o], B.scored_sites(sites).map { |s| s["id"] })
+    run = { "sites" => [{ "id" => "h" }], "summary" => { "all" => {}, "views" => {}, "categories" => { "x" => {} } } }
+    assert_empty B.summary_only(run)["sites"]
+    refute B.summary_only(run)["summary"].key?("categories")
   ensure
     ENV.delete("CURTILAGE_BENCHMARK_HOLDOUT")
+    ENV.delete("CURTILAGE_RELEASE_CHECK")
   end
 
   def test_features_are_fetched_once_then_cached

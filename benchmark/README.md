@@ -14,7 +14,8 @@ bundle exec rake "benchmark:compare[OLD.json,NEW.json]"     # what changed betwe
 bundle exec rake benchmark:baseline                         # run, and save the numbers as benchmark/baseline.json
 bundle exec rake benchmark:label_page                       # write the labelling page (data/benchmark/label.html)
 bundle exec rake benchmark:gallery                          # write the gallery (docs/gallery/index.html), over USGS snapshots
-CURTILAGE_BENCHMARK_HOLDOUT=1 bundle exec rake benchmark     # score only the held-out sites (final checks)
+CURTILAGE_BENCHMARK_HOLDOUT=1 CURTILAGE_RELEASE_CHECK=1 bundle exec rake benchmark   # held-out totals (release check only)
+bundle exec rake benchmark:seal                             # seal newly labelled held-out sites
 bundle exec rake benchmark:parcels                          # fetch each site's tax parcel (data/benchmark/parcels)
 ```
 
@@ -32,6 +33,20 @@ IoU against a hand-drawn polygon is only a guide: references often hug the build
 `benchmark:compare` also lists, per view, how many labelled sites got better, worse or stayed the same (fewer or more wrong points) and which ones. With few sites, that paired count says more than a change in a median.
 
 If Overture retires the pinned release, pin a newer one in `config.json`, run `benchmark:baseline` again, and compare from there.
+
+## Roles and the held-out rules
+
+Every site has a role (`"role"` in `sites.geojson`):
+
+- **tuning**: rules may be judged on these sites, but never on them alone.
+- **validation**: sites whose results have been seen, so they're no longer blind. The seven sites held out until 0.7.0 are validation sites now. A rule change is judged on tuning and validation together, and `rake benchmark` prints every view for each role side by side.
+- **holdout**: a sealed set for the final check before a release, and nothing else.
+
+The held-out rules:
+
+1. **Labelled before anyone sees results**, on the labelling page, which never shows curtilage's output. Labels are frozen once committed: `rake benchmark:seal` records each file's SHA256 in `holdout_labels.sha256`, and a test fails if a held-out label file differs from its seal or is labelled but unsealed.
+2. **Never used for tuning.** `rake benchmark` leaves held-out sites out. Scoring them needs both `CURTILAGE_BENCHMARK_HOLDOUT=1` and `CURTILAGE_RELEASE_CHECK=1`, and even then prints and saves totals only: nothing per site, per point or per category. The gallery, review pages and parcel tooling skip them.
+3. **Replaced only for data problems visible without running the gem**, decided from the site data alone (the Overture place and the map data around it), such as no matching business at the Overture point or a pin far from any building. Every replacement is logged in `holdout_replacements.md` with its reason.
 
 ## Files
 

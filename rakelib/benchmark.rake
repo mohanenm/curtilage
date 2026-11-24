@@ -10,6 +10,8 @@ end
 desc "Run the public benchmark and print the results (writes data/benchmark/runs/*.json)"
 task :benchmark do
   run = benchmark.run
+  # Held-out (release check): totals only, nothing per site or per point.
+  run = benchmark.summary_only(run) if benchmark.holdout_run?
   puts benchmark.table(run)
   puts "", "saved #{benchmark.save(run)}"
 end
@@ -79,5 +81,13 @@ namespace :benchmark do
     end
     found = benchmark.fetch_parcels(benchmark.sites)
     found.each { |id, ring| puts "#{id}: #{ring ? "parcel" : "none"}" }
+  end
+end
+
+namespace :benchmark do
+  desc "Seal new held-out label files (records their SHA256 in benchmark/holdout_labels.sha256; never changes one)"
+  task :seal do
+    sealed = benchmark.seal!
+    puts sealed.empty? ? "nothing new to seal" : "sealed #{sealed.join(", ")}"
   end
 end
