@@ -100,11 +100,30 @@ namespace :benchmark do
     view = args[:view] || "default"
     data = benchmark.features([site], benchmark.config.fetch("overture_release"))
     options = benchmark.symbolised(benchmark.config["options"])
+    options = options.merge(benchmark.symbolised(site.fetch("options", {})))
     ring = Curtilage.generate(site["pin"], data.fetch(site["id"]), **options).ring
     labels = benchmark.labels(site["id"], benchmark.paths[:labels]) or abort "#{site["id"]} has no labels"
     sample = benchmark.review_sample(site, ring, labels, benchmark.views(*benchmark.paths[:views]).fetch(view))
     out = File.join(File.dirname(benchmark.paths[:runs]), "review-#{site["id"]}.html")
     File.write(out, benchmark.review_page(site, ring, sample, view))
     puts "wrote #{out}: #{sample.map { |o, l| "#{o} #{l.size}" }.join(", ")}"
+  end
+end
+
+namespace :benchmark do
+  desc "Why points are wrong: causes ranked per view, and scores by pin quality (tuning and validation sites)"
+  task :diagnose do
+    abort "benchmark:diagnose never looks at held-out sites" if benchmark.holdout_run?
+    sites = benchmark.sites.reject { |s| benchmark.role(s) == "holdout" }
+    data = benchmark.features(sites, benchmark.config.fetch("overture_release"))
+    views = benchmark.views(*benchmark.paths[:views])
+    diagnoses = benchmark.diagnose(sites, data, views, benchmark.config["options"])
+    %w[tuning validation].each do |role|
+      ds = diagnoses.select { |d| d["role"] == role }
+      puts "", "== #{role} (#{ds.size} sites) ==", benchmark.diagnosis_report(ds)
+    end
+    out = File.join(File.dirname(benchmark.paths[:runs]), "diagnosis.json")
+    File.write(out, JSON.pretty_generate(diagnoses))
+    puts "", "saved #{out}"
   end
 end

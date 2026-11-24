@@ -18,7 +18,10 @@ CURTILAGE_BENCHMARK_HOLDOUT=1 CURTILAGE_RELEASE_CHECK=1 bundle exec rake benchma
 bundle exec rake benchmark:seal                             # seal newly labelled held-out sites
 bundle exec rake "benchmark:review_sample[ID]"              # the four-outcome review sample for one site
 bundle exec rake benchmark:parcels                          # fetch each site's tax parcel (data/benchmark/parcels)
+bundle exec rake benchmark:diagnose                         # why points are wrong: causes ranked per view, scores by pin quality
 ```
+
+`benchmark:diagnose` gives every wrong point on the tuning and validation sites a cause (shared-lot split, reach limit, unmapped parking, neighbour cut, a public road between the building and the point, and so on), read from the map data by the heuristics in `benchmark/diagnose.rb`, and ranks the causes by what fixing each would add to the per-site averages. It also splits the scores by where the pin was (on the business's building, beside it, on another building) and by site context (large or shared building). It never looks at held-out sites.
 
 It needs the DuckDB CLI, like the gem (`curtilage doctor` checks). Each run:
 
