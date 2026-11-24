@@ -1,11 +1,11 @@
 {
   "gem_version": "0.5.0",
-  "commit": "136cd1e-dirty",
+  "commit": "22cd397-dirty",
   "overture_release": "2026-11-18.0",
   "options": {
     "buildings": "osm_or_ml"
   },
-  "run_at": "2026-11-24T05:21:18Z",
+  "run_at": "2026-11-24T05:26:50Z",
   "summary": {
     "all": {
       "sites": 33,
@@ -23,7 +23,7 @@
         "near_houses": 2,
         "store_may_be_unit": 8
       },
-      "total_ms": 1789
+      "total_ms": 1823
     },
     "categories": {
       "backs_onto_houses": {
@@ -51,7 +51,7 @@
           "large_building": 1,
           "store_may_be_unit": 1
         },
-        "total_ms": 27
+        "total_ms": 26
       },
       "corner_lot": {
         "sites": 1,
@@ -63,7 +63,7 @@
         "median_area_ratio": 1.38,
         "fallbacks": 0,
         "flags": {},
-        "total_ms": 24
+        "total_ms": 25
       },
       "deep_lot": {
         "sites": 1,
@@ -77,7 +77,7 @@
         "flags": {
           "store_may_be_unit": 1
         },
-        "total_ms": 8
+        "total_ms": 9
       },
       "fuel_station": {
         "sites": 1,
@@ -89,7 +89,7 @@
         "median_area_ratio": 0.53,
         "fallbacks": 0,
         "flags": {},
-        "total_ms": 76
+        "total_ms": 75
       },
       "missing_building": {
         "sites": 2,
@@ -115,7 +115,7 @@
         "median_area_ratio": 0.48,
         "fallbacks": 0,
         "flags": {},
-        "total_ms": 29
+        "total_ms": 31
       },
       "random": {
         "sites": 21,
@@ -133,7 +133,7 @@
           "near_houses": 1,
           "store_may_be_unit": 5
         },
-        "total_ms": 1416
+        "total_ms": 1452
       },
       "shared_lot": {
         "sites": 1,
@@ -147,7 +147,7 @@
         "flags": {
           "near_houses": 1
         },
-        "total_ms": 26
+        "total_ms": 25
       },
       "shopping_centre_unit": {
         "sites": 1,
@@ -159,7 +159,7 @@
         "median_area_ratio": 0.11,
         "fallbacks": 0,
         "flags": {},
-        "total_ms": 88
+        "total_ms": 83
       },
       "standalone": {
         "sites": 1,
@@ -173,7 +173,7 @@
         "flags": {
           "store_may_be_unit": 1
         },
-        "total_ms": 17
+        "total_ms": 18
       },
       "urban_storefront": {
         "sites": 1,
@@ -185,7 +185,7 @@
         "median_area_ratio": 0.18,
         "fallbacks": 0,
         "flags": {},
-        "total_ms": 17
+        "total_ms": 18
       }
     },
     "placeholders": {
@@ -203,11 +203,11 @@
     "views": {
       "arrival": {
         "sites": 23,
-        "points": 1434,
-        "in_caught": 0.667,
+        "points": 1432,
+        "in_caught": 0.669,
         "out_included": 0.125,
-        "errors": 335,
-        "errors_beyond_tolerance": 316,
+        "errors": 333,
+        "errors_beyond_tolerance": 314,
         "hard_failures": 3,
         "kinds": {
           "building": {
@@ -223,7 +223,7 @@
             "right": 11
           },
           "entrance": {
-            "n": 63,
+            "n": 61,
             "right": 26
           },
           "forecourt": {
@@ -301,6 +301,10 @@
             "n": 66,
             "right": 39
           },
+          "centre_entrance": {
+            "n": 2,
+            "right": 0
+          },
           "centre_road": {
             "n": 84,
             "right": 32
@@ -310,7 +314,7 @@
             "right": 11
           },
           "entrance": {
-            "n": 63,
+            "n": 61,
             "right": 26
           },
           "forecourt": {
@@ -377,11 +381,11 @@
       },
       "core": {
         "sites": 23,
-        "points": 1066,
-        "in_caught": 0.731,
+        "points": 1064,
+        "in_caught": 0.736,
         "out_included": 0.04,
-        "errors": 137,
-        "errors_beyond_tolerance": 124,
+        "errors": 135,
+        "errors_beyond_tolerance": 122,
         "hard_failures": 3,
         "kinds": {
           "building": {
@@ -393,7 +397,7 @@
             "right": 11
           },
           "entrance": {
-            "n": 63,
+            "n": 61,
             "right": 26
           },
           "forecourt": {
@@ -444,11 +448,11 @@
       },
       "default": {
         "sites": 23,
-        "points": 1426,
-        "in_caught": 0.671,
+        "points": 1424,
+        "in_caught": 0.674,
         "out_included": 0.09,
-        "errors": 316,
-        "errors_beyond_tolerance": 297,
+        "errors": 314,
+        "errors_beyond_tolerance": 295,
         "hard_failures": 3,
         "kinds": {
           "building": {
@@ -464,7 +468,7 @@
             "right": 11
           },
           "entrance": {
-            "n": 63,
+            "n": 61,
             "right": 26
           },
           "forecourt": {
@@ -534,7 +538,7 @@
       "views": {
         "arrival": {
           "sites": 23,
-          "points": 1434,
+          "points": 1432,
           "in_caught": 0.636,
           "out_included": 0.188,
           "errors": 364,
@@ -554,8 +558,8 @@
               "right": 12
             },
             "entrance": {
-              "n": 63,
-              "right": 20
+              "n": 61,
+              "right": 18
             },
             "forecourt": {
               "n": 7,
@@ -632,6 +636,10 @@
               "n": 66,
               "right": 34
             },
+            "centre_entrance": {
+              "n": 2,
+              "right": 2
+            },
             "centre_road": {
               "n": 84,
               "right": 45
@@ -641,8 +649,8 @@
               "right": 12
             },
             "entrance": {
-              "n": 63,
-              "right": 20
+              "n": 61,
+              "right": 18
             },
             "forecourt": {
               "n": 7,
@@ -708,7 +716,7 @@
         },
         "core": {
           "sites": 23,
-          "points": 1066,
+          "points": 1064,
           "in_caught": 0.656,
           "out_included": 0.096,
           "errors": 194,
@@ -724,8 +732,8 @@
               "right": 12
             },
             "entrance": {
-              "n": 63,
-              "right": 20
+              "n": 61,
+              "right": 18
             },
             "forecourt": {
               "n": 7,
@@ -775,7 +783,7 @@
         },
         "default": {
           "sites": 23,
-          "points": 1426,
+          "points": 1424,
           "in_caught": 0.63,
           "out_included": 0.141,
           "errors": 346,
@@ -795,8 +803,8 @@
               "right": 12
             },
             "entrance": {
-              "n": 63,
-              "right": 20
+              "n": 61,
+              "right": 18
             },
             "forecourt": {
               "n": 7,
@@ -874,7 +882,7 @@
       "reference_area_m2": 9987,
       "iou": 0.729,
       "area_ratio": 1.14,
-      "ms": 17.3,
+      "ms": 17.7,
       "views": {
         "arrival": {
           "in": 56,
@@ -2102,7 +2110,7 @@
       "reference_area_m2": 3176,
       "iou": 0.435,
       "area_ratio": 1.38,
-      "ms": 24.3,
+      "ms": 25.2,
       "views": {
         "arrival": {
           "in": 30,
@@ -3124,7 +3132,7 @@
       "reference_area_m2": 20550,
       "iou": 0.172,
       "area_ratio": 0.38,
-      "ms": 8.1,
+      "ms": 8.7,
       "views": {
         "arrival": {
           "in": 15,
@@ -3744,7 +3752,7 @@
       "reference_area_m2": 16050,
       "iou": 0.409,
       "area_ratio": 0.48,
-      "ms": 29.4,
+      "ms": 31.4,
       "views": {
         "arrival": {
           "in": 15,
@@ -4628,7 +4636,7 @@
       "reference_area_m2": 20785,
       "iou": 0.172,
       "area_ratio": 0.27,
-      "ms": 49.1,
+      "ms": 49.4,
       "parcel": {
         "reference_area_m2": 20936,
         "iou": 0.261,
@@ -4651,10 +4659,10 @@
       "reference_area_m2": 42883,
       "iou": 0.504,
       "area_ratio": 0.76,
-      "ms": 26.6,
+      "ms": 26.1,
       "views": {
         "arrival": {
-          "in": 28,
+          "in": 26,
           "caught": 18,
           "out": 34,
           "included": 5,
@@ -4673,7 +4681,7 @@
               "right": 9
             },
             "entrance": {
-              "n": 3,
+              "n": 1,
               "right": 0
             },
             "service": {
@@ -4732,7 +4740,11 @@
               "right": 10
             },
             "entrance": {
-              "n": 3,
+              "n": 1,
+              "right": 0
+            },
+            "centre_entrance": {
+              "n": 2,
               "right": 0
             },
             "service": {
@@ -4772,7 +4784,7 @@
           }
         },
         "core": {
-          "in": 15,
+          "in": 13,
           "caught": 11,
           "out": 27,
           "included": 1,
@@ -4791,7 +4803,7 @@
               "right": 9
             },
             "entrance": {
-              "n": 3,
+              "n": 1,
               "right": 0
             },
             "public_road": {
@@ -4819,7 +4831,7 @@
           }
         },
         "default": {
-          "in": 28,
+          "in": 26,
           "caught": 18,
           "out": 30,
           "included": 1,
@@ -4838,7 +4850,7 @@
               "right": 9
             },
             "entrance": {
-              "n": 3,
+              "n": 1,
               "right": 0
             },
             "shared_parking_near": {
@@ -4881,8 +4893,8 @@
         "inside_parcel": 0.889,
         "views": {
           "arrival": {
-            "in": 28,
-            "caught": 28,
+            "in": 26,
+            "caught": 26,
             "out": 34,
             "included": 7,
             "wrong_near_edge": 0,
@@ -4900,8 +4912,8 @@
                 "right": 10
               },
               "entrance": {
-                "n": 3,
-                "right": 3
+                "n": 1,
+                "right": 1
               },
               "service": {
                 "n": 4,
@@ -5018,8 +5030,12 @@
                 "right": 10
               },
               "entrance": {
-                "n": 3,
-                "right": 3
+                "n": 1,
+                "right": 1
+              },
+              "centre_entrance": {
+                "n": 2,
+                "right": 2
               },
               "service": {
                 "n": 4,
@@ -5060,8 +5076,8 @@
             }
           },
           "core": {
-            "in": 15,
-            "caught": 15,
+            "in": 13,
+            "caught": 13,
             "out": 27,
             "included": 0,
             "wrong_near_edge": 0,
@@ -5079,8 +5095,8 @@
                 "right": 10
               },
               "entrance": {
-                "n": 3,
-                "right": 3
+                "n": 1,
+                "right": 1
               },
               "public_road": {
                 "n": 17,
@@ -5109,8 +5125,8 @@
             }
           },
           "default": {
-            "in": 28,
-            "caught": 28,
+            "in": 26,
+            "caught": 26,
             "out": 30,
             "included": 3,
             "wrong_near_edge": 0,
@@ -5128,8 +5144,8 @@
                 "right": 10
               },
               "entrance": {
-                "n": 3,
-                "right": 3
+                "n": 1,
+                "right": 1
               },
               "shared_parking_near": {
                 "n": 13,
@@ -5207,7 +5223,7 @@
       "reference_area_m2": 5608,
       "iou": 0.489,
       "area_ratio": 0.71,
-      "ms": 25.6,
+      "ms": 25.2,
       "views": {
         "arrival": {
           "in": 30,
@@ -6565,7 +6581,7 @@
       "reference_area_m2": 55412,
       "iou": 0.109,
       "area_ratio": 0.11,
-      "ms": 88.2,
+      "ms": 82.8,
       "views": {
         "arrival": {
           "in": 59,
@@ -7851,7 +7867,7 @@
       "reference_area_m2": 5450,
       "iou": 0.182,
       "area_ratio": 0.18,
-      "ms": 17.4,
+      "ms": 18.0,
       "views": {
         "arrival": {
           "in": 11,
@@ -8681,7 +8697,7 @@
       "reference_area_m2": 7898,
       "iou": 0.476,
       "area_ratio": 0.53,
-      "ms": 75.8,
+      "ms": 74.8,
       "views": {
         "arrival": {
           "in": 61,
@@ -10876,7 +10892,7 @@
         "near_houses"
       ],
       "area_m2": 2197,
-      "ms": 172.4,
+      "ms": 182.7,
       "views": {
         "arrival": {
           "in": 18,
@@ -11591,7 +11607,7 @@
         "store_may_be_unit"
       ],
       "area_m2": 14545,
-      "ms": 35.9,
+      "ms": 38.8,
       "views": {
         "arrival": {
           "in": 89,
@@ -12379,7 +12395,7 @@
         "store_may_be_unit"
       ],
       "area_m2": 23666,
-      "ms": 36.6,
+      "ms": 38.5,
       "views": {
         "arrival": {
           "in": 50,
@@ -13390,7 +13406,7 @@
         "building_not_under_pin"
       ],
       "area_m2": 10920,
-      "ms": 19.7,
+      "ms": 21.8,
       "parcel": {
         "reference_area_m2": 17237,
         "iou": 0.033,
@@ -13407,7 +13423,7 @@
       "fallback": false,
       "flags": [],
       "area_m2": 8227,
-      "ms": 5.9,
+      "ms": 6.0,
       "views": {
         "arrival": {
           "in": 18,
@@ -13928,7 +13944,7 @@
         "building_not_under_pin"
       ],
       "area_m2": 12073,
-      "ms": 55.7,
+      "ms": 56.9,
       "views": {
         "arrival": {
           "in": 33,
@@ -14929,7 +14945,7 @@
       "fallback": false,
       "flags": [],
       "area_m2": 6562,
-      "ms": 11.8,
+      "ms": 11.3,
       "views": {
         "arrival": {
           "in": 38,
@@ -15413,7 +15429,7 @@
         "store_may_be_unit"
       ],
       "area_m2": 174158,
-      "ms": 733.7,
+      "ms": 745.6,
       "views": {
         "arrival": {
           "in": 26,
@@ -16793,7 +16809,7 @@
         "ml_footprint"
       ],
       "area_m2": 5411,
-      "ms": 15.1,
+      "ms": 14.8,
       "views": {
         "arrival": {
           "in": 30,
@@ -17270,7 +17286,7 @@
         "store_may_be_unit"
       ],
       "area_m2": 30338,
-      "ms": 59.7,
+      "ms": 62.8,
       "views": {
         "arrival": {
           "in": 0,
@@ -17688,7 +17704,7 @@
         "building_not_under_pin"
       ],
       "area_m2": 3656,
-      "ms": 40.0,
+      "ms": 40.3,
       "views": {
         "arrival": {
           "in": 22,
@@ -18204,7 +18220,7 @@
         "ml_footprint"
       ],
       "area_m2": 3126,
-      "ms": 19.1
+      "ms": 20.2
     },
     {
       "id": "nc-convenience-store",
@@ -18217,7 +18233,7 @@
         "ml_footprint"
       ],
       "area_m2": 2468,
-      "ms": 10.7,
+      "ms": 12.0,
       "views": {
         "arrival": {
           "in": 22,
@@ -18722,7 +18738,7 @@
       "fallback": false,
       "flags": [],
       "area_m2": 5654,
-      "ms": 28.9,
+      "ms": 29.6,
       "views": {
         "arrival": {
           "in": 31,
@@ -19387,7 +19403,7 @@
       "fallback": false,
       "flags": [],
       "area_m2": 4750,
-      "ms": 43.0,
+      "ms": 42.3,
       "views": {
         "arrival": {
           "in": 27,
@@ -20238,7 +20254,7 @@
         "building_not_under_pin"
       ],
       "area_m2": 2851,
-      "ms": 7.4,
+      "ms": 7.6,
       "views": {
         "arrival": {
           "in": 13,
@@ -21015,7 +21031,7 @@
       "fallback": false,
       "flags": [],
       "area_m2": 6587,
-      "ms": 15.9,
+      "ms": 17.5,
       "parcel": {
         "reference_area_m2": 6872,
         "iou": 0.637,
@@ -21032,7 +21048,7 @@
       "fallback": false,
       "flags": [],
       "area_m2": 9437,
-      "ms": 34.2,
+      "ms": 31.8,
       "parcel": {
         "reference_area_m2": 10684,
         "iou": 0.563,
@@ -21052,7 +21068,7 @@
         "store_may_be_unit"
       ],
       "area_m2": 8950,
-      "ms": 30.0,
+      "ms": 32.6,
       "parcel": {
         "reference_area_m2": 4448,
         "iou": 0.497,
@@ -21069,7 +21085,7 @@
       "fallback": false,
       "flags": [],
       "area_m2": 2712,
-      "ms": 13.7,
+      "ms": 13.1,
       "parcel": {
         "reference_area_m2": 1771,
         "iou": 0.621,
@@ -21088,7 +21104,7 @@
         "building_not_under_pin"
       ],
       "area_m2": 4766,
-      "ms": 26.2,
+      "ms": 25.6,
       "parcel": {
         "reference_area_m2": 3079,
         "iou": 0.6,
@@ -21126,7 +21142,7 @@
         "ml_footprint"
       ],
       "area_m2": 6577,
-      "ms": 3.4,
+      "ms": 3.5,
       "parcel": {
         "reference_area_m2": 4173,
         "iou": 0.48,

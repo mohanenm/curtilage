@@ -12,7 +12,7 @@ require "json"
 # loads nothing at all and draws the cached map data instead.
 module CurtilageBenchmark
   # Shortcut keys, in the order of the kinds table.
-  KEYS = "1234567890qwertyuiopa"
+  KEYS = "1234567890qwertyuiopas"
   # One line per kind, shown on the page (the full table is in LABELS.md).
   KIND_NOTES = {
     "building" => "Inside this site's building.",
@@ -38,6 +38,8 @@ module CurtilageBenchmark
     "unclear" => "You can't tell. Use it rather than guessing.",
     "centre_building" => "Inside another business's separate building on the same shared lot or in the same centre " \
                          "(a pad, another strip). Units in this site's own building are building.",
+    "centre_entrance" => "Where a shopping centre's or shared lot's driveway meets a public road, serving the whole " \
+                         "centre rather than this site.",
   }.freeze
   IMAGERY_HOSTS = %w[https://imagery.nationalmap.gov https://basemap.nationalmap.gov].freeze
   LEAFLET = File.join(__dir__, "vendor", "leaflet-1.9.4")
@@ -91,7 +93,7 @@ module CurtilageBenchmark
   # Colours group kinds by what they are, not by any view's in or out.
   def kind_group(kind)
     case kind
-    when "shared_parking_near", "shared_parking_far", "centre_road", "centre_building" then "shared"
+    when "shared_parking_near", "shared_parking_far", "centre_road", "centre_building", "centre_entrance" then "shared"
     when "sidewalk", "public_road", "neighbour_lot", "neighbour_building", "residential", "railway", "open_land"
       "outside"
     when "construction", "unclear" then "other"
