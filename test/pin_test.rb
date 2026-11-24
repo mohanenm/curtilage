@@ -43,10 +43,10 @@ class PinTest < Minitest::Test
   def test_a_pin_on_the_road_no_longer_pulls_the_premises_into_it
     south = ->(r) { G.open_ring(G.project(r.ring, PIN)).map(&:last).min }
 
-    # The road's centreline is at -40 and it's 8 m to the kerb (a secondary road): the pin at -33 is on it.
-    assert_equal "on_road", at(0, -33).pin_quality[:quality]
-    assert_operator south.call(at(0, -33)), :<, -35, "the premises have to hold the pin, 5 m clear"
-    assert_operator south.call(at(0, -33, snap_m: 30)), :>=, -32.5, "snapped, they stop at the kerb"
+    # The road's centreline is at -40 and it's 7 m to the kerb (a secondary road): the pin at -34 is on it.
+    assert_equal "on_road", at(0, -34).pin_quality[:quality]
+    assert_operator south.call(at(0, -34)), :<, -36, "the premises have to hold the pin, 5 m clear"
+    assert_operator south.call(at(0, -34, snap_m: 30)), :>=, -33.5, "snapped, they stop at the kerb"
   end
 
   def test_no_snapping_on_a_building_or_out_of_reach

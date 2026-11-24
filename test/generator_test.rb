@@ -22,18 +22,18 @@ class GeneratorTest < Minitest::Test
     assert_equal 1, result.building
   end
 
-  # The secondary road's centreline is at y = -40; half its width is 8 m.
+  # The secondary road's centreline is at y = -40; half its width is 7 m.
   def test_building_method_stops_at_the_kerb
     ys = xy(Curtilage.generate(PIN, scene, method: :building, building_margin_m: 40)).map(&:last)
 
-    assert_in_delta(-32, ys.min, 0.5)
+    assert_in_delta(-33, ys.min, 0.5)
   end
 
   # The neighbour's wall is at x = 50: the lot runs to 3 m short of it.
   def test_grow_trim_stops_at_the_kerb_and_short_of_the_neighbour
     points = xy(Curtilage.generate(PIN, scene, method: :grow_trim, grow_m: 60))
 
-    assert_in_delta(-32, points.map(&:last).min, 0.5)
+    assert_in_delta(-33, points.map(&:last).min, 0.5)
     assert_in_delta 47, points.map(&:first).max, 0.5
   end
 
@@ -177,6 +177,20 @@ class GeneratorTest < Minitest::Test
     assert(wide.explanation.any? { |n| n.include?("is shared with 3 other buildings") })
   end
 
+  # A pin on a fuel canopy (building=roof) means the shop beside it: that is
+  # the store, and the canopy part of its lot, not a neighbour to stop short of.
+  def test_a_pin_on_a_canopy_means_the_shop_beside_it
+    station = [polygon("building", 1, -10, -7.5, 10, 7.5, type: "roof"),
+               polygon("building", 2, -12, 14, 12, 26, type: "retail"), road(4, "secondary", [[-200, -40], [200, -40]])]
+    result = Curtilage.generate(PIN, station)
+    ys = xy(result).map(&:last)
+
+    assert_equal 2, result.building
+    assert(result.explanation.any? { |n| n.include?("is a roof (a canopy): the store is building 2") })
+    assert_operator ys.min, :<, -7.5, "the canopy is inside"
+    assert_operator ys.max, :>, 26, "and the shop"
+  end
+
   # aisle_m: a service road by the building, with no lot mapped around it,
   # stands for the lot (a strip either side), claimed like mapped parking.
   def test_aisle_m_takes_in_a_lot_mapped_only_as_service_roads
@@ -312,14 +326,14 @@ class GeneratorTest < Minitest::Test
   end
 
   # A driveway from the lot to the street (x = -30, from the lot south to the
-  # road at y = -40) is taken in, up to the kerb (y = -32) within its 2 m
+  # road at y = -40) is taken in, up to the kerb (y = -33) within its 2 m
   # sampling.
   def test_driveway_to_the_street_is_taken_in
     drive = scene + [road(9, "service", [[-30, -15], [-30, -40]])]
     result = Curtilage.generate(PIN, drive, method: :grow_trim, grow_m: 10)
 
     assert(result.explanation.any? { |n| n.include?("driveway 9") })
-    assert_in_delta(-31, xy(result).map(&:last).min, 1.1)
+    assert_in_delta(-32, xy(result).map(&:last).min, 1.1)
   end
 
   def test_propose_uses_grow_trim_when_it_validates

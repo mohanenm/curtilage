@@ -149,7 +149,7 @@ All distances in metres, areas in square metres. These are `Curtilage::Generator
 | `buildings` | `:osm` (`:osm_or_ml` for Overture reads) | Sites read from Overture (`source: :overture`, and `:auto`'s scattered pins) default to `:osm_or_ml`, since Overture's non-OSM buildings come with the data; pass `buildings: :osm` to turn that off. Choices: `:osm`, `:osm_or_ml` (OSM alone unless no OSM building is under the pin or within `building_max_distance_m`; then as `:osm_filled`, so only sites missing from OSM change), `:osm_filled` (machine-learned footprints added wherever they don't overlap an OSM building) or `:ml`. The footprints have to be in the data: a build with `--ml-footprints microsoft`, or Overture's non-OSM buildings. |
 | `scope` | `:site` | `:site`, or `:centre` for the whole shopping centre when on a shared lot. |
 | `grow_m` | `30` | How far the building's rectangle grows toward its lot before trimming. |
-| `road_offset_m` | `nil` | How far short of road centrelines to stop; `nil` uses half a typical road width by class. |
+| `road_offset_m` | `nil` | How far short of road centrelines to stop; `nil` uses half a typical road width by class: motorway 12 m, trunk 8.5, primary 7.5, secondary 7, tertiary 6, unclassified 5, residential 4.5, links 5. |
 | `building_clearance_m` | `3` | Road trims stop at least this far from the building. |
 | `neighbour_gap_m` | `3` | Strip left to a neighbouring building; `nil` splits halfway. |
 | `neighbour_min_area_m2` | `40` | Smaller buildings (sheds) don't bound the lot. |

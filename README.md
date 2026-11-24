@@ -117,7 +117,7 @@ The code is MIT-licensed; the polygons are not. Every result is derived from [Op
    - **Many pins in one region, or a region already cached: a Geofabrik build.** The gem downloads only the layers it needs from that region's shapefiles and builds a compact Parquet file, 1-5 minutes per US state, then answers instantly.
    - Or force one: `source: :geofabrik` (the host only ever learns the region, never the area) or `source: :overture`. Or use your own prebuilt files (`curtilage build`), local or in a bucket.
 2. **Generate.** Start from the building at the pin and grow its rectangle 30 m toward its lot, then:
-   - stop at public roads, half a typical road width short of the centreline (by road class) but at least 3 m out from the building, following each road's direction; and at railways;
+   - stop at public roads, half a typical road width short of the centreline (by road class, measured on the benchmark's labels) but at least 3 m out from the building, following each road's direction; and at railways;
    - take in the site's mapped parking (a lot shared with a few buildings is claimed whole; a shopping-centre lot is split by nearest building), parking garages, canopies, and driveways to the street;
    - stop 3 m short of neighbouring buildings, or halfway when the site is behind a house (its back yard);
    - fall back to the building's rectangle plus a margin if that fails validation.

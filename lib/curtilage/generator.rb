@@ -54,15 +54,22 @@ module Curtilage
       motorway_link trunk_link primary_link secondary_link tertiary_link
     ].freeze
 
-    # Roughly half a carriageway (lanes, turn lane, kerb) by road class, so
-    # premises stop near the kerb rather than mid-street. The shapefiles carry
-    # no width or lane count, so this is a typical figure, not a measurement.
+    # About half a carriageway by road class, so premises stop near the kerb
+    # rather than mid-street. The shapefiles carry no width or lane count.
+    # Measured on the public benchmark's labels (the kerb lies between the
+    # carriageway points and the pavement points), then set halfway back
+    # toward the wider older figures: OSM centrelines are often a metre or
+    # two off the true centre, and premises must not reach into the road.
     ROAD_HALF_WIDTH_M = {
-      "motorway" => 12, "trunk" => 10, "primary" => 9, "secondary" => 8, "tertiary" => 7,
-      "unclassified" => 5, "residential" => 5, "link" => 5,
+      "motorway" => 12, "trunk" => 8.5, "primary" => 7.5, "secondary" => 7, "tertiary" => 6,
+      "unclassified" => 5, "residential" => 4.5, "link" => 5,
       # Railways: the track bed plus clearance to the lineside fence.
       "rail" => 5, "light_rail" => 4, "subway" => 4, "narrow_gauge" => 3
     }.freeze
+
+    # A pin on a canopy means the building this close to it (see
+    # shop_by_canopy).
+    CANOPY_SHOP_M = 15
 
     # A driveway reaches a public road when it comes this close to one.
     ENTRANCE_MAX_M = 15
@@ -376,6 +383,7 @@ module Curtilage
     # Flags a large one: the site may be one unit of it.
     def find_building(features, opts, log)
       target = building_under_pin(features, log) || nearest_building(features, opts, log)
+      target = shop_by_canopy(target, features, opts, log) if target && LOT_TYPES.include?(target.category)
       if target&.kind == "ml_building"
         log.flag(:ml_footprint, "building #{target.id} is a machine-learned footprint, not mapped in OSM: " \
                                 "check it exists", step: "check_building", features: [target.id])
@@ -394,6 +402,22 @@ module Curtilage
                  step: "check_building", rule: "large_building_note_m2", features: [target.id])
       end
       target
+    end
+
+    # A pin on a canopy (fuel pumps, a drive-through roof, mapped as
+    # building=roof) means the business in the building beside it: that is
+    # the store, and the canopy counts as part of its lot. Kept when no
+    # building stands within CANOPY_SHOP_M.
+    def shop_by_canopy(canopy, features, opts, log)
+      shop = features.buildings.select do |b|
+        !LOT_TYPES.include?(b.category) && b.area >= opts[:neighbour_min_area_m2] && !home?(b, features, opts) &&
+          Geometry.closest_points(b.xy, canopy.xy).first <= CANOPY_SHOP_M
+      end.min_by { |b| Geometry.closest_points(b.xy, canopy.xy).first }
+      return canopy unless shop
+
+      log.note("building #{canopy.id} is a #{canopy.category} (a canopy): the store is building #{shop.id} beside " \
+               "it (#{shop.area.round} m2), the canopy part of its lot", step: "find_building", features: [canopy.id, shop.id])
+      shop
     end
 
     def building_under_pin(features, log)
