@@ -2,8 +2,12 @@
 
 ## [Unreleased]
 
+Benchmark numbers below were measured on the labels as they stood at each change; the README has the current totals.
+
 ### Added
 
+- Public benchmark: 30 new public sites in seven more states (28 seeded random picks, a quarter held out for a final check and never scored with the rest; 2 with buildings missing from OSM), labels for most of them, a **core** view that counts only what every use case agrees on, label kinds `centre_building` and `centre_entrance`, and each site's tax parcel from its state's parcel service as an independent baseline (`rake benchmark:parcels`). A missed entrance now counts as a missed point, not a failed site, and the benchmark generates with `buildings: :osm_or_ml`, as Overture reads do for users.
+- Labelling page: Leaflet bundled, a Content-Security-Policy allowing images from the two USGS hosts only, a no-imagery mode (`LABEL_IMAGERY=off`, the default for a private benchmark folder), and each site's business shown. The gallery refuses any site that isn't in the public benchmark, and covers every public site but the held-out ones.
 - `neighbour_cut: :notch` (experimental, off by default): cuts round a neighbouring building instead of straight across the premises, so a lot running past a neighbour keeps the part beyond it.
 
 ### Changed

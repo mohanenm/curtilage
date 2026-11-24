@@ -2,7 +2,7 @@
 
 Free, explainable premises polygons and geofences for any store: the building plus its parking lot, up to the kerb, from OpenStreetMap and Overture.
 
-- [Gallery](gallery/): every public benchmark site, with its premises, zones, flags and steps, and what its labels say it got wrong.
+- [Gallery](gallery/): the public benchmark sites (all but the held-out ones), with their premises, zones, flags and steps, and what their labels say each got wrong.
 - [Reference](reference.md): every option, flag and command.
 - [Recipes](recipes/README.md): PostGIS, QGIS, GeoPandas, DuckDB, geofences, Rails.
 - [Security](security.md) and the [HTTP API spec](openapi.yaml).
