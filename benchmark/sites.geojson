@@ -160,6 +160,486 @@
         "notes": "A fuel canopy next to a small shop: the canopy and forecourt are part of the lot.",
         "placeholder": false
       }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          -71.2463,
+          42.3737
+        ]
+      },
+      "properties": {
+        "id": "ma-gas-station",
+        "category": "random",
+        "holdout": false,
+        "notes": "Random pick (seed 20261123): Speedway, gas station in Massachusetts. Overture place 96fa526f-b0cd-4a44-8432-bbf2e9845918."
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          -76.76419272044697,
+          39.28826286447074
+        ]
+      },
+      "properties": {
+        "id": "md-restaurant",
+        "category": "random",
+        "holdout": false,
+        "notes": "Random pick (seed 20261123): Sneha Indian Cuisine, restaurant in Maryland. Overture place 2ccf3a24-32e3-4c82-b0d3-de837c746ca5."
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          -79.1515253484249,
+          35.4539585394898
+        ]
+      },
+      "properties": {
+        "id": "nc-department-store",
+        "category": "random",
+        "holdout": false,
+        "notes": "Random pick (seed 20261123): Goody's, department store in North carolina. Overture place ea100cee-a9d6-42e1-8fad-b19c57ec2c1a."
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          -81.29224338,
+          28.60070446
+        ]
+      },
+      "properties": {
+        "id": "fl-post-office",
+        "category": "random",
+        "holdout": true,
+        "notes": "Random pick (seed 20261123): USPS Aloma Carrier Annex, post office in Florida. Overture place 65433969-356c-4ff0-be16-d5374401382d."
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          -87.95891,
+          43.30793
+        ]
+      },
+      "properties": {
+        "id": "wi-department-store",
+        "category": "random",
+        "holdout": false,
+        "notes": "Random pick (seed 20261123): Kohl's, department store in Wisconsin. Overture place 4c3d99f4-66d4-46d6-bb15-033ed34a6ee3."
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          -95.25859915,
+          30.1061389
+        ]
+      },
+      "properties": {
+        "id": "tx-coffee-shop",
+        "category": "random",
+        "holdout": false,
+        "notes": "Random pick (seed 20261123): Shaka Brew Coffee, coffee shop in Texas. Overture place 581648a8-01f6-41ce-9d4b-e7bacaaf55a6."
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          -111.93986254,
+          40.78696741
+        ]
+      },
+      "properties": {
+        "id": "ut-post-office",
+        "category": "random",
+        "holdout": false,
+        "notes": "Random pick (seed 20261123): United States Postal Service, post office in Utah. Overture place a37df16d-db0f-4b1b-9699-fddc5c0bdc78."
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          -71.24462433,
+          42.15445472
+        ]
+      },
+      "properties": {
+        "id": "ma-hardware-store",
+        "category": "random",
+        "holdout": true,
+        "notes": "Random pick (seed 20261123): Ace Hardware, hardware store in Massachusetts. Overture place ecbd3d99-a35d-4bfa-8e75-6d2485a4cc0f."
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          -76.94855624,
+          38.5841772
+        ]
+      },
+      "properties": {
+        "id": "md-post-office",
+        "category": "random",
+        "holdout": false,
+        "notes": "Random pick (seed 20261123): United States Postal Service, post office in Maryland. Overture place f6a3aaf9-9f1b-45af-ae49-509684a8b684."
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          -80.30049344,
+          36.06800532
+        ]
+      },
+      "properties": {
+        "id": "nc-fast-food-restaurant",
+        "category": "random",
+        "holdout": false,
+        "notes": "Random pick (seed 20261123): Chick-fil-A, fast food restaurant in North carolina. Overture place 7b1c1217-cfbe-4984-987c-f6661f58bb64."
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          -80.203516291687,
+          26.202687378159
+        ]
+      },
+      "properties": {
+        "id": "fl-hotel",
+        "category": "random",
+        "holdout": false,
+        "notes": "Random pick (seed 20261123): The Diplomat Hollywood Florida, hotel in Florida. Overture place b312111d-238e-465b-92f8-822938d465c8."
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          -87.86728318,
+          42.72044714
+        ]
+      },
+      "properties": {
+        "id": "wi-hotel",
+        "category": "random",
+        "holdout": true,
+        "notes": "Random pick (seed 20261123): Clarion Pointe Racine, hotel in Wisconsin. Overture place 7bf3816f-f19c-4d64-98ef-80948a9703a6."
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          -95.462678,
+          29.741928
+        ]
+      },
+      "properties": {
+        "id": "tx-restaurant",
+        "category": "random",
+        "holdout": false,
+        "notes": "Random pick (seed 20261123): Tiger Noodle House, restaurant in Texas. Overture place cf9b1023-7b00-4720-bc67-63016bccae2d."
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          -113.62707917,
+          37.12327827
+        ]
+      },
+      "properties": {
+        "id": "ut-coffee-shop",
+        "category": "random",
+        "holdout": false,
+        "notes": "Random pick (seed 20261123): Dutch Bros Coffee, coffee shop in Utah. Overture place 520fd431-18e0-4309-8f9c-e66b94514dbd."
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          -71.3171703,
+          41.7869421
+        ]
+      },
+      "properties": {
+        "id": "ma-coffee-shop",
+        "category": "random",
+        "holdout": false,
+        "notes": "Random pick (seed 20261123): Dunkin' Donuts, coffee shop in Massachusetts. Overture place fcdc84c9-d072-42d4-86e9-0b06d278e0a0."
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          -76.662617,
+          39.23679
+        ]
+      },
+      "properties": {
+        "id": "md-gas-station",
+        "category": "random",
+        "holdout": true,
+        "notes": "Random pick (seed 20261123): BP, gas station in Maryland. Overture place f283709b-4f7b-4174-8844-830af94898c4."
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          -77.07154787489345,
+          35.06703745217884
+        ]
+      },
+      "properties": {
+        "id": "nc-convenience-store",
+        "category": "random",
+        "holdout": false,
+        "notes": "Random pick (seed 20261123): Merchant's Grocery, convenience store in North carolina. Overture place 10940dd9-9406-48a9-81a8-4a2d74415156."
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          -82.714065,
+          27.50899
+        ]
+      },
+      "properties": {
+        "id": "fl-library",
+        "category": "random",
+        "holdout": false,
+        "notes": "Random pick (seed 20261123): Island Branch Library, library in Florida. Overture place 1274b16d-f439-483a-a409-56f9abf481e9."
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          -88.83903153,
+          43.8432292
+        ]
+      },
+      "properties": {
+        "id": "wi-pharmacy",
+        "category": "random",
+        "holdout": false,
+        "notes": "Random pick (seed 20261123): Ben Franklin Store, pharmacy in Wisconsin. Overture place cf1a6e48-8775-41ba-9a90-a3951dee2b83."
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          -96.9548148,
+          30.18513094
+        ]
+      },
+      "properties": {
+        "id": "tx-gas-station",
+        "category": "random",
+        "holdout": true,
+        "notes": "Random pick (seed 20261123): Texaco, gas station in Texas. Overture place ed83728b-a9c0-42e3-8b94-a6f0c625e435."
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          -109.34309411,
+          37.87510772
+        ]
+      },
+      "properties": {
+        "id": "ut-hotel",
+        "category": "random",
+        "holdout": false,
+        "notes": "Random pick (seed 20261123): Canyonlands Motor Inn, hotel in Utah. Overture place bbc51d54-2d28-4e49-a406-7aa28d3338a9."
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          -70.9922238103,
+          42.7207719673
+        ]
+      },
+      "properties": {
+        "id": "ma-post-office",
+        "category": "random",
+        "holdout": false,
+        "notes": "Random pick (seed 20261123): Georgetown Post Office, post office in Massachusetts. Overture place 18e23db9-8c5e-4c33-b962-9d8df8cce05c."
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          -76.51498425,
+          39.11981983
+        ]
+      },
+      "properties": {
+        "id": "md-restaurant-2",
+        "category": "random",
+        "holdout": false,
+        "notes": "Random pick (seed 20261123): Betty Lou's, restaurant in Maryland. Overture place 3818ce52-2d48-4268-851f-8b534c6c70f0."
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          -80.74434255,
+          35.41764848
+        ]
+      },
+      "properties": {
+        "id": "nc-pharmacy",
+        "category": "random",
+        "holdout": true,
+        "notes": "Random pick (seed 20261123): Harris Teeter #0190, pharmacy in North carolina. Overture place 3e855d87-dbfa-47ce-9ab4-4d9129d84526."
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          -80.1646696,
+          25.9858717
+        ]
+      },
+      "properties": {
+        "id": "fl-hotel-2",
+        "category": "random",
+        "holdout": false,
+        "notes": "Random pick (seed 20261123): Best Western Plus Hollywood/aventura, hotel in Florida. Overture place d5bdd7a3-a875-4254-9d38-2cb7030a7c2f."
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          -87.64113195240498,
+          44.24001092991183
+        ]
+      },
+      "properties": {
+        "id": "wi-post-office",
+        "category": "random",
+        "holdout": false,
+        "notes": "Random pick (seed 20261123): United States Postal Service, post office in Wisconsin. Overture place e88c3ba0-1c09-48ef-88df-5344da31b786."
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          -96.94135691,
+          32.59628603
+        ]
+      },
+      "properties": {
+        "id": "tx-fast-food-restaurant",
+        "category": "random",
+        "holdout": false,
+        "notes": "Random pick (seed 20261123): Taco Bell, fast food restaurant in Texas. Overture place 49873f34-0b6c-4936-935a-8a6b03956c3d."
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          -111.9467503,
+          41.2408693
+        ]
+      },
+      "properties": {
+        "id": "ut-bank",
+        "category": "random",
+        "holdout": true,
+        "notes": "Random pick (seed 20261123): U.s. Bank Branch, bank in Utah. Overture place ddc27cfb-a7c9-424a-b242-baf8415e1d72."
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          -102.408463,
+          34.8103843
+        ]
+      },
+      "properties": {
+        "id": "tx-missing-building-1",
+        "category": "missing_building",
+        "holdout": false,
+        "notes": "Random pick (seed 20261124) with no OSM building at the pin, only an ML footprint: Wendy's, fast food restaurant in Texas. Overture place d1c32320-384c-4b04-8aae-9fac150e2e39."
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          -100.57437300682068,
+          33.242611119166284
+        ]
+      },
+      "properties": {
+        "id": "tx-missing-building-2",
+        "category": "missing_building",
+        "holdout": false,
+        "notes": "Random pick (seed 20261124) with no OSM building at the pin, only an ML footprint: United States Postal Service, post office in Texas. Overture place f971efeb-e712-4a6f-99bc-a9426bccf7e1."
+      }
     }
   ]
 }

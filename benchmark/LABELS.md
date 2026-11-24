@@ -4,7 +4,7 @@ Instead of one hand-drawn polygon per site, each site gets **labelled points**. 
 
 ## Kinds
 
-Pick the most specific kind that fits. "This site" means the business at the pin. A spot belongs to it when you can only reach it through this site's own entrances, or when kerbs, fences or planting enclose it with this site.
+Pick the most specific kind that fits. "This site" means the business the site's notes name, shown on the labelling page: usually the one at the pin, but a pin can fall on the street or a neighbour (as real inputs do), and it stays where it is. A spot belongs to it when you can only reach it through this site's own entrances, or when kerbs, fences or planting enclose it with this site.
 
 | kind | what it is |
 | --- | --- |
@@ -22,7 +22,8 @@ Pick the most specific kind that fits. "This site" means the business at the pin
 | `sidewalk` | The public pavement between the kerb and the site. |
 | `public_road` | The carriageway of a public road, past the kerb. |
 | `neighbour_lot` | Parking, yard or forecourt of another business with its own access. |
-| `neighbour_building` | Inside another business's building. |
+| `neighbour_building` | Inside another business's building, outside this site's lot or centre. |
+| `centre_building` | Inside another business's separate building on the same shared lot or in the same centre (a pad, another strip). Units in this site's own building are `building`. |
 | `residential` | A house, its yard or a residential street's frontage. |
 | `railway` | Track, ballast or the lineside strip. |
 | `open_land` | Field, woods or vacant land that isn't part of any lot. |
@@ -33,34 +34,37 @@ Pick the most specific kind that fits. "This site" means the business at the pin
 
 `in` and `out` are scored; `-` means ignored. A user can add their own view as a file (same kinds, their own in/out). The scorer reads any number of them.
 
-| kind | default | arrival | centre |
-| --- | --- | --- | --- |
-| building | in | in | in |
-| walkway | in | in | in |
-| own_parking | in | in | in |
-| drive_through | in | in | in |
-| forecourt | in | in | in |
-| entrance | in | in | in |
-| service | - | out | in |
-| landscaping | in | - | in |
-| shared_parking_near | in | in | in |
-| shared_parking_far | out | out | in |
-| centre_road | - | - | in |
-| sidewalk | - | - | - |
-| public_road | out | out | out |
-| neighbour_lot | out | out | out |
-| neighbour_building | out | out | out |
-| residential | out | out | out |
-| railway | out | out | out |
-| open_land | out | out | out |
-| construction | - | - | - |
-| unclear | - | - | - |
+| kind | default | arrival | centre | core |
+| --- | --- | --- | --- | --- |
+| building | in | in | in | in |
+| walkway | in | in | in | in |
+| own_parking | in | in | in | in |
+| drive_through | in | in | in | in |
+| forecourt | in | in | in | in |
+| entrance | in | in | in | in |
+| service | - | out | in | - |
+| landscaping | in | - | in | - |
+| shared_parking_near | in | in | in | - |
+| shared_parking_far | out | out | in | - |
+| centre_road | - | - | in | - |
+| sidewalk | - | - | - | - |
+| public_road | out | out | out | out |
+| neighbour_lot | out | out | out | out |
+| neighbour_building | out | out | out | out |
+| centre_building | out | out | in | - |
+| residential | out | out | out | out |
+| railway | out | out | out | out |
+| open_land | out | out | out | out |
+| construction | - | - | - | - |
+| unclear | - | - | - | - |
 
 - **default** is what curtilage documents as premises: the building and its customer-facing lot, up to the kerb and short of neighbours. It describes the place and serves no particular use. It scores the default settings and is the headline number.
 - **arrival** (opt-in): where a customer counts as having arrived at the store. It scores the arrival settings (approach and pickup zones). Service yards are out because staff aren't customers.
 - **centre**: the whole shopping centre, scoring `scope: :centre`.
+- **core**: only the kinds every other view agrees on. Shared parking, service yards, landscaping and centre roads are ignored, so no convention for shared lots or back of house counts for or against a result. Judge rule changes on it first; the other views then show what a change does for each convention.
 - `landscaping` is ignored for arrival rather than out: planting islands sit between stalls, inside any sensible outline, so marking them out would punish good outlines. `open_land` is out: an outline may cut around it.
 - `service` is ignored in the default view for now: the goal says "customer-facing", but today's rules take service yards in, and ignoring them rewards neither.
+- `centre_building` is out for default and arrival (another business's building is never this site's premises) and in for centre; core ignores it, as the views disagree. Sites labelled before it existed used `neighbour_building` for these points.
 - `sidewalk` is ignored everywhere: it lies within GPS error of the kerb, so it can't tell a good outline from a bad one.
 - `tight` has no view: it's a shape, not a use, and stays unscored until someone needs it scored.
 

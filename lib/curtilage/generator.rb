@@ -54,15 +54,22 @@ module Curtilage
       motorway_link trunk_link primary_link secondary_link tertiary_link
     ].freeze
 
-    # Roughly half a carriageway (lanes, turn lane, kerb) by road class, so
-    # premises stop near the kerb rather than mid-street. The shapefiles carry
-    # no width or lane count, so this is a typical figure, not a measurement.
+    # About half a carriageway by road class, so premises stop near the kerb
+    # rather than mid-street. The shapefiles carry no width or lane count.
+    # Measured on the public benchmark's labels (the kerb lies between the
+    # carriageway points and the pavement points), then set halfway back
+    # toward the wider older figures: OSM centrelines are often a metre or
+    # two off the true centre, and premises must not reach into the road.
     ROAD_HALF_WIDTH_M = {
-      "motorway" => 12, "trunk" => 10, "primary" => 9, "secondary" => 8, "tertiary" => 7,
-      "unclassified" => 5, "residential" => 5, "link" => 5,
+      "motorway" => 12, "trunk" => 8.5, "primary" => 7.5, "secondary" => 7, "tertiary" => 6,
+      "unclassified" => 5, "residential" => 4.5, "link" => 5,
       # Railways: the track bed plus clearance to the lineside fence.
       "rail" => 5, "light_rail" => 4, "subway" => 4, "narrow_gauge" => 3
     }.freeze
+
+    # A pin on a canopy means the building this close to it (see
+    # shop_by_canopy).
+    CANOPY_SHOP_M = 15
 
     # A driveway reaches a public road when it comes this close to one.
     ENTRANCE_MAX_M = 15
@@ -92,6 +99,8 @@ module Curtilage
       house_street_m: 25,            # ... when two more small buildings are this close
       parking_reach_m: 20,           # grow_trim: parking this close (an aisle and a walkway) is its lot
       shared_lot_buildings: 3,       # grow_trim: a lot touching this many other buildings is shared
+      aisle_m: 9,                    # grow_trim: this much either side of service roads by the building is parking
+      lot_share_reach_m: 5,          # grow_trim: another building this close to a lot (across a walkway) shares it
       small_building_m2: 50,         # flag: a building this small may be a kiosk or shed, not the site
       parking_max_extent_m: 60,      # grow_trim: claim parking at most this far from the building
       building_margin_m: 20,         # building: margin around its rectangle
@@ -122,15 +131,16 @@ module Curtilage
     RANGES = {
       building_max_distance_m: DISTANCE, pin_clearance_m: DISTANCE, building_clearance_m: DISTANCE,
       grow_m: DISTANCE, road_offset_m: DISTANCE, neighbour_gap_m: DISTANCE, house_street_m: DISTANCE,
-      parking_reach_m: DISTANCE, parking_max_extent_m: DISTANCE, building_margin_m: DISTANCE,
-      approach_m: DISTANCE, pickup_m: DISTANCE, snap_m: DISTANCE, unit_m: DISTANCE,
+      parking_reach_m: DISTANCE, lot_share_reach_m: DISTANCE, parking_max_extent_m: DISTANCE,
+      building_margin_m: DISTANCE,
+      approach_m: DISTANCE, pickup_m: DISTANCE, aisle_m: DISTANCE, snap_m: DISTANCE, unit_m: DISTANCE,
       large_building_m2: AREA, large_building_note_m2: AREA, neighbour_min_area_m2: AREA,
       neighbour_strip_min_area_m2: AREA, house_max_m2: AREA, small_building_m2: AREA,
       shared_lot_buildings: [1, 1_000, true], max_vertices: [4, 50, true], max_store_vertices: [3, 200, true],
       precision: [5, 15, true]
     }.freeze
     # Options where nil means "work it out" (by road class; halfway).
-    NIL_ALLOWED = %i[road_offset_m neighbour_gap_m approach_m pickup_m snap_m unit_m].freeze
+    NIL_ALLOWED = %i[road_offset_m neighbour_gap_m approach_m pickup_m snap_m unit_m aisle_m].freeze
 
     module_function
 
@@ -372,7 +382,7 @@ module Curtilage
     # The smallest building under the pin, else the nearest one close enough.
     # Flags a large one: the site may be one unit of it.
     def find_building(features, opts, log)
-      target = building_under_pin(features, log) || nearest_building(features, opts, log)
+      target = site_building(features, opts, log)
       if target&.kind == "ml_building"
         log.flag(:ml_footprint, "building #{target.id} is a machine-learned footprint, not mapped in OSM: " \
                                 "check it exists", step: "check_building", features: [target.id])
@@ -391,6 +401,29 @@ module Curtilage
                  step: "check_building", rule: "large_building_note_m2", features: [target.id])
       end
       target
+    end
+
+    def site_building(features, opts, log)
+      target = building_under_pin(features, log) || nearest_building(features, opts, log)
+      target && LOT_TYPES.include?(target.category) ? shop_by_canopy(target, features, opts, log) : target
+    end
+
+    # A pin on a canopy (fuel pumps, a drive-through roof, mapped as
+    # building=roof) means the business in the building beside it: that is
+    # the store, and the canopy counts as part of its lot. Kept when no
+    # building stands within CANOPY_SHOP_M.
+    def shop_by_canopy(canopy, features, opts, log)
+      gap = ->(b) { Geometry.closest_points(b.xy, canopy.xy).first }
+      shops = features.buildings.select do |b|
+        !LOT_TYPES.include?(b.category) && b.area >= opts[:neighbour_min_area_m2] && !home?(b, features, opts) &&
+          gap.call(b) <= CANOPY_SHOP_M
+      end
+      shop = shops.min_by(&gap) or return canopy
+
+      log.note("building #{canopy.id} is a #{canopy.category} (a canopy): the store is building #{shop.id} " \
+               "beside it (#{shop.area.round} m2), the canopy part of its lot",
+               step: "find_building", features: [canopy.id, shop.id])
+      shop
     end
 
     def building_under_pin(features, log)

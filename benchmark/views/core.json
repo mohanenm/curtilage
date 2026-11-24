@@ -1,0 +1,7 @@
+{
+  "name": "core",
+  "description": "Only what every view agrees on: the site's own building, walkways, parking, drive-through, forecourt and entrances in; roads, neighbours, homes, railways and open land out. Shared parking, service yards, landscaping and centre roads are ignored, so no convention for shared lots or back of house counts. The use-neutral number to judge rule changes by.",
+  "options": {},
+  "in": ["building", "walkway", "own_parking", "drive_through", "forecourt", "entrance"],
+  "out": ["public_road", "neighbour_lot", "neighbour_building", "residential", "railway", "open_land"]
+}

@@ -14,14 +14,17 @@ bundle exec rake "benchmark:compare[OLD.json,NEW.json]"     # what changed betwe
 bundle exec rake benchmark:baseline                         # run, and save the numbers as benchmark/baseline.json
 bundle exec rake benchmark:label_page                       # write the labelling page (data/benchmark/label.html)
 bundle exec rake benchmark:gallery                          # write the gallery (docs/gallery/index.html)
+CURTILAGE_BENCHMARK_HOLDOUT=1 bundle exec rake benchmark     # score only the held-out sites (final checks)
+bundle exec rake benchmark:parcels                          # fetch each site's tax parcel (data/benchmark/parcels)
 ```
 
 It needs the DuckDB CLI, like the gem (`curtilage doctor` checks). Each run:
 
 - reads each site's map data from the Overture release pinned in `config.json`, once, and caches it under `data/benchmark/cache/<release>/` (gitignored: it's OpenStreetMap data). Later runs are offline and give the same input;
-- generates premises with the options in `config.json`, plus any `options` a site sets;
+- generates premises with the options in `config.json` (`buildings: osm_or_ml`, what an Overture read gives users by default), plus any `options` a site sets;
 - scores each result: whether it passed validation, its overlap (IoU) with the reference and its area against the reference's, its flags, whether it fell back, and how long it took; then totals them overall and per category;
-- for each site with labels, scores every view, the points placed by hand and the page's random points apart: the share of its "in" points the premises catch and of its "out" points they take in (averaged per site, so big lots don't count for more), errors overall and beyond 3 m of the edge (within GPS error), sites with a hard failure (a missed entrance, building, drive-through or forecourt; a public road, neighbouring building, home or railway taken in), and a tally per kind;
+- for each site with labels, scores every view, the points placed by hand and the page's random points apart: the share of its "in" points the premises catch and of its "out" points they take in (averaged per site, so big lots don't count for more), errors overall and beyond 3 m of the edge (within GPS error), sites with a hard failure (a missed building, drive-through or forecourt; a public road, neighbouring building, home or railway taken in), and a tally per kind;
+- for each site whose tax parcel was fetched (`benchmark:parcels`, from the state's own parcel service; cached under `data/benchmark/parcels/`, never committed), compares the premises with the parcel, and scores the parcel itself on the labels as if it were the result. Nobody drew parcels for any use of curtilage, so they are a baseline with no convention for shared lots built in. A parcel isn't the premises: it usually stops at the road's right-of-way, short of the kerb, and a shopping centre can be one parcel. Fetching sends each site's location to that state's server;
 - prints a table and saves the full run, polygons included, to `data/benchmark/runs/` (gitignored). `benchmark:baseline` also writes `benchmark/baseline.json`, numbers only, which is committed so runs can be compared over time.
 
 IoU against a hand-drawn polygon is only a guide: references often hug the building more tightly than the whole lot curtilage aims for. Look at the preview too (`curtilage preview`) before judging a change.
@@ -38,7 +41,8 @@ If Overture retires the pinned release, pin a newer one in `config.json`, run `b
 - `views/<name>.json`: a view: `name`, `description`, `options` (curtilage options it scores, e.g. `{ "scope": "centre" }`), and the kinds it counts `in` and `out` (the rest are ignored).
 - `config.json`: the pinned Overture release and the options every run uses.
 - `LABELS.md`: the labelling guide.
-- `runner.rb`, `labels.rb`, `label_page.rb`, `gallery.rb`, `check_sites.rb` and `../rakelib/benchmark.rake`: the code.
+- `vendor/leaflet-1.9.4/`: Leaflet (BSD 2-Clause), inlined into the labelling page.
+- `runner.rb`, `labels.rb`, `label_page.rb`, `gallery.rb`, `parcels.rb`, `check_sites.rb` and `../rakelib/benchmark.rake`: the code.
 
 ## Your own sites and views
 
@@ -46,7 +50,7 @@ Set `CURTILAGE_BENCHMARK_DIR` to a folder laid out like this one (`sites.geojson
 
 - map data is **never fetched**: put each site's features in `cache/<id>.json` as `{ "pin": [lng, lat], "features": [...] }`, from local data, e.g. `Curtilage::Lookup.features(parquet: "data/features/<region>.parquet", pin: pin)` on a local build (`curtilage build`);
 - runs are saved in the folder's `runs/`, and `benchmark:baseline` refuses to run;
-- `benchmark:label_page` refuses unless `ALLOW_IMAGERY=1`, because the page loads imagery tiles from USGS, which sends the sites' locations there.
+- `benchmark:label_page` builds the page without imagery, drawing the cached map data instead, unless `ALLOW_IMAGERY=1`: USGS imagery would send the sites' areas to USGS. `LABEL_IMAGERY=off` does the same for the public sites. Either way the page loads nothing but those images (its Content-Security-Policy allows only the two USGS hosts).
 
 ## Categories
 

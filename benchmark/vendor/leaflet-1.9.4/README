@@ -1,0 +1,3 @@
+Leaflet 1.9.4 (BSD 2-Clause, see LICENSE), from the npm package leaflet@1.9.4
+(sha512-nxS1ynzJOmOlHp+iL3FyWqK89GtNL8U8rvlMOsQdTTssxZwCXh8N2NB3GDQOL+YR3XnWyZAxwQixURb+FA74PA==).
+Inlined into the labelling page so it loads no script from anywhere.

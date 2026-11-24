@@ -1,4 +1,4 @@
 {
   "overture_release": "2026-11-18.0",
-  "options": {}
+  "options": { "buildings": "osm_or_ml" }
 }

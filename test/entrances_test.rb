@@ -62,9 +62,11 @@ class EntrancesTest < Minitest::Test
 
   # A frontage road along the street serves the whole block: the walk
   # follows it at most ALONG_STREET_M past the lot, not to its far end.
+  # (aisle_m off, so the lot is the mapped one and the walk is all that's
+  # measured.)
   def test_frontage_roads_are_not_followed_along_the_street
     raw = scene.reject { |f| f["id"] == 2 } + [road(11, "service", [[-30, 0], [-30, -28], [250, -28], [250, -40]])]
-    result = Curtilage.generate(PIN, raw, entrances: :all)
+    result = Curtilage.generate(PIN, raw, entrances: :all, aisle_m: nil)
 
     assert result.ok?
     assert_operator xy(result).map(&:first).max, :<, 63 + Curtilage::Generator::ALONG_STREET_M + 5

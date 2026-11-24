@@ -2,6 +2,7 @@
 
 require_relative "test_helper"
 require_relative "../benchmark/runner"
+require "digest"
 require "tmpdir"
 
 # Scoring against labelled points (benchmark/labels.rb), on made-up places.
@@ -31,7 +32,7 @@ class BenchmarkLabelsTest < Minitest::Test
     assert_equal [3, 2, 3, 1], score.values_at("in", "caught", "out", "included")
     assert_equal 2, B.errors(score)
     assert_equal 1, score["wrong_near_edge"] # the road point 1 m inside the edge
-    assert_equal ["missed entrance", "took in public_road"], score["hard"]
+    assert_equal ["took in public_road"], score["hard"] # a missed entrance is only a missed point
     assert_equal({ "n" => 2, "right" => 1 }, score["kinds"]["public_road"])
     refute score["kinds"].key?("sidewalk")
   end
@@ -55,12 +56,23 @@ class BenchmarkLabelsTest < Minitest::Test
 
   def test_gallery_says_what_failed_and_loads_nothing
     site = { "id" => "made-up", "category" => "standalone", "notes" => "A made-up site.", "pin" => PIN }
-    html = Dir.mktmpdir { |dir| B.gallery([site], { "made-up" => scene }, dir, VIEW, {}) }
+    html = Dir.mktmpdir { |dir| B.gallery([site], { "made-up" => scene }, dir, VIEW, {}, public_sites: [site]) }
     note = B.gallery_note(site, Curtilage.generate(PIN, scene), labels, VIEW)
 
     assert_includes html, "standalone: A made-up site. Not labelled yet."
     refute_match(%r{https?://|(src|href)=}, html)
-    assert_match(/caught \d of 3 .* took in \d of 3 .* Failed: missed entrance/, note)
+    assert_match(/caught \d of 3 points that should be in, took in \d of 3/, note)
+  end
+
+  # The gallery is published: a site not in the public benchmark, or one
+  # whose pin differs from it, is refused.
+  def test_gallery_refuses_sites_outside_the_public_benchmark
+    public_site = B.sites.first
+    moved = public_site.merge("pin" => [public_site["pin"][0] + 0.01, public_site["pin"][1]])
+    [{ "id" => "private-store", "pin" => PIN }, moved].each do |site|
+      error = assert_raises(ArgumentError) { B.gallery([site], {}, nil, VIEW, {}) }
+      assert_includes error.message, "public benchmark sites only"
+    end
   end
 
   def test_stats_average_per_site_and_changes_are_paired
@@ -70,7 +82,7 @@ class BenchmarkLabelsTest < Minitest::Test
 
     assert_in_delta (2.0 / 3) / 2, stats["in_caught"], 0.001
     assert_in_delta (1.0 / 3) / 2, stats["out_included"], 0.001
-    assert_equal 2, stats["hard_failures"]
+    assert_equal 1, stats["hard_failures"] # the road taken in; missed entrances are only missed points
 
     old = { "sites" => [{ "id" => "a", "views" => { "test" => none } }] }
     new = { "sites" => [{ "id" => "a", "views" => { "test" => good } }] }
@@ -97,7 +109,7 @@ class BenchmarkLabelsTest < Minitest::Test
   def test_the_shipped_views_load_and_cover_only_known_kinds
     views = B.views(File.join(B::DIR, "views"))
 
-    assert_equal %w[arrival centre default], views.keys.sort
+    assert_equal %w[arrival centre core default], views.keys.sort
     assert_equal({ "scope" => "centre" }, views["centre"]["options"])
   end
 
@@ -115,6 +127,8 @@ end
 # The labelling page: every kind has a key, site text can't end the script,
 # and only public-domain imagery is offered.
 class LabelPageTest < Minitest::Test
+  include SyntheticScene
+
   B = CurtilageBenchmark
 
   def test_page_lists_kinds_and_escapes_site_text
@@ -126,5 +140,28 @@ class LabelPageTest < Minitest::Test
     B::KINDS.each { |k| assert_includes html, "\"#{k}\"" }
     refute_includes html, "</script><b>"
     refute_includes html, "Esri"
+  end
+
+  # Leaflet is inlined; only the page's own code runs (by hash), and images
+  # load from the USGS hosts only, or from nowhere with imagery off.
+  def test_page_loads_nothing_but_usgs_imagery
+    sites = [{ "id" => "a", "category" => "standalone", "notes" => "", "pin" => PIN }]
+    on, off = [true, false].map do |imagery|
+      Dir.mktmpdir { |dir| B.label_page(sites, dir, imagery: imagery, context: { "a" => scene }) }
+    end
+    policy = ->(html) { html[/<meta http-equiv="Content-Security-Policy" content="([^"]+)"/, 1] }
+
+    refute_match(/<(script|link|img)[^>]+(src|href)=/, on)
+    %w[script style].each do |tag|
+      on.scan(%r{<#{tag}>(.*?)</#{tag}>}m).each do |(code)|
+        assert_includes policy.call(on), "'sha256-#{Digest::SHA256.base64digest(code)}'"
+      end
+    end
+    assert_includes policy.call(on), "default-src 'none'"
+    assert_includes policy.call(on), "img-src #{B::IMAGERY_HOSTS.join(" ")};"
+    assert_includes policy.call(off), "img-src 'none'"
+    assert_includes off, "IMAGERY = false"
+    assert_includes off, '"buildings":[[['
+    refute_includes on, '"context"'
   end
 end

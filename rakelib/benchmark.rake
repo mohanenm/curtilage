@@ -23,8 +23,9 @@ namespace :benchmark do
 
   desc "Run the benchmark and save its numbers (no polygons) as benchmark/baseline.json"
   task :baseline do
-    if benchmark.paths[:private]
-      abort "benchmark:baseline is for the public benchmark only (CURTILAGE_BENCHMARK_DIR is set)"
+    if benchmark.paths[:private] || ENV["CURTILAGE_BENCHMARK_HOLDOUT"] == "1"
+      abort "benchmark:baseline is for the public benchmark's tuning sites only " \
+            "(unset CURTILAGE_BENCHMARK_DIR and CURTILAGE_BENCHMARK_HOLDOUT)"
     end
     run = benchmark.run
     puts benchmark.table(run)
@@ -34,17 +35,20 @@ namespace :benchmark do
 end
 
 namespace :benchmark do
-  desc "Write the labelling page (data/benchmark/label.html, or label.html in CURTILAGE_BENCHMARK_DIR)"
+  desc "Write the labelling page (data/benchmark/label.html, or label.html in CURTILAGE_BENCHMARK_DIR); " \
+       "LABEL_IMAGERY=off loads no imagery"
   task :label_page do
     paths = benchmark.paths
-    if paths[:private] && ENV["ALLOW_IMAGERY"] != "1"
-      abort "The labelling page loads USGS imagery for each site, which sends the sites' locations to USGS. " \
-            "Set ALLOW_IMAGERY=1 only if that's allowed for these sites."
-    end
+    # USGS imagery sends each site's area to USGS: on for the public sites,
+    # off for a private folder unless ALLOW_IMAGERY=1.
+    imagery = ENV["LABEL_IMAGERY"] != "off" && (!paths[:private] || ENV["ALLOW_IMAGERY"] == "1")
+    sites = benchmark.sites
+    dir = File.join(paths[:cache], benchmark.config.fetch("overture_release"))
+    context = imagery ? {} : sites.to_h { |s| [s["id"], benchmark.cached(dir, s)] }.compact
     out = File.join(File.dirname(paths[:runs]), "label.html")
     FileUtils.mkdir_p(File.dirname(out))
-    File.write(out, benchmark.label_page(benchmark.sites, paths[:labels]))
-    puts "wrote #{out}: open it in a browser"
+    File.write(out, benchmark.label_page(sites, paths[:labels], imagery: imagery, context: context))
+    puts "wrote #{out}#{" (imagery off: nothing is loaded from anywhere)" unless imagery}: open it in a browser"
   end
 end
 
@@ -54,12 +58,23 @@ namespace :benchmark do
     paths = benchmark.paths
     abort "benchmark:gallery is for the public benchmark only (CURTILAGE_BENCHMARK_DIR is set)" if paths[:private]
     config = benchmark.config
-    sites = benchmark.sites
+    sites = benchmark.scored_sites
     html = benchmark.gallery(sites, benchmark.features(sites, config.fetch("overture_release")), paths[:labels],
                              benchmark.views(*paths[:views]).fetch("default"), config.fetch("options", {}))
     out = File.expand_path("../docs/gallery/index.html", __dir__)
     FileUtils.mkdir_p(File.dirname(out))
     File.write(out, html)
     puts "wrote #{out}"
+  end
+end
+
+namespace :benchmark do
+  desc "Fetch each public benchmark site's tax parcel from its state's parcel service (into data/benchmark/parcels)"
+  task :parcels do
+    if benchmark.paths[:private]
+      abort "benchmark:parcels is for the public benchmark only (CURTILAGE_BENCHMARK_DIR is set)"
+    end
+    found = benchmark.fetch_parcels(benchmark.sites)
+    found.each { |id, ring| puts "#{id}: #{ring ? "parcel" : "none"}" }
   end
 end

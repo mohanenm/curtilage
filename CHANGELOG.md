@@ -2,6 +2,14 @@
 
 ## [Unreleased]
 
+### Changed
+
+- A lot counts as shared only with buildings within 5 m of it (`lot_share_reach_m`, new), not every building within 20 m (`parking_reach_m`, which still decides whether a lot is the site's). Buildings across an aisle or behind the lot no longer split it, so more of a site's own parking is taken in. On the public benchmark's labels: own-parking points caught 306 to 316 of 413, with no more far shared parking taken in. `lot_share_reach_m: 20` restores the old behaviour.
+- Lots that OpenStreetMap maps only as service roads (aisles and driveways, no parking area drawn) are taken in: a 9 m strip either side of each service road near the building counts as parking (`aisle_m`, new; `aisle_m: nil` turns it off). On the public benchmark's labels: own-parking points caught 316 to 335 of 413, the share of uncontested "in" points caught 67.5% to 70.9%, with no more roads, homes, neighbours' lots or far shared parking taken in.
+- A pin on a canopy (fuel pumps or a drive-through roof, mapped as `building=roof`) now means the building beside it, within 15 m: that's the store, and the canopy part of its lot. The shop was treated as a neighbour, so a fuel station's premises stopped short of its own forecourt.
+- Premises reach closer to the kerb: the half road widths by class are measured on the public benchmark's labels instead of guessed, and set halfway back toward the old figures, as OSM centrelines are often off-centre. Trunk 10 to 8.5 m, primary 9 to 7.5, secondary 8 to 7, tertiary 7 to 6, residential 5 to 4.5. Entrances caught on the labels went from 21 to 26 of 65, with one road point of 329 taken in.
+- Faster: the driveway search measures only the roads near each driveway. Median time per site on the benchmark 25 ms to 17 ms without aisle strips, 32 ms with them (results unchanged).
+
 ## [0.5.0] - 2026-11-23
 
 ### Added

@@ -21,7 +21,7 @@ class StepsTest < Minitest::Test
     assert_equal({ rule: "grow_m", features: [1], distance_m: 30 }, steps["grow"].slice(:rule, :features, :distance_m))
     trim = steps["trim_road"]
 
-    assert_equal ["road_class_half_width", [4], 8.0], trim.values_at(:rule, :features, :distance_m)
+    assert_equal ["road_class_half_width", [4], 7.0], trim.values_at(:rule, :features, :distance_m)
     assert_equal steps["grow"][:area_after_m2], trim[:area_before_m2]
     assert_operator trim[:area_after_m2], :<, trim[:area_before_m2]
     assert_equal steps["add_lot"][:area_before_m2], trim[:area_after_m2]

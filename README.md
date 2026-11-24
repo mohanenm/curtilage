@@ -117,7 +117,7 @@ The code is MIT-licensed; the polygons are not. Every result is derived from [Op
    - **Many pins in one region, or a region already cached: a Geofabrik build.** The gem downloads only the layers it needs from that region's shapefiles and builds a compact Parquet file, 1-5 minutes per US state, then answers instantly.
    - Or force one: `source: :geofabrik` (the host only ever learns the region, never the area) or `source: :overture`. Or use your own prebuilt files (`curtilage build`), local or in a bucket.
 2. **Generate.** Start from the building at the pin and grow its rectangle 30 m toward its lot, then:
-   - stop at public roads, half a typical road width short of the centreline (by road class) but at least 3 m out from the building, following each road's direction; and at railways;
+   - stop at public roads, half a typical road width short of the centreline (by road class, measured on the benchmark's labels) but at least 3 m out from the building, following each road's direction; and at railways;
    - take in the site's mapped parking (a lot shared with a few buildings is claimed whole; a shopping-centre lot is split by nearest building), parking garages, canopies, and driveways to the street;
    - stop 3 m short of neighbouring buildings, or halfway when the site is behind a house (its back yard);
    - fall back to the building's rectangle plus a margin if that fails validation.
@@ -201,7 +201,7 @@ For examples, the [gallery](https://mohanenm.github.io/curtilage/gallery/) is th
 
 At the top, a count of sites that are ok, flagged or unusable, and controls to show only some (sites that need a look, invalid ones, or those with a given flag) and to sort them (input order, needs a look first, lowest confidence first, id, or premises size).
 
-![The preview page: two of six randomly chosen sites, each drawn with its premises, store zone, parking, roads and driveway entrances](https://raw.githubusercontent.com/mohanenm/curtilage/main/docs/preview.png)
+![The preview page: two of six public benchmark sites, each drawn with its premises, store zone, parking, roads and driveway entrances](https://raw.githubusercontent.com/mohanenm/curtilage/main/docs/preview.png)
 
 *Randomly chosen locations, not real sites. Map data © OpenStreetMap contributors.*
 
@@ -299,6 +299,7 @@ Pins never leave the machine as coordinates: they aren't put in any URL or reque
 - The gem's own downloads go only to Geofabrik, Overture's catalogue and Microsoft's footprint host, and anything else is refused. DuckDB reads Overture's storage, your bucket and its extension repository itself.
 - If a DuckDB query fails, its error message can quote part of the query, including the coordinates of the box around a pin. That stays on your machine unless your app forwards errors to an outside service.
 - To guarantee nothing leaves the machine, set `CURTILAGE_OFFLINE=1` and use prebuilt files or a cache: downloads, extension installs and Overture or bucket reads are then refused.
+- The benchmark's labelling page (repository tooling, not the gem) loads public-domain imagery from USGS (`imagery.nationalmap.gov`, `basemap.nationalmap.gov`), which learns the area of each site you label; build it with `LABEL_IMAGERY=off` to load nothing, the default for a private benchmark folder. `rake benchmark:parcels` sends the public benchmark sites' locations to the state parcel services. Neither runs during generation.
 - The preview page loads nothing from the internet. Building the Docker image fetches DuckDB from its GitHub releases and its extensions from DuckDB's repository.
 
 ## Layout

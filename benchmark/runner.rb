@@ -8,6 +8,7 @@ require "curtilage"
 require_relative "labels"
 require_relative "label_page"
 require_relative "gallery"
+require_relative "parcels"
 
 # The public benchmark (not part of the gem): runs curtilage on the sites in
 # benchmark/sites.geojson against a pinned Overture release, scores each
@@ -35,11 +36,13 @@ module CurtilageBenchmark
       root = File.expand_path(private_dir)
       return { sites: File.join(root, "sites.geojson"), labels: File.join(root, "labels"),
                references: File.join(root, "reference"), views: [File.join(DIR, "views"), File.join(root, "views")],
-               cache: File.join(root, "cache"), runs: File.join(root, "runs"), private: true }
+               cache: File.join(root, "cache"), runs: File.join(root, "runs"), parcels: File.join(root, "parcels"),
+               private: true }
     end
 
     { sites: File.join(DIR, "sites.geojson"), labels: File.join(DIR, "labels"), references: File.join(DIR, "reference"),
-      views: [File.join(DIR, "views")], cache: File.join(DATA, "cache"), runs: File.join(DATA, "runs"), private: false }
+      views: [File.join(DIR, "views")], cache: File.join(DATA, "cache"), runs: File.join(DATA, "runs"),
+      parcels: File.join(DATA, "parcels"), private: false }
   end
 
   # config.json, with any options in CURTILAGE_BENCHMARK_OPTIONS (a JSON
@@ -97,13 +100,23 @@ module CurtilageBenchmark
     data["pin"] == site["pin"] ? data["features"] : nil
   end
 
-  def run(sites: self.sites, features: nil, references: paths[:references], config: self.config,
+  # Held-out sites ("holdout": true) are never scored with the rest, so rule
+  # changes can't be tuned on them: CURTILAGE_BENCHMARK_HOLDOUT=1 scores
+  # only them, for a final check.
+  def scored_sites(all = sites)
+    holdout = ENV["CURTILAGE_BENCHMARK_HOLDOUT"] == "1"
+    all.select { |s| (s["holdout"] == true) == holdout }
+  end
+
+  def run(sites: scored_sites, features: nil, references: paths[:references], config: self.config,
           labels: paths[:labels], views: self.views(*paths[:views]))
     release = config.fetch("overture_release")
     data = features || self.features(sites, release, **(paths[:private] ? { fetch: method(:refuse_fetch) } : {}))
     rows = sites.map do |site|
-      run_site(site, data.fetch(site["id"]), references, config.fetch("options", {}))
-        .merge(label_scores(site, data.fetch(site["id"]), self.labels(site["id"], labels), views, config))
+      row = run_site(site, data.fetch(site["id"]), references, config.fetch("options", {}))
+      site_labels = self.labels(site["id"], labels)
+      row.merge(label_scores(site, data.fetch(site["id"]), site_labels, views, config))
+         .merge(parcel_scores(site, row["ring"], site_labels, views))
     end
     { "gem_version" => Curtilage::VERSION, "commit" => commit, "overture_release" => release,
       "options" => config.fetch("options", {}), "run_at" => Time.now.utc.iso8601,
@@ -133,6 +146,23 @@ module CurtilageBenchmark
       score_labels(view, ring, labels, site["pin"])
     end
     { "views" => scores }
+  end
+
+  # { "parcel" => metrics } when the site's parcel is cached (rake
+  # benchmark:parcels): the premises against it, and the parcel itself
+  # scored on the labels as if it were the result.
+  def parcel_scores(site, ring, labels, views)
+    parcel = parcel(site["id"], site["pin"], paths[:parcels])
+    return {} unless parcel
+
+    lot = local(parcel, site["pin"])
+    metrics = against(lot, ring && local(ring, site["pin"]))
+    if ring
+      mine = local(ring, site["pin"])
+      metrics["inside_parcel"] = (G.overlap_area(lot, mine) / G.area(mine)).round(3)
+    end
+    metrics["views"] = views.transform_values { |view| score_labels(view, parcel, labels, site["pin"]) } if labels
+    { "parcel" => metrics }
   end
 
   def run_site(site, features, references, options)
@@ -176,7 +206,15 @@ module CurtilageBenchmark
     views = real.flat_map { |r| (r["views"] || {}).keys }.uniq
     { "all" => stats(real), "categories" => categories.transform_values { |r| stats(r) },
       "placeholders" => stats(rows.select { |r| r["placeholder"] }),
-      "views" => views.to_h { |v| [v, label_stats(real.filter_map { |r| r.dig("views", v) })] } }
+      "views" => views.to_h { |v| [v, label_stats(real.filter_map { |r| r.dig("views", v) })] },
+      "parcel" => parcel_summary(real.filter_map { |r| r["parcel"] }, views) }
+  end
+
+  def parcel_summary(parcels, views)
+    { "sites" => parcels.size, "median_iou" => median(parcels.filter_map { |p| p["iou"] }),
+      "median_area_ratio" => median(parcels.filter_map { |p| p["area_ratio"] }),
+      "median_inside_parcel" => median(parcels.filter_map { |p| p["inside_parcel"] }),
+      "views" => views.to_h { |v| [v, label_stats(parcels.filter_map { |p| p.dig("views", v) })] } }
   end
 
   def stats(rows)
@@ -236,7 +274,22 @@ module CurtilageBenchmark
   def table(run)
     header = "curtilage #{run["gem_version"]} (#{run["commit"]}), Overture #{run["overture_release"]}"
     [header, "", row("category", "sites", "valid", "median IoU", "area ratio", "fallbacks"), *category_rows(run), "",
-     row("site", "category", "ok", "IoU", "area ratio", "flags"), *site_rows(run), *label_table(run)].join("\n")
+     row("site", "category", "ok", "IoU", "area ratio", "flags"), *site_rows(run), *label_table(run),
+     *parcel_table(run)].join("\n")
+  end
+
+  # The premises against each site's tax parcel, and the parcel itself on
+  # the labels: what a "use the property line" method would score.
+  def parcel_table(run)
+    p = run.dig("summary", "parcel")
+    return [] unless p && p["sites"].to_i.positive?
+
+    ["", "parcels: #{p["sites"]} sites; premises vs parcel median IoU #{shown(p["median_iou"])}, area ratio " \
+         "#{shown(p["median_area_ratio"])}, share of premises inside the parcel #{shown(p["median_inside_parcel"])}",
+     *p["views"].reject { |_, s| s["sites"].zero? }.map do |name, s|
+       "  the parcel as the result, #{name}: in caught #{s["in_caught"]}, out taken #{s["out_included"]}, " \
+         "hard fails #{s["hard_failures"]}/#{s["sites"]}"
+     end]
   end
 
   def category_rows(run)
