@@ -52,19 +52,26 @@ module CurtilageBenchmark
 
   # Site-level facts the causes need.
   def diagnosis_context(site, result, labels)
-    target = result.features&.buildings&.find { |b| b.id == result.building }
-    { site: site, features: result.features, target: target, bucket: pin_bucket(site, result, target, labels),
+    parts = result.features&.buildings&.select { |b| b.id == result.building } || []
+    # A building can come in parts sharing one id: the rules used the one
+    # nearest the pin.
+    target = parts.min_by { |b| G.distance_to_edges(G.open_ring(b.xy), [0.0, 0.0]) }
+    { site: site, features: result.features, target: target, bucket: pin_bucket(site, result, parts, labels),
       large: large_building?(result, target), shared: result.flags.include?(:shared_lot),
       fallback: result.flags.include?(:fallback) }
   end
 
-  # Whether the pin is on the building the labels name as the business.
-  def pin_bucket(site, result, target, labels)
+  # Whether the pin is on the building the labels name as the business. A
+  # label on a canopy counts as right when the rules took the shop beside
+  # it: the canopy is part of the lot by design.
+  def pin_bucket(site, result, parts, labels)
     quality = result.pin_quality&.dig(:quality)
-    return "far_off" if target.nil? || quality == "far"
+    return "far_off" if parts.empty? || quality == "far"
 
     named = labels.select { |l| l["kind"] == "building" }.map { |l| G.project([l["point"]], site["pin"]).first }
-    return "wrong_building" if named.any? && named.none? { |p| G.contains?(G.open_ring(target.xy), p) }
+    canopies = result.features.buildings.select { |b| Curtilage::Generator::LOT_TYPES.include?(b.category) }
+    right = named.any? { |p| (parts + canopies).any? { |b| G.contains?(G.open_ring(b.xy), p) } }
+    return "wrong_building" if named.any? && !right
 
     quality == "on_building" ? "on_right_building" : "beside_right_building"
   end
