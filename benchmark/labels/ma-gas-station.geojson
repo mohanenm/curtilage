@@ -24,34 +24,6 @@
    "geometry": {
     "type": "Point",
     "coordinates": [
-     -71.2461421,
-     42.3734825
-    ]
-   }
-  },
-  {
-   "type": "Feature",
-   "properties": {
-    "kind": "own_parking",
-    "source": "hand"
-   },
-   "geometry": {
-    "type": "Point",
-    "coordinates": [
-     -71.2461421,
-     42.373534
-    ]
-   }
-  },
-  {
-   "type": "Feature",
-   "properties": {
-    "kind": "own_parking",
-    "source": "hand"
-   },
-   "geometry": {
-    "type": "Point",
-    "coordinates": [
      -71.2462708,
      42.3736192
     ]
@@ -242,7 +214,7 @@
   {
    "type": "Feature",
    "properties": {
-    "kind": "entrance",
+    "kind": "centre_entrance",
     "source": "hand"
    },
    "geometry": {
@@ -620,7 +592,7 @@
   {
    "type": "Feature",
    "properties": {
-    "kind": "neighbour_lot",
+    "kind": "shared_parking_near",
     "source": "hand"
    },
    "geometry": {
@@ -634,7 +606,7 @@
   {
    "type": "Feature",
    "properties": {
-    "kind": "neighbour_lot",
+    "kind": "shared_parking_near",
     "source": "hand"
    },
    "geometry": {
@@ -648,7 +620,7 @@
   {
    "type": "Feature",
    "properties": {
-    "kind": "neighbour_lot",
+    "kind": "shared_parking_near",
     "source": "hand"
    },
    "geometry": {
@@ -662,7 +634,7 @@
   {
    "type": "Feature",
    "properties": {
-    "kind": "neighbour_lot",
+    "kind": "shared_parking_near",
     "source": "hand"
    },
    "geometry": {

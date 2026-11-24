@@ -1480,20 +1480,6 @@
    "geometry": {
     "type": "Point",
     "coordinates": [
-     -76.7653584,
-     39.2874542
-    ]
-   }
-  },
-  {
-   "type": "Feature",
-   "properties": {
-    "kind": "drive_through",
-    "source": "hand"
-   },
-   "geometry": {
-    "type": "Point",
-    "coordinates": [
      -76.7640656,
      39.2885296
     ]

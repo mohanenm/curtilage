@@ -172,20 +172,6 @@
   {
    "type": "Feature",
    "properties": {
-    "kind": "entrance",
-    "source": "hand"
-   },
-   "geometry": {
-    "type": "Point",
-    "coordinates": [
-     -75.7196188,
-     39.4594403
-    ]
-   }
-  },
-  {
-   "type": "Feature",
-   "properties": {
     "kind": "centre_entrance",
     "source": "hand"
    },

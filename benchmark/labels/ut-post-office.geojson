@@ -102,7 +102,7 @@
   {
    "type": "Feature",
    "properties": {
-    "kind": "own_parking",
+    "kind": "shared_parking_near",
     "source": "hand"
    },
    "geometry": {
@@ -116,7 +116,7 @@
   {
    "type": "Feature",
    "properties": {
-    "kind": "own_parking",
+    "kind": "shared_parking_near",
     "source": "hand"
    },
    "geometry": {

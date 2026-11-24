@@ -438,7 +438,7 @@
   {
    "type": "Feature",
    "properties": {
-    "kind": "neighbour_lot",
+    "kind": "landscaping",
     "source": "hand"
    },
    "geometry": {
