@@ -25,6 +25,7 @@ In scope:
 - Parsing untrusted input: pin files and map data.
 - Outputs: the HTML preview, CSV, KML, GeoJSON and files written with `--out`.
 - The repository's Docker image and CI workflows.
-- `curtilage serve`, once it exists.
+- `curtilage serve`, the HTTP API.
+- The repository's benchmark tooling (not part of the gem): the labelling page, which loads USGS imagery under a Content-Security-Policy, and the parcel fetcher, which asks state parcel services for the public benchmark sites' parcels.
 
 Out of scope: vulnerabilities in DuckDB or its extensions themselves (report them to [DuckDB](https://github.com/duckdb/duckdb/security)); the accuracy of OpenStreetMap or Overture data; and anything that needs control of your configuration (`CURTILAGE_DUCKDB`, `setup_sql:`), which is trusted by design.
