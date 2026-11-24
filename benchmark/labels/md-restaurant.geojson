@@ -662,7 +662,7 @@
   {
    "type": "Feature",
    "properties": {
-    "kind": "entrance",
+    "kind": "centre_entrance",
     "source": "hand"
    },
    "geometry": {
