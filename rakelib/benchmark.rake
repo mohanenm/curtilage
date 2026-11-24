@@ -64,3 +64,14 @@ namespace :benchmark do
     puts "wrote #{out}"
   end
 end
+
+namespace :benchmark do
+  desc "Fetch each public benchmark site's tax parcel from its state's parcel service (into data/benchmark/parcels)"
+  task :parcels do
+    if benchmark.paths[:private]
+      abort "benchmark:parcels is for the public benchmark only (CURTILAGE_BENCHMARK_DIR is set)"
+    end
+    found = benchmark.fetch_parcels(benchmark.sites)
+    found.each { |id, ring| puts "#{id}: #{ring ? "parcel" : "none"}" }
+  end
+end

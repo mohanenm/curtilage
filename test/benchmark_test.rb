@@ -55,6 +55,26 @@ class BenchmarkTest < Minitest::Test
     assert_equal 1, summary["placeholders"]["sites"]
   end
 
+  # The smallest parcel containing the pin, from Polygon or MultiPolygon
+  # parts; geometry only is kept from a server's answer.
+  def test_parcel_is_the_smallest_containing_the_pin
+    ring = lambda { |half, dx = 0|
+      [[-half + dx, -half], [half + dx, -half], [half + dx, half], [-half + dx, half],
+       [-half + dx, -half]].map do |x, y|
+        lnglat(x, y)
+      end
+    }
+    doc = { "features" => [{ "geometry" => { "type" => "Polygon", "coordinates" => [ring.call(80)] } },
+                           { "geometry" => { "type" => "MultiPolygon",
+                                             "coordinates" => [[ring.call(5, 300)], [ring.call(40)]] } }] }
+    Dir.mktmpdir do |dir|
+      File.write(File.join(dir, "a.geojson"), JSON.generate(doc))
+
+      assert_equal ring.call(40), B.parcel("a", PIN, dir)
+      assert_nil B.parcel("missing", PIN, dir)
+    end
+  end
+
   def test_held_out_sites_are_scored_only_on_request
     sites = [site("a"), site("h").merge("holdout" => true)]
 

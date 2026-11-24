@@ -15,6 +15,7 @@ bundle exec rake benchmark:baseline                         # run, and save the 
 bundle exec rake benchmark:label_page                       # write the labelling page (data/benchmark/label.html)
 bundle exec rake benchmark:gallery                          # write the gallery (docs/gallery/index.html)
 CURTILAGE_BENCHMARK_HOLDOUT=1 bundle exec rake benchmark     # score only the held-out sites (final checks)
+bundle exec rake benchmark:parcels                          # fetch each site's tax parcel (data/benchmark/parcels)
 ```
 
 It needs the DuckDB CLI, like the gem (`curtilage doctor` checks). Each run:
@@ -23,6 +24,7 @@ It needs the DuckDB CLI, like the gem (`curtilage doctor` checks). Each run:
 - generates premises with the options in `config.json`, plus any `options` a site sets;
 - scores each result: whether it passed validation, its overlap (IoU) with the reference and its area against the reference's, its flags, whether it fell back, and how long it took; then totals them overall and per category;
 - for each site with labels, scores every view, the points placed by hand and the page's random points apart: the share of its "in" points the premises catch and of its "out" points they take in (averaged per site, so big lots don't count for more), errors overall and beyond 3 m of the edge (within GPS error), sites with a hard failure (a missed entrance, building, drive-through or forecourt; a public road, neighbouring building, home or railway taken in), and a tally per kind;
+- for each site whose tax parcel was fetched (`benchmark:parcels`, from the state's own parcel service; cached under `data/benchmark/parcels/`, never committed), compares the premises with the parcel, and scores the parcel itself on the labels as if it were the result. Nobody drew parcels for any use of curtilage, so they are a baseline with no convention for shared lots built in. A parcel isn't the premises: it usually stops at the road's right-of-way, short of the kerb, and a shopping centre can be one parcel. Fetching sends each site's location to that state's server;
 - prints a table and saves the full run, polygons included, to `data/benchmark/runs/` (gitignored). `benchmark:baseline` also writes `benchmark/baseline.json`, numbers only, which is committed so runs can be compared over time.
 
 IoU against a hand-drawn polygon is only a guide: references often hug the building more tightly than the whole lot curtilage aims for. Look at the preview too (`curtilage preview`) before judging a change.
