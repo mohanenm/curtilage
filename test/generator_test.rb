@@ -259,8 +259,9 @@ class GeneratorTest < Minitest::Test
   end
 
   def test_centre_scope_maps_the_whole_shopping_centre
-    centre = scene + [polygon("building", 11, -40, 22, -30, 32), polygon("building", 12, -40, -32, -30, -22),
-                      polygon("building", 13, -58, -5, -48, 5)]
+    centre = scene + [polygon("building", 11, -40, 22, -30, 32, type: "retail"),
+                      polygon("building", 12, -40, -32, -30, -22, type: "retail"),
+                      polygon("building", 13, -58, -5, -48, 5, type: "retail")]
     result = Curtilage.generate(PIN, centre, preset: :centre)
 
     assert_includes result.flags, :shopping_centre
@@ -268,6 +269,46 @@ class GeneratorTest < Minitest::Test
     xs = xy(result).map(&:first)
     assert_in_delta(-58, xs.min, 0.5)
     refute_includes Curtilage.generate(PIN, scene, preset: :centre).flags, :shopping_centre
+  end
+
+  # A centre whose lot OSM maps only as aisles: a kiosk on a service road
+  # that three shops front. scope: :centre finds it from the joined service
+  # roads and outlines it round them and the shops.
+  def centre_by_aisles
+    [polygon("building", 1, -4, -3, 4, 3), road(4, "secondary", [[-200, -60], [200, -60]]),
+     road(5, "service", [[-80, 12], [80, 12]]), road(6, "service", [[80, 12], [80, -40]]),
+     polygon("building", 11, -70, 22, -40, 40, type: "retail"),
+     polygon("building", 12, -20, 22, 20, 40, type: "retail"),
+     polygon("building", 13, 40, 22, 70, 40, type: "retail")]
+  end
+
+  def test_centre_scope_finds_a_centre_mapped_only_as_aisles
+    result = Curtilage.generate(PIN, centre_by_aisles, preset: :centre)
+    xs = xy(result).map(&:first)
+
+    assert_includes result.flags, :shopping_centre
+    assert_operator xs.min, :<, -60, "the far shop is in the centre"
+    assert_operator xs.max, :>, 60
+    assert result.ok?
+    refute_includes Curtilage.generate(PIN, centre_by_aisles).flags, :shopping_centre, "only with scope: :centre"
+  end
+
+  # The same service road behind houses is an alley, not a centre.
+  def test_an_alley_behind_houses_is_not_a_centre
+    homes = centre_by_aisles.map { |f| f["highway"] == "retail" ? f.merge("highway" => "house") : f }
+    result = Curtilage.generate(PIN, homes, preset: :centre)
+
+    refute_includes result.flags, :shopping_centre
+  end
+
+  # Over centre_max_m2 the whole centre isn't used: the site keeps its own share.
+  def test_a_centre_over_the_size_limit_keeps_the_sites_share
+    whole = Curtilage.generate(PIN, centre_by_aisles, preset: :centre)
+    result = Curtilage.generate(PIN, centre_by_aisles, preset: :centre, centre_max_m2: 1_000)
+
+    assert_includes result.flags, :large_centre
+    refute_includes result.flags, :shopping_centre
+    refute_equal whole.ring, result.ring
   end
 
   def test_store_ring_is_the_building_outline

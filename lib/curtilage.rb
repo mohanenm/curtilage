@@ -13,6 +13,7 @@ require_relative "curtilage/result"
 require_relative "curtilage/confidence"
 require_relative "curtilage/generator"
 require_relative "curtilage/generator_lot"
+require_relative "curtilage/generator_centre"
 require_relative "curtilage/generator_roads"
 require_relative "curtilage/generator_store"
 require_relative "curtilage/generator_details"
@@ -58,6 +59,8 @@ module Curtilage
     building_not_under_pin: "No building under the pin; the nearest one within 30 m was used.",
     store_may_be_unit: "The store zone is a building over 1,500 m2: the store may be one unit of it.",
     shopping_centre: "The whole shopping centre was mapped (scope: :centre).",
+    large_centre: "The centre is over centre_max_m2 (scope: :centre): the premises are the site's own share, " \
+                  "not the whole centre.",
     shared_lot: "The lot is shared with other buildings and was split by nearest building: where it really " \
                 "divides isn't in the map, so check the line.",
     pin_moved: "The pin wasn't on a building and was moved onto the nearest one (snap_m:): check it's the right one.",

@@ -317,6 +317,8 @@ module Curtilage
     def outline_budget(opts, log)
       extra = log.steps.to_a.any? { |s| s[:step] == "take_entrance" } ? 4 * (log.access || []).size : 0
       extra += 4 * log.steps.to_a.count { |s| s[:step] == "keep_off_neighbour" && s[:rule] == "neighbour_cut" }
+      # A whole centre traced round its aisles isn't a rectangle.
+      extra = Validation::DEFAULTS[:max_vertices] if log.steps.to_a.any? { |s| s[:step] == "whole_centre" }
       [opts[:max_vertices] + extra, Validation::DEFAULTS[:max_vertices]].min
     end
 
@@ -359,21 +361,6 @@ module Curtilage
         [[x + metres, y], [x - metres, y], [x, y + metres], [x, y - metres],
          [x + d, y + d], [x - d, y + d], [x + d, y - d], [x - d, y - d]]
       end)
-    end
-
-    # scope: :centre on a shared lot: the whole shopping centre, i.e. the
-    # shared lots plus every building on them, bounded by public roads.
-    def centre(shared, site)
-      features, target, opts, log = site.to_a
-      members = features.buildings.select do |b|
-        b.equal?(target) || (b.area >= opts[:neighbour_min_area_m2] && shared.any? { |lot| touches?(lot, b, opts) })
-      end
-      points = shared.flat_map(&:xy) + members.flat_map(&:hull)
-      poly = trim_at_roads(Geometry.counter_clockwise(Geometry.convex_hull(points)), features, target, opts, log)
-      log.flag(:shopping_centre, "mapped the whole shopping centre: #{members.size} buildings around " \
-                                 "#{shared.size} shared parking lot(s)",
-               step: "whole_centre", features: members.map(&:id) + shared.map(&:id), area_after_m2: m2(poly))
-      poly
     end
 
     def lot_label(lot)
