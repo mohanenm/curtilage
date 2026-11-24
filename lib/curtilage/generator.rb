@@ -92,7 +92,7 @@ module Curtilage
       house_street_m: 25,            # ... when two more small buildings are this close
       parking_reach_m: 20,           # grow_trim: parking this close (an aisle and a walkway) is its lot
       shared_lot_buildings: 3,       # grow_trim: a lot touching this many other buildings is shared
-      aisle_m: nil,                  # grow_trim: this much either side of service roads by the building is parking
+      aisle_m: 9,                    # grow_trim: this much either side of service roads by the building is parking
       lot_share_reach_m: 5,          # grow_trim: another building this close to a lot (across a walkway) shares it
       small_building_m2: 50,         # flag: a building this small may be a kiosk or shed, not the site
       parking_max_extent_m: 60,      # grow_trim: claim parking at most this far from the building

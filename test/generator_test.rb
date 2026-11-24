@@ -182,8 +182,8 @@ class GeneratorTest < Minitest::Test
   def test_aisle_m_takes_in_a_lot_mapped_only_as_service_roads
     aisles = [polygon("building", 1, -10, -7.5, 10, 7.5), road(4, "secondary", [[-200, -40], [200, -40]]),
               road(5, "service", [[-12, 0], [-60, 0]])]
-    plain = Curtilage.generate(PIN, aisles, method: :grow_trim)
-    strip = Curtilage.generate(PIN, aisles, method: :grow_trim, aisle_m: 9)
+    plain = Curtilage.generate(PIN, aisles, method: :grow_trim, aisle_m: nil)
+    strip = Curtilage.generate(PIN, aisles, method: :grow_trim)
 
     assert_in_delta(-40, xy(plain).map(&:first).min, 0.5)
     assert_operator xy(strip).map(&:first).min, :<, -55
