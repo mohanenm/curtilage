@@ -6,6 +6,10 @@
 
 - `CONTRIBUTING.md` (setup, tests, the benchmark, the no-real-site-data rule, how to report a bad polygon), issue templates (bad polygon, bug, feature request) and a pull request checklist, a code of conduct (Contributor Covenant 2.1) and a governance note. The README's Versioning section lists what 1.0 waits for.
 
+### Changed
+
+- Public benchmark: the held-out site `md-gas-station` is replaced by `md-gas-station-2` (a new seeded random pick): its Overture point had no gas station within 45 m, so there was no business to label.
+
 ### Fixed
 
 - `SECURITY.md` and `docs/security.md` name the HTTP API, the benchmark tooling's hosts and NDJSON input.
