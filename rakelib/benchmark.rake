@@ -35,17 +35,20 @@ namespace :benchmark do
 end
 
 namespace :benchmark do
-  desc "Write the labelling page (data/benchmark/label.html, or label.html in CURTILAGE_BENCHMARK_DIR)"
+  desc "Write the labelling page (data/benchmark/label.html, or label.html in CURTILAGE_BENCHMARK_DIR); " \
+       "LABEL_IMAGERY=off loads no imagery"
   task :label_page do
     paths = benchmark.paths
-    if paths[:private] && ENV["ALLOW_IMAGERY"] != "1"
-      abort "The labelling page loads USGS imagery for each site, which sends the sites' locations to USGS. " \
-            "Set ALLOW_IMAGERY=1 only if that's allowed for these sites."
-    end
+    # USGS imagery sends each site's area to USGS: on for the public sites,
+    # off for a private folder unless ALLOW_IMAGERY=1.
+    imagery = ENV["LABEL_IMAGERY"] != "off" && (!paths[:private] || ENV["ALLOW_IMAGERY"] == "1")
+    sites = benchmark.sites
+    dir = File.join(paths[:cache], benchmark.config.fetch("overture_release"))
+    context = imagery ? {} : sites.to_h { |s| [s["id"], benchmark.cached(dir, s)] }.compact
     out = File.join(File.dirname(paths[:runs]), "label.html")
     FileUtils.mkdir_p(File.dirname(out))
-    File.write(out, benchmark.label_page(benchmark.sites, paths[:labels]))
-    puts "wrote #{out}: open it in a browser"
+    File.write(out, benchmark.label_page(sites, paths[:labels], imagery: imagery, context: context))
+    puts "wrote #{out}#{" (imagery off: nothing is loaded from anywhere)" unless imagery}: open it in a browser"
   end
 end
 

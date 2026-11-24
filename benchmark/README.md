@@ -41,7 +41,8 @@ If Overture retires the pinned release, pin a newer one in `config.json`, run `b
 - `views/<name>.json`: a view: `name`, `description`, `options` (curtilage options it scores, e.g. `{ "scope": "centre" }`), and the kinds it counts `in` and `out` (the rest are ignored).
 - `config.json`: the pinned Overture release and the options every run uses.
 - `LABELS.md`: the labelling guide.
-- `runner.rb`, `labels.rb`, `label_page.rb`, `gallery.rb`, `check_sites.rb` and `../rakelib/benchmark.rake`: the code.
+- `vendor/leaflet-1.9.4/`: Leaflet (BSD 2-Clause), inlined into the labelling page.
+- `runner.rb`, `labels.rb`, `label_page.rb`, `gallery.rb`, `parcels.rb`, `check_sites.rb` and `../rakelib/benchmark.rake`: the code.
 
 ## Your own sites and views
 
@@ -49,7 +50,7 @@ Set `CURTILAGE_BENCHMARK_DIR` to a folder laid out like this one (`sites.geojson
 
 - map data is **never fetched**: put each site's features in `cache/<id>.json` as `{ "pin": [lng, lat], "features": [...] }`, from local data, e.g. `Curtilage::Lookup.features(parquet: "data/features/<region>.parquet", pin: pin)` on a local build (`curtilage build`);
 - runs are saved in the folder's `runs/`, and `benchmark:baseline` refuses to run;
-- `benchmark:label_page` refuses unless `ALLOW_IMAGERY=1`, because the page loads imagery tiles from USGS, which sends the sites' locations there.
+- `benchmark:label_page` builds the page without imagery, drawing the cached map data instead, unless `ALLOW_IMAGERY=1`: USGS imagery would send the sites' areas to USGS. `LABEL_IMAGERY=off` does the same for the public sites. Either way the page loads nothing but those images (its Content-Security-Policy allows only the two USGS hosts).
 
 ## Categories
 

@@ -1,12 +1,15 @@
 # frozen_string_literal: true
 
+require "digest"
 require "json"
 
 # The labelling page (see LABELS.md): one HTML file, opened locally, for
 # placing labelled points on public-domain USGS imagery and saving them as
 # <id>.geojson for the labels folder. It never shows curtilage's output, so
-# labels can't drift toward it. Opening it loads Leaflet from cdnjs and
-# imagery tiles from USGS for each site's area.
+# labels can't drift toward it. Leaflet is inlined (benchmark/vendor), and
+# the page's Content-Security-Policy lets it load images from the two USGS
+# imagery hosts only, and nothing else from anywhere. With imagery: false it
+# loads nothing at all and draws the cached map data instead.
 module CurtilageBenchmark
   # Shortcut keys, in the order of the kinds table.
   KEYS = "1234567890qwertyuiopa"
@@ -36,19 +39,49 @@ module CurtilageBenchmark
     "centre_building" => "Inside another business's separate building on the same shared lot or in the same centre " \
                          "(a pad, another strip). Units in this site's own building are building.",
   }.freeze
+  IMAGERY_HOSTS = %w[https://imagery.nationalmap.gov https://basemap.nationalmap.gov].freeze
+  LEAFLET = File.join(__dir__, "vendor", "leaflet-1.9.4")
+  # Map data drawn around the pin when imagery is off.
+  CONTEXT_M = 150
   RANDOM_POINTS = 15
   RANDOM_RADIUS_M = 120
 
   module_function
 
-  def label_page(sites, labels_dir)
+  # imagery: false loads no imagery (nothing leaves the machine); context:
+  # { id => raw map features } is then drawn as outlines instead.
+  def label_page(sites, labels_dir, imagery: true, context: {})
     data = sites.map do |s|
-      s.slice("id", "category", "notes", "pin").merge("labels" => labels(s["id"], labels_dir) || [])
+      site = s.slice("id", "category", "notes", "pin").merge("labels" => labels(s["id"], labels_dir) || [])
+      rows = context[s["id"]]
+      imagery || rows.nil? ? site : site.merge("context" => label_context(s["pin"], rows))
     end
     kinds = KINDS.each_with_index.map do |k, i|
       { "kind" => k, "key" => KEYS[i], "group" => kind_group(k), "note" => KIND_NOTES.fetch(k) }
     end
-    format(PAGE, sites: safe_json(data), kinds: safe_json(kinds), random: RANDOM_POINTS, radius: RANDOM_RADIUS_M)
+    html = format(PAGE, sites: safe_json(data), kinds: safe_json(kinds), random: RANDOM_POINTS,
+                        radius: RANDOM_RADIUS_M, imagery: imagery, csp: "__CSP__",
+                        leaflet_js: File.read(File.join(LEAFLET, "leaflet.js")),
+                        leaflet_css: File.read(File.join(LEAFLET, "leaflet.css")))
+    html.sub("__CSP__", label_csp(html, imagery))
+  end
+
+  # Only the page's own inline code may run, by hash; images only from the
+  # USGS hosts (none with imagery off); nothing else can load.
+  def label_csp(html, imagery)
+    hashes = ->(tag) { html.scan(%r{<#{tag}>(.*?)</#{tag}>}m).map { |(t)| "'sha256-#{Digest::SHA256.base64digest(t)}'" } }
+    "default-src 'none'; script-src #{hashes.call("script").join(" ")}; style-src #{hashes.call("style").join(" ")}; " \
+      "img-src #{imagery ? IMAGERY_HOSTS.join(" ") : "'none'"}; base-uri 'none'; form-action 'none'"
+  end
+
+  # Buildings, parking, roads and railways within CONTEXT_M of the pin, as
+  # [lng, lat] lists, for drawing when there's no imagery.
+  def label_context(pin, rows)
+    features = Curtilage::Features.new(pin, rows)
+    near = ->(list) { list.select { |f| f.xy.any? { |x, y| x.abs < CONTEXT_M && y.abs < CONTEXT_M } } }
+    shapes = ->(list) { near.call(list).map { |f| G.unproject(f.xy, pin).map { |p| p.map { |v| v.round(7) } } } }
+    { "buildings" => shapes.call(features.buildings), "parking" => shapes.call(features.parking),
+      "roads" => shapes.call(features.roads), "railways" => shapes.call(features.railways) }
   end
 
   # Colours group kinds by what they are, not by any view's in or out.
@@ -67,9 +100,10 @@ module CurtilageBenchmark
   PAGE = <<~HTML
     <!doctype html>
     <html><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
+    <meta http-equiv="Content-Security-Policy" content="%<csp>s">
     <title>Benchmark labels</title>
-    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.css">
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.js"></script>
+    <style>%<leaflet_css>s</style>
+    <script>%<leaflet_js>s</script>
     <style>
       html, body { margin: 0; height: 100%%; font: 13px system-ui, sans-serif; color: #222; background: #fff; }
       #app { display: flex; height: 100%%; } #map { flex: 1; cursor: crosshair; }
@@ -100,11 +134,10 @@ module CurtilageBenchmark
       <div id="note"></div>
       <div id="kinds"></div>
       <p><b>Sites</b></p><div id="list"></div>
-      <p class="muted">Imagery: USGS The National Map (public domain); switch source with the control at the top right
-        of the map if a site is blurry. Drafts stay in this browser until saved.</p>
+      <p class="muted" id="credit"></p>
     </div><div id="map"></div></div>
     <script>
-    const SITES = %<sites>s, KINDS = %<kinds>s, RANDOM = %<random>d, RADIUS = %<radius>d;
+    const SITES = %<sites>s, KINDS = %<kinds>s, RANDOM = %<random>d, RADIUS = %<radius>d, IMAGERY = %<imagery>s;
     const COLOUR = { site: "#1a7f37", shared: "#d4a000", outside: "#cf222e", other: "#888" };
     const map = L.map("map", { maxZoom: 21 });
     // Both public domain (USGS). NAIP aerial photos (30-60 cm a pixel) are drawn on request for any view, a
@@ -124,11 +157,20 @@ module CurtilageBenchmark
       [CACHED]: L.tileLayer("https://basemap.nationalmap.gov/arcgis/rest/services/USGSImageryOnly/MapServer/tile/{z}/{y}/{x}",
         { maxNativeZoom: 16, maxZoom: 21, attribution: credit }),
     };
-    let base = NAIP;
-    try { if (layers[localStorage.getItem("labels-imagery")]) base = localStorage.getItem("labels-imagery"); } catch (e) {}
-    layers[base].addTo(map);
-    L.control.layers(layers).addTo(map);
-    map.on("baselayerchange", e => { try { localStorage.setItem("labels-imagery", e.name); } catch (err) {} });
+    if (IMAGERY) {
+      let base = NAIP;
+      try { if (layers[localStorage.getItem("labels-imagery")]) base = localStorage.getItem("labels-imagery"); } catch (e) {}
+      layers[base].addTo(map);
+      // Expanded, so the control needs none of Leaflet's icon images.
+      L.control.layers(layers, null, { collapsed: false }).addTo(map);
+      map.on("baselayerchange", e => { try { localStorage.setItem("labels-imagery", e.name); } catch (err) {} });
+    }
+    document.getElementById("credit").textContent = IMAGERY
+      ? "Imagery: USGS The National Map (public domain); switch source with the control at the top right of the map " +
+        "if a site is blurry. Drafts stay in this browser until saved."
+      : "Imagery is off: nothing is loaded from anywhere. Grey outlines are the cached map data (buildings, parking " +
+        "in blue, roads in red), the same data curtilage uses, so labels placed from them alone can't catch what the " +
+        "map is missing. Use imagery you're allowed to use, beside this page, to check what's really there.";
     const store = {
       get(k) { try { return JSON.parse(localStorage.getItem("labels-" + k) || "null"); } catch (e) { return null; } },
       set(k, v) { try { localStorage.setItem("labels-" + k, JSON.stringify(v)); } catch (e) {} },
@@ -151,6 +193,14 @@ module CurtilageBenchmark
     function redraw() {
       layer.clearLayers();
       const s = site();
+      if (s.context) {
+        const draw = (list, make) => list.forEach(c => make(c.map(p => [p[1], p[0]])).addTo(layer));
+        const quiet = { interactive: false, weight: 1 };
+        draw(s.context.parking, c => L.polygon(c, { ...quiet, color: "#6a7fd0", fillOpacity: .15 }));
+        draw(s.context.buildings, c => L.polygon(c, { ...quiet, color: "#555", fillColor: "#999", fillOpacity: .35 }));
+        draw(s.context.roads, c => L.polyline(c, { ...quiet, color: "#cf222e", weight: 2 }));
+        draw(s.context.railways, c => L.polyline(c, { ...quiet, color: "#000", dashArray: "4 4" }));
+      }
       L.circleMarker([s.pin[1], s.pin[0]], { radius: 4, color: "#000", weight: 1, fillColor: "#fff", fillOpacity: 1, interactive: false }).addTo(layer);
       labels.forEach((l, i) => {
         const m = L.circleMarker([l.point[1], l.point[0]], { radius: 6, weight: l.source === "random" ? 3 : 1,
