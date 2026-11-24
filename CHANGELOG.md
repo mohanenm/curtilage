@@ -2,6 +2,8 @@
 
 ## [Unreleased]
 
+## [0.6.0] - 2026-11-24
+
 Benchmark numbers below were measured on the labels as they stood at each change; the README has the current totals.
 
 ### Added
