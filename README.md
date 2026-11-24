@@ -353,13 +353,22 @@ No Ruby gem dependencies. Getting data needs the [DuckDB](https://duckdb.org/) C
 
 ## Versioning
 
-- The public API is what [docs/reference.md](docs/reference.md) documents: the Ruby methods and their options, result fields, flags, errors, and the command line with its exit status. Anything not listed there is internal and may change at any time.
+- The public API is what [docs/reference.md](docs/reference.md) documents: the Ruby methods and their options, result fields, flags, errors, the command line with its flags and exit codes, the NDJSON schema ([docs/schema/site-v1.json](docs/schema/site-v1.json)) and the HTTP API ([docs/openapi.yaml](docs/openapi.yaml)). Anything not listed there is internal and may change at any time.
 - Until 1.0, a minor release (0.x) may change the public API. Every such change is listed under **Breaking** in [CHANGELOG.md](CHANGELOG.md), with how to update. Patch releases don't change it.
 - Rule improvements can change the polygons a release produces; the changelog says when they do.
+
+**Road to 1.0.** 1.0 promises the public API stays compatible until 2.0. Before then:
+
+- The public API unchanged across at least two minor releases.
+- Every held-out benchmark site labelled, and its results published with each release.
+- A fix rate checked on real use: how many generated sites a reviewer had to correct.
+- The data licence notes reviewed.
+- Release signing and provenance for the gem and the Docker image.
 
 ## This repository
 
 - The code is MIT-licensed (see `LICENSE.txt`); results keep the map data's licence ([Data licence](#data-licence)).
 - Downloaded files and built Parquet files are OSM-derived data. They're never committed to this repository (see `.gitignore`).
 - This repository must never contain real site locations, private data or credentials. Tests and examples use made-up coordinates.
-- Security issues: see `SECURITY.md` (report privately through GitHub); the threat model is in [docs/security.md](docs/security.md).
+- Security issues: see [SECURITY.md](SECURITY.md) (report privately through GitHub); the threat model is in [docs/security.md](docs/security.md).
+- Contributing: [CONTRIBUTING.md](CONTRIBUTING.md) (setup, tests, the benchmark, how to report a bad polygon); [code of conduct](CODE_OF_CONDUCT.md); [governance](GOVERNANCE.md).

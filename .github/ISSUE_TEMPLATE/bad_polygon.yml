@@ -1,0 +1,41 @@
+name: Bad polygon
+description: A premises polygon or store zone that's wrong for a public place or made-up location.
+labels: ["bad polygon"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        **Never post a private or customer site.** Use a public place anyone can look up, or made-up coordinates.
+  - type: input
+    id: place
+    attributes:
+      label: Public place or made-up pin
+      description: The place's name and address, or a made-up `lng,lat`.
+    validations:
+      required: true
+  - type: textarea
+    id: expected
+    attributes:
+      label: What you expected, and what you got
+    validations:
+      required: true
+  - type: input
+    id: flags
+    attributes:
+      label: Flags and confidence
+      description: From the result (`flags`, `confidence`).
+  - type: input
+    id: options
+    attributes:
+      label: Options, preset or profile
+      description: "For example `preset: :whole_lot`, or the CLI flags you used."
+  - type: input
+    id: data
+    attributes:
+      label: Data source and release
+      description: From `provenance` in the GeoJSON output (Overture release, or Geofabrik extract dates).
+  - type: textarea
+    id: screenshot
+    attributes:
+      label: Preview screenshot
+      description: Drop in a screenshot of `curtilage preview --pin LNG,LAT` (map data only, no imagery).
