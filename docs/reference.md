@@ -446,7 +446,7 @@ Standard output carries only results (`generate` without `--out`, and the file p
 
 ### HTTP server: `curtilage serve`
 
-`curtilage serve` answers HTTP on the standard library alone (no server gem), so any language can ask for premises. The spec is [docs/openapi.yaml](openapi.yaml).
+`curtilage serve [--host HOST] [--port PORT]` (default 127.0.0.1:8754) answers HTTP on the standard library alone (no server gem), so any language can ask for premises. The spec is [docs/openapi.yaml](openapi.yaml).
 
 - `GET /health`: `{"status":"ok"}`, no token needed. `GET /version`: the gem, DuckDB and the default data source.
 - `POST /premises`: `{"pins": [[lng, lat], ...] or [{"id": ..., "pin": [lng, lat]}], "options": {...}}`, a GeoJSON FeatureCollection of points, or NDJSON (`Content-Type: application/x-ndjson`). Answers a GeoJSON FeatureCollection, or NDJSON (one site per line, [schema](schema/site-v1.json)) with `Accept: application/x-ndjson`. A request may set generation options only (and `preset`, `candidates`, `method`); where map data comes from is fixed at start (`--source`, `--catalogue`, `--parquet`, `--cache-dir`), so a request can't point the server at files.
