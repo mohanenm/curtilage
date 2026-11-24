@@ -177,6 +177,20 @@ class GeneratorTest < Minitest::Test
     assert(wide.explanation.any? { |n| n.include?("is shared with 3 other buildings") })
   end
 
+  # aisle_m: a service road by the building, with no lot mapped around it,
+  # stands for the lot (a strip either side), claimed like mapped parking.
+  def test_aisle_m_takes_in_a_lot_mapped_only_as_service_roads
+    aisles = [polygon("building", 1, -10, -7.5, 10, 7.5), road(4, "secondary", [[-200, -40], [200, -40]]),
+              road(5, "service", [[-12, 0], [-60, 0]])]
+    plain = Curtilage.generate(PIN, aisles, method: :grow_trim)
+    strip = Curtilage.generate(PIN, aisles, method: :grow_trim, aisle_m: 9)
+
+    assert_in_delta(-40, xy(plain).map(&:first).min, 0.5)
+    assert_operator xy(strip).map(&:first).min, :<, -55
+    assert(strip.explanation.any? { |n| n.include?("the strip along service road 5") })
+    assert strip.ok?
+  end
+
   # Reusing one Features with other options gives the same result as a
   # fresh one: nothing about an earlier run is left on the features.
   def test_features_can_be_reused_with_other_options

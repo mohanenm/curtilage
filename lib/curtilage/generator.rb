@@ -92,6 +92,7 @@ module Curtilage
       house_street_m: 25,            # ... when two more small buildings are this close
       parking_reach_m: 20,           # grow_trim: parking this close (an aisle and a walkway) is its lot
       shared_lot_buildings: 3,       # grow_trim: a lot touching this many other buildings is shared
+      aisle_m: nil,                  # grow_trim: this much either side of service roads by the building is parking
       lot_share_reach_m: 5,          # grow_trim: another building this close to a lot (across a walkway) shares it
       small_building_m2: 50,         # flag: a building this small may be a kiosk or shed, not the site
       parking_max_extent_m: 60,      # grow_trim: claim parking at most this far from the building
@@ -123,15 +124,16 @@ module Curtilage
     RANGES = {
       building_max_distance_m: DISTANCE, pin_clearance_m: DISTANCE, building_clearance_m: DISTANCE,
       grow_m: DISTANCE, road_offset_m: DISTANCE, neighbour_gap_m: DISTANCE, house_street_m: DISTANCE,
-      parking_reach_m: DISTANCE, lot_share_reach_m: DISTANCE, parking_max_extent_m: DISTANCE, building_margin_m: DISTANCE,
-      approach_m: DISTANCE, pickup_m: DISTANCE, snap_m: DISTANCE, unit_m: DISTANCE,
+      parking_reach_m: DISTANCE, lot_share_reach_m: DISTANCE, parking_max_extent_m: DISTANCE,
+      building_margin_m: DISTANCE,
+      approach_m: DISTANCE, pickup_m: DISTANCE, aisle_m: DISTANCE, snap_m: DISTANCE, unit_m: DISTANCE,
       large_building_m2: AREA, large_building_note_m2: AREA, neighbour_min_area_m2: AREA,
       neighbour_strip_min_area_m2: AREA, house_max_m2: AREA, small_building_m2: AREA,
       shared_lot_buildings: [1, 1_000, true], max_vertices: [4, 50, true], max_store_vertices: [3, 200, true],
       precision: [5, 15, true]
     }.freeze
     # Options where nil means "work it out" (by road class; halfway).
-    NIL_ALLOWED = %i[road_offset_m neighbour_gap_m approach_m pickup_m snap_m unit_m].freeze
+    NIL_ALLOWED = %i[road_offset_m neighbour_gap_m approach_m pickup_m snap_m unit_m aisle_m].freeze
 
     module_function
 

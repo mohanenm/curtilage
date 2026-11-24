@@ -21,7 +21,7 @@ module Curtilage
         !b.equal?(target) && (LOT_TYPES.include?(b.category) || b.area < opts[:small_building_m2])
       end
       shared = []
-      lots = (features.parking + structures).select do |lot|
+      lots = (features.parking + structures + aisles(features, target, opts)).select do |lot|
         next false unless Geometry.contains?(lot.xy, [0.0, 0.0]) || touches?(lot, target, opts)
 
         others = sharers(lot, features, target, opts)
@@ -30,6 +30,36 @@ module Curtilage
         true
       end
       [lots, shared]
+    end
+
+    # aisle_m: OSM often maps a lot's aisles and driveways as service roads
+    # without drawing the lot. A strip aisle_m either side of each service
+    # road segment near the building stands in for it (an aisle with stalls
+    # both sides is about 9 m each way), then goes through the same claim,
+    # sharing, trims and fence as a mapped lot.
+    def aisles(features, target, opts)
+      width = opts[:aisle_m]
+      return [] unless width&.positive?
+
+      reach = opts[:parking_reach_m] + width
+      features.roads.reject { |r| PUBLIC_HIGHWAYS.include?(r.highway) }.flat_map do |road|
+        road.xy.each_cons(2).with_index.filter_map do |(a, b), i|
+          length = Geometry.distance(a, b)
+          next if length < 1 || Geometry.closest_points([a, b], target.hull).first > reach
+
+          aisle_strip(a, b, length, width).then do |xy|
+            Features::Polygon.new(id: "#{road.id}:#{i}", kind: "parking", xy: xy, area: length * width * 2,
+                                  category: "aisle")
+          end
+        end
+      end
+    end
+
+    def aisle_strip(a, b, length, width)
+      nx = -(b[1] - a[1]) / length * width
+      ny = (b[0] - a[0]) / length * width
+      Geometry.counter_clockwise([[a[0] + nx, a[1] + ny], [b[0] + nx, b[1] + ny], [b[0] - nx, b[1] - ny],
+                                  [a[0] - nx, a[1] - ny]])
     end
 
     def note_lot(log, lot, others, opts)
@@ -98,8 +128,11 @@ module Curtilage
     # running along the street (which would pull the polygon into a spike)
     # doesn't.
     def add_entrances(poly, fence, site)
+      box = Geometry.bounds(fence)
       points = site.features.roads.reject { |r| PUBLIC_HIGHWAYS.include?(r.highway) }.flat_map do |road|
-        driveway(road, poly, fence, site)
+        # Only roads reaching the fence can be taken in (a cheap test before
+        # sampling every road in the area).
+        Geometry.bounds_near?(Geometry.bounds(road.xy), box) ? driveway(road, poly, fence, site) : []
       end
       return poly if points.empty?
 
@@ -120,11 +153,16 @@ module Curtilage
       taken
     end
 
+    # Whether any point comes within ENTRANCE_MAX_M of a public road. Only
+    # the roads that reach that close to the points' box are measured.
     def meets_public_road?(points, features)
-      street = points.filter_map do |p|
-        nearest_street_point(p, features)&.then { |q| Geometry.distance(p, q) }
+      return false if points.empty?
+
+      box = Geometry.bounds(points)
+      roads = features.public_roads.select { |r| Geometry.bounds_near?(Geometry.bounds(r.xy), box, ENTRANCE_MAX_M) }
+      points.any? do |p|
+        roads.any? { |r| r.xy.each_cons(2).any? { |a, b| Geometry.segment_distance(p, a, b) <= ENTRANCE_MAX_M } }
       end
-      street.any? { |d| d <= ENTRANCE_MAX_M }
     end
 
     # Where the part of a driveway taken in meets the street: [the point on
@@ -232,7 +270,9 @@ module Curtilage
     end
 
     def lot_label(lot)
-      lot.kind == "building" ? "#{lot.category || "small"} structure #{lot.id}" : "parking #{lot.id}"
+      return "#{lot.category || "small"} structure #{lot.id}" if lot.kind == "building"
+
+      lot.category == "aisle" ? "the strip along service road #{lot.id}" : "parking #{lot.id}"
     end
   end
 end
