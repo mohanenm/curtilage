@@ -2,6 +2,8 @@
 
 ## [Unreleased]
 
+## [0.7.0] - 2026-11-24
+
 ### Added
 
 - `scope: :centre` finds centres whose lot OSM maps only as aisles: the service roads joined to the site's (within 150 m, not alleys behind homes), when three or more businesses front them, outlined round those strips and buildings rather than as a convex hull. On 24 unseen public sites rated by eye with the arrival settings, sites accepted as they are went from 14 to 19 (none got worse).
