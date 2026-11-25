@@ -1001,6 +1001,38 @@
         "role": "holdout",
         "notes": "Held-out set 3, random pick (seed 20261128): Taco Bell, fast food restaurant in Montana. Overture place 8bf22858-ec70-41e7-bdf5-316ed308d047."
       }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          -83.19747351,
+          42.21026917
+        ]
+      },
+      "properties": {
+        "id": "mi-pharmacy",
+        "category": "random",
+        "role": "tuning",
+        "notes": "Tuning site with a pin off the business (drawn as a held-out pick, seed 20261125, and replaced there before labelling): Byron Pharmacy, pharmacy in Michigan. Overture place f641f3d8-eddf-4982-a49e-1c3f96742fb4."
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          -93.55294169,
+          37.06720316
+        ]
+      },
+      "properties": {
+        "id": "mo-library",
+        "category": "random",
+        "role": "tuning",
+        "notes": "Tuning site with a pin off the business (drawn as a held-out pick, seed 20261125, and replaced there before labelling): Billings Library, library in Missouri. Overture place f03ae824-652d-4cc6-9651-d1eda9ea7700."
+      }
     }
   ]
 }
