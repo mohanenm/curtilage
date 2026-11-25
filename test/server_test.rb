@@ -34,6 +34,17 @@ class ServerTest < Minitest::Test
     end
   end
 
+  # The server logs a request after sending its response, so the log can
+  # lag the reply: wait for the line rather than racing it.
+  def log_after_request(pattern)
+    100.times do
+      break if @log.string.match?(pattern)
+
+      sleep 0.02
+    end
+    @log.string
+  end
+
   def pins_body(count = 1, options = {}) = JSON.generate(pins: Array.new(count) { PIN }, options: options)
 
   def test_health_version_and_premises
@@ -136,14 +147,14 @@ class ServerTest < Minitest::Test
     start
     http(:post, "/premises", body: pins_body)
 
-    assert_match(%r{POST /premises 200}, @log.string)
+    assert_match(%r{POST /premises 200}, log_after_request(%r{POST /premises 200}))
     refute_includes @log.string, PIN[0].to_s
     @server.stop
     @thread.join(2)
     start(log_pins: true)
     http(:post, "/premises", body: pins_body)
 
-    assert_includes @log.string, PIN[0].to_s
+    assert_includes log_after_request(%r{POST /premises 200}), PIN[0].to_s
   end
 
   def test_binds_localhost_by_default_and_refuses_unknown_limits
