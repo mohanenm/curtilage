@@ -2,10 +2,27 @@
 
 ## [Unreleased]
 
+## [0.9.0] - 2026-11-25
+
+Default results are unchanged from 0.8.0.
+
 ### Breaking
 
 - `lot_split:` is removed (it was experimental). `:voronoi` changed no result on the public benchmark; shared lots are split as `:square` did, which is unchanged. Drop the option from your calls.
 - `parcel_mode: :start` is removed (it was experimental). On the benchmark's tuning and validation sites it scored below the rules without parcels; use `parcel_mode: :grow`, or the default `:clip`.
+
+### Added
+
+- Public benchmark: a third held-out set of 8 sites in 8 more states, labelled blind and sealed, drawn to keep pins that are off the business; and two tuning sites whose map point is off the business. The release check reports each held-out set and all of them together, and `benchmark:circles` scores 50 m and 75 m circles round the pin the same way. `benchmark/README.md` says how the labels were made.
+
+### Changed
+
+- README: release check results on all 24 held-out sites. Default view: 80% of "in" points caught and 6.8% of "out" points taken in, against 80% and 23% for a 50 m circle; the set of 16 scored 77% and 7.8%, the set of 8 87% and 4.6%. The Known limitations section opens with where results are usually good and what to check first.
+
+### Fixed
+
+- `docs/schema/site-v1.json` allows corrections: `method` and `provenance.data.source` can be `manual` (a corrected site used to fail validation against the schema).
+- The gallery covers every tuning and validation site; it had left out the 7 validation sites.
 
 ## [0.8.0] - 2026-11-25
 
