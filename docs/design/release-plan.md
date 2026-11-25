@@ -1,49 +1,47 @@
-# Release plan: trusted publishing, provenance, SBOM
+# Releases: trusted publishing and provenance
 
-Status: proposal, not in effect. Releases are still published by hand (`gem push`, with RubyGems MFA required).
+Releases are published by `.github/workflows/release.yml` when a `v*` tag is pushed. Nobody needs a RubyGems API key: GitHub's OIDC token is swapped for a short-lived RubyGems token (trusted publishing). Publishing by hand (`gem push`, with RubyGems MFA) still works as a fallback, but a gem published that way has no provenance attestation. The repository must stay public: the environment's required reviewer and the public Sigstore attestation need it on a free account.
 
-## Goal
+## What the workflow does
 
-Anyone can check that a published gem or Docker image was built by this repository's CI from a tagged commit, and nobody needs a long-lived RubyGems API key.
+1. Checks out the tag; checks the tag matches `Curtilage::VERSION` and the CHANGELOG has a section for it; runs `bundle exec rake` (tests and RuboCop).
+2. Waits for approval in the protected `release` environment.
+3. Builds the gem and attests its provenance (`actions/attest-build-provenance`: a Sigstore-signed statement that this repository's workflow built this file from this commit, recorded in GitHub's attestation store).
+4. Drafts the GitHub release (the CHANGELOG section as its notes, the `.gem` attached), so that nothing but publishing it is left once the gem is out.
+5. Pushes the gem to RubyGems with the attestation attached, then publishes the draft release.
 
-## Proposal
+Only the release job gets write permissions (`contents`, `id-token`, `attestations`); actions are pinned to commit SHAs.
 
-**1. RubyGems trusted publishing (OIDC).** A `release.yml` workflow, run when a `v*` tag is pushed:
+## Release steps
 
-1. checks out the tag and runs `bundle exec rake` (tests and RuboCop);
-2. waits for approval in a protected GitHub environment named `release` (you as the required reviewer);
-3. builds the gem and publishes it with `rubygems/release-gem` (pinned to a commit SHA), which swaps GitHub's OIDC token for a short-lived RubyGems token. No API key is stored anywhere.
+1. A pull request bumps `lib/curtilage/version.rb` and moves the CHANGELOG's Unreleased entries under the new version.
+2. After merging: `git checkout main && git pull --ff-only`, then `git tag -a vX.Y.Z -m X.Y.Z && git push origin vX.Y.Z`.
+3. Approve the `release` environment on the workflow run once the tests pass.
 
-**2. Provenance for the gem.** The same job attests the `.gem` file (`actions/attest-build-provenance`, Sigstore-signed, recorded in GitHub's attestation store); `release-gem` can also upload the attestation to RubyGems. Users check it with `gh attestation verify curtilage-X.Y.Z.gem --repo mohanenm/curtilage`.
+## One-time setup
 
-**3. The Docker image.** A second job builds `linux/amd64` and `linux/arm64` with `docker/build-push-action` (pinned), with BuildKit provenance (`mode=max`) and an SBOM attached, pushes `ghcr.io/mohanenm/curtilage:X.Y.Z` and `:latest`, and attests the image (`push-to-registry: true`). Users check it with `gh attestation verify oci://ghcr.io/mohanenm/curtilage:X.Y.Z --repo mohanenm/curtilage`.
+- rubygems.org → curtilage → Trusted publishers: add a GitHub Actions publisher with repository `mohanenm/curtilage`, workflow `release.yml`, environment `release`.
+- GitHub → Settings → Environments: create `release` with a required reviewer and deployment tags limited to `v*`.
+- GitHub → Settings → Code security: private vulnerability reporting on (SECURITY.md sends reporters there).
+- Optional: a tag ruleset limiting who can create, move or delete `v*` tags.
 
-**4. A GitHub release** with the changelog section for the version, the `.gem` attached.
+The approval gate stands in for MFA, which trusted publishing doesn't use. It holds because the trusted publisher is bound to the `release` environment: a tag pushed with an edited workflow that drops `environment: release` gets a token RubyGems refuses, and one that keeps it waits for the reviewer.
 
-**Permissions**: only the release jobs get `id-token: write` (OIDC), `attestations: write`, `contents: write` (the GitHub release) and `packages: write` (GHCR); everything else stays read-only.
+## Verifying a release
 
-## Release steps, once set up
+```sh
+gh attestation verify curtilage-X.Y.Z.gem --repo mohanenm/curtilage \
+  --signer-workflow mohanenm/curtilage/.github/workflows/release.yml --source-ref refs/tags/vX.Y.Z
+```
 
-1. A pull request bumps `lib/curtilage/version.rb` and moves the changelog's Unreleased entries under the new version.
-2. After merging, tag the merge commit `vX.Y.Z` and push the tag.
-3. Approve the `release` environment when the tests pass. The gem, image, attestations and GitHub release follow.
+With `--repo` alone it shows only that some workflow in this repository built the file; the two extra flags tie it to the release workflow and the tag. The gem's page on rubygems.org also shows the attestation.
 
-## One-time setup (yours; I can't do these)
+## If a release run fails
 
-- rubygems.org → curtilage → Trusted publishers: add GitHub Actions, repository `mohanenm/curtilage`, workflow `release.yml`, environment `release`.
-- GitHub → Settings → Environments: create `release`, required reviewer you, deployment tags `v*` only.
-- GitHub → Settings → Code security: turn on **private vulnerability reporting** (SECURITY.md points people to it) and Dependabot alerts.
-- After the first image push: make the GHCR package public and link it to the repository.
+- Before the gem is pushed: fix the cause, delete the draft release and the tag (`git push --delete origin vX.Y.Z`), tag again and push.
+- After the gem is pushed (only publishing the draft is left): publish it on GitHub (Releases → the draft → Publish), or `gh release edit vX.Y.Z --draft=false`. Don't rerun the job: RubyGems refuses the same version twice.
 
-## Trade-offs
+## Not done
 
-- A compromised workflow could publish. Against that: the approval gate, actions pinned to SHAs, least-privilege permissions, and tag-only triggers.
-- Manual `gem push` with MFA stays possible as a fallback. Trusted publishing needs no OTP, so the approval gate is what stands in for it.
-- CI talks to new hosts (GHCR, Sigstore, RubyGems' OIDC exchange). That's CI only; the gem itself still contacts only map-data hosts.
-- Signed provenance proves where an artifact was built, not that the code is safe; it complements, not replaces, review.
-
-## Decisions needed
-
-1. Adopt RubyGems trusted publishing with an approval gate?
-2. Publish the Docker image to GHCR (amd64 and arm64) on each release?
-3. Keep manual `gem push` (MFA) as a fallback?
+- The Docker image isn't published; build it from the repository (README, Docker). Publishing it with provenance would add a job pushing to GHCR.
+- Signed provenance shows where a file was built, not that its code is safe; it complements review.

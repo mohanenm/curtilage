@@ -374,7 +374,7 @@ No Ruby gem dependencies. Getting data needs the [DuckDB](https://duckdb.org/) C
 - Every held-out benchmark site labelled, and its results published with each release.
 - A fix rate checked on real use: how many generated sites a reviewer had to correct.
 - The data licence notes reviewed.
-- Release signing and provenance for the gem and the Docker image.
+- Release provenance: the release workflow attests every gem from the next release on; the Docker image isn't published.
 
 ## This repository
 
