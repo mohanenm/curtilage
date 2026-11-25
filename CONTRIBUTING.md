@@ -29,7 +29,7 @@ Integration tests (`test/integration_test.rb`) run against a real DuckDB on a ma
 
 - `bundle exec exe/curtilage build <state or geofabrik/path> --out data/features [--ml-footprints microsoft]` builds a region's features file: it finds the newest dated Geofabrik extract, range-downloads only the layers it uses, and writes `data/features/<region>.parquet` and `.json` with memory capped at 400 MB. Set `CURTILAGE_DUCKDB` and `CURTILAGE_EXTENSIONS` if DuckDB isn't in the default places (on macOS the extension folder must be an absolute path).
 - `data/` is gitignored: downloads, built Parquet, caches and anything private. Never commit OSM files or Parquet output (ODbL data, and large).
-- Geofabrik: use dated files (`<region>-YYMMDD-free.shp.zip`), not `latest`, which can 404 during their daily publish; the build checks each file's CRC. Large layers can be split into `_1`, `_2`, …, and California comes only as `norcal` and `socal`: the build reads every part.
+- Geofabrik: use dated files (`<region>-YYMMDD-free.shp.zip`), not `latest`, which can 404 during their daily publish; the build checks each file's CRC. Dated `.osm.pbf` files live one folder deeper (`north-america/us/<state>/`). Large layers can be split into `_1`, `_2`, …, and California comes only as `norcal` and `socal`: the build reads every part.
 - No region-specific tuning in the rules: the gem should work wherever the map data reaches.
 
 ## Changes to the rules

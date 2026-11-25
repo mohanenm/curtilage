@@ -1,18 +1,18 @@
 # Agent instructions
 
-For coding agents working on curtilage. Everything here is also in [CONTRIBUTING.md](CONTRIBUTING.md) or the docs it links; read that first.
+For coding agents working on curtilage. Read [CONTRIBUTING.md](CONTRIBUTING.md) first; this adds what an agent needs on top of it.
 
 ## Commands
 
 - `bundle exec rake`: tests (Minitest), then RuboCop. Must pass before every commit.
 - `bundle exec rake benchmark`, then `rake "benchmark:compare[OLD,NEW]"`: before and after any change to the rules ([benchmark/README.md](benchmark/README.md)).
-- `bundle exec exe/curtilage doctor`: checks DuckDB and its extensions.
+- `bundle exec exe/curtilage doctor` (`--json`, `--network`, `--verify DIR`): checks DuckDB and its extensions.
 
 ## Conventions
 
-- Coordinates are `[lng, lat]`; rings are closed. Geometry is plain Ruby; no runtime gem dependencies; DuckDB through its CLI.
+- Coordinates are `[lng, lat]`; rings are closed. Geometry is plain Ruby (a flat projection round the pin, well under a metre at premises scale): don't add a geometry gem without a reason. No runtime gem dependencies; DuckDB through its CLI.
 - Every polygon goes through `Curtilage::Validation.check`; the store zone sits inside the premises.
-- Rule-based only. ML footprints are an opt-in data flavour.
+- Rule-based only. ML footprints are an opt-in data flavour (`buildings:`).
 - Map data and input are untrusted: cap sizes and vertex counts, drop invalid geometry, never build SQL from map values.
 - Keep [README.md](README.md) and [docs/reference.md](docs/reference.md) in step with the code; CHANGELOG under Unreleased, **Breaking** for API changes.
 - New behaviour goes behind an option, off by default. An option that doesn't earn its place on the benchmark is removed.
@@ -39,7 +39,8 @@ For coding agents working on curtilage. Everything here is also in [CONTRIBUTING
 
 - Real or private site locations, customer data, credentials. Tests use made-up coordinates or well-known public places.
 - `data/`, OSM files, Parquet output, `notes/`, `CLAUDE.local.md`, personal settings (`.claude/settings.local.json`).
-- Network: public map-data hosts (Geofabrik, Overture, Microsoft footprints when opted in) and DuckDB's extension repositories; USGS imagery and the state parcel services for benchmark tooling only. Never send site locations anywhere else.
+- Network: public map-data hosts (Geofabrik, Overture Maps, Microsoft footprints when opted in) and DuckDB's extension repositories (core; community only for the opt-in `h3` extension). Never send site locations anywhere else.
+- Benchmark tooling only, never the gem or its commands, and for the public benchmark sites only: USGS imagery (`imagery.nationalmap.gov`, `basemap.nationalmap.gov`) for the labelling page, the gallery's snapshots and the spot-check (`LABEL_IMAGERY=off` loads none; off by default for a private benchmark folder), and the state parcel services listed in `benchmark/parcels.rb`.
 
 ## Git
 
