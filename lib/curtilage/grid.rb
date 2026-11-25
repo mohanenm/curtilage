@@ -108,19 +108,8 @@ module Curtilage
       end
     end
 
-    # Splitting a shape between polygons, and its convex outline.
+    # Keeping the part inside some rings, and the convex outline.
     module Regions
-      # Keeps the cells nearer mine (a ring) than any of the others: a
-      # Voronoi cell round a polygon, not just its centre.
-      def keep_nearer(mine, others)
-        return self if others.empty?
-
-        own = distances_to([mine])
-        best = distances_to(others) # the nearest of them is the nearest cell of them all
-        @on.each_index { |i| @on[i] &&= own[i] <= best[i] }
-        self
-      end
-
       # Keeps only the cells inside one of the rings.
       def keep_inside(rings)
         cells = Array.new(@on.size, false)
@@ -142,14 +131,6 @@ module Curtilage
           [[first, y0], [last + 1, y0], [first, y0 + @cell], [last + 1, y0 + @cell]]
         end
         Geometry.convex_hull(edges.map { |col, y| [@x0 + (col * @cell), y] })
-      end
-
-      private
-
-      def distances_to(rings)
-        cells = Array.new(@on.size, false)
-        rings.each { |xy| paint(xy, cells: cells) }
-        Distance.squared(cells, @w, @h, true)
       end
     end
 

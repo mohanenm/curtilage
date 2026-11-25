@@ -10,16 +10,15 @@ module Curtilage
   # parcel_mode: says how else the parcel is used. :clip (the default) only
   # clips, as above. :grow instead adds the mapped parking and paved access
   # (service roads) inside the site's parcels to the premises, without
-  # clipping them; :start begins from
-  # the site's parcels instead of the grown building rectangle and lets the
-  # usual rules trim them. Both use every parcel holding a quarter of the
-  # building (a building on several parcels) and, joined to those, parcels
-  # mostly covered by the site's own parking (a lot split over parcels).
-  # A parcel holding other businesses' buildings (a shopping centre) is only
-  # a limit: :grow and :start then clip as :clip does (flag shared_parcel).
+  # clipping them. The site's parcels are every parcel holding a quarter of
+  # the building (a building on several parcels) and, joined to those,
+  # parcels mostly covered by the site's own parking (a lot split over
+  # parcels). A parcel holding other businesses' buildings (a shopping
+  # centre) is only a limit: :grow then clips as :clip does (flag
+  # shared_parcel).
   module Generator
     BEYOND_PARCEL_M2 = 100 # claimed parking past the parcel at least this big stays in
-    PARCEL_MODES = %i[clip grow start].freeze
+    PARCEL_MODES = %i[clip grow].freeze
     PARCEL_BUILDING_SHARE = 0.25 # a parcel holding this share of the building is one of the site's
     PARCEL_LOT_SHARE = 0.3       # ... and so is a parcel joined to them this much covered by its own parking
     SERVICE_ROAD_HALF_M = 3      # :grow: paved access is this much either side of a service road
@@ -27,7 +26,7 @@ module Curtilage
 
     module_function
 
-    # :grow and :start: the site's parcels as rings, or nil when there are
+    # :grow: the site's parcels as rings, or nil when there are
     # none or they're shared with other businesses (flagged).
     def site_parcels(site, lots = [])
       features = site.features
@@ -65,23 +64,11 @@ module Curtilage
       end
     end
 
-    # :start: the site's parcels' outline (with the building), when it's a
-    # usable size; nil otherwise.
-    def parcel_start(features, target, opts, log)
-      rings = site_parcels(Site.new(features, target, opts, log)) or return nil
-      start = Geometry.counter_clockwise(Geometry.convex_hull(rings.flatten(1) + target.hull))
-      return nil if Geometry.area(start) > opts[:centre_max_m2]
-
-      log.note("started from the building's parcel (#{Geometry.area(start).round} m2) instead of a grown rectangle",
-               step: "grow", rule: "parcel_mode", area_after_m2: m2(start))
-      start
-    end
-
-    # :grow and :start: mapped parking mostly inside the site's parcels, which
+    # :grow: mapped parking mostly inside the site's parcels, which
     # is the site's even where the rules didn't claim it (so it isn't cut out
     # as another business's lot).
     def parcel_lots(features, target, opts)
-      return [] unless %i[grow start].include?(opts[:parcel_mode]) && features.parcels.any?
+      return [] unless opts[:parcel_mode] == :grow && features.parcels.any?
 
       rings = site_parcels(Site.new(features, target, opts, Log.new([], []))) or return []
       features.parking.select { |lot| rings.sum { |r| Geometry.overlap_area(lot.xy, r) } >= Geometry.area(lot.xy) / 2 }
@@ -94,18 +81,6 @@ module Curtilage
         road.xy.each_cons(2) { |a, b| grid.paint(Geometry.round_buffer([a, b], SERVICE_ROAD_HALF_M, 8)) }
       end
       grid
-    end
-
-    # The building rectangle grown by grow_m, or (parcel_mode: :start) the
-    # building's parcel.
-    def start_shape(features, target, opts, log)
-      start = parcel_start(features, target, opts, log) if opts[:parcel_mode] == :start && features.parcels.any?
-      return start if start
-
-      poly = grown(target, opts[:grow_m], opts)
-      log.note("grew the building rectangle by #{opts[:grow_m]} m", step: "grow", rule: "grow_m", features: [target.id],
-                                                                    distance_m: opts[:grow_m], area_after_m2: m2(poly))
-      poly
     end
 
     # :grow: the premises plus the mapped parking and paved access inside

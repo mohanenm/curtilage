@@ -2,6 +2,11 @@
 
 ## [Unreleased]
 
+### Breaking
+
+- `lot_split:` is removed (it was experimental). `:voronoi` changed no result on the public benchmark; shared lots are split as `:square` did, which is unchanged. Drop the option from your calls.
+- `parcel_mode: :start` is removed (it was experimental). On the benchmark's tuning and validation sites it scored below the rules without parcels; use `parcel_mode: :grow`, or the default `:clip`.
+
 ## [0.8.0] - 2026-11-25
 
 Default results are unchanged from 0.7.0; the new options are experimental and off by default.

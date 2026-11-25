@@ -211,7 +211,7 @@ def data_flags(o, opts)
     opts[:parcels] = v
   end
   o.on("--parcel-mode MODE", Curtilage::Generator::PARCEL_MODES.map(&:to_s),
-       "With --parcels: clip (default), grow (take in paving inside) or start (begin from them); experimental") do |v|
+       "With --parcels: clip (default) or grow (also take in the paving inside); experimental") do |v|
     opts[:parcel_mode] = v.to_sym
   end
 end
