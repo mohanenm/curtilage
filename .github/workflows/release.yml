@@ -1,0 +1,72 @@
+name: Release
+
+# Publishes a tagged version: tests, then (after approval in the `release`
+# environment) builds the gem, attests its provenance (Sigstore, recorded in
+# GitHub's attestation store), pushes it to RubyGems with a short-lived token
+# from trusted publishing (no API key stored anywhere) and creates the GitHub
+# release. docs/design/release-plan.md has the steps and the one-time setup.
+on:
+  push:
+    tags:
+      - "v*"
+
+permissions:
+  contents: read
+
+# Actions are pinned to full commit SHAs (the version is in the comment).
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: ruby/setup-ruby@be3c7df29b3349ec6bcfc6b4792f1cf9f5237d18 # v1.343.0
+        with:
+          ruby-version: "4.0"
+          bundler-cache: true
+      - name: Check the tag matches the gem's version
+        run: |
+          version=$(ruby -Ilib -e 'require "curtilage/version"; print Curtilage::VERSION')
+          test "v${version}" = "${GITHUB_REF_NAME}" || { echo "tag ${GITHUB_REF_NAME} isn't v${version}"; exit 1; }
+      - name: Check the CHANGELOG has a section for it
+        run: ruby .github/release_notes.rb "${GITHUB_REF_NAME#v}" > /dev/null
+      - name: Run tests and RuboCop
+        env:
+          LANG: C
+        run: bundle exec rake
+
+  release:
+    needs: test
+    runs-on: ubuntu-latest
+    environment: release
+    permissions:
+      contents: write # the GitHub release
+      id-token: write # trusted publishing and the Sigstore signature
+      attestations: write
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: ruby/setup-ruby@be3c7df29b3349ec6bcfc6b4792f1cf9f5237d18 # v1.343.0
+        with:
+          ruby-version: "4.0"
+      - name: Build the gem
+        run: gem build curtilage.gemspec --output "curtilage-${GITHUB_REF_NAME#v}.gem"
+      - name: Attest its provenance
+        id: attest
+        uses: actions/attest-build-provenance@4d101475d8b20a2381f78447822ac1eab6504dd8 # v4.2.2
+        with:
+          subject-path: curtilage-*.gem
+      - uses: rubygems/configure-rubygems-credentials@c6ca7f4bac0e29c9bde8eeae0a0a986b27efa05f # v2.2.0
+      - name: Push to RubyGems
+        env:
+          ATTESTATION_FILE: ${{ steps.attest.outputs.bundle-path }}
+        run: gem push "curtilage-${GITHUB_REF_NAME#v}.gem" --attestation "${ATTESTATION_FILE}"
+      - name: Create the GitHub release
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          version="${GITHUB_REF_NAME#v}"
+          ruby .github/release_notes.rb "${version}" > notes.md
+          gh release create "${GITHUB_REF_NAME}" "curtilage-${version}.gem" --title "${version}" --notes-file notes.md --verify-tag
