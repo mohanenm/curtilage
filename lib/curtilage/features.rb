@@ -44,13 +44,6 @@ module Curtilage
     # Generator, which clips the premises to the building's parcel).
     attr_reader :pin, :buildings, :ml_buildings, :parking, :roads, :railways, :parcels, :dropped, :sha256
 
-    # A SHA256 of the input that ignores the order of the features and the
-    # style of their keys, so two results can be shown to come from the same
-    # map data (Result#provenance).
-    def self.fingerprint(features)
-      Digest::SHA256.hexdigest(in_order(features).map(&:first).join("\n"))
-    end
-
     # [[canonical JSON, feature], ...] sorted by the JSON: one order whatever
     # order the features came in (DuckDB promises none), so the rules see the
     # same input every time.

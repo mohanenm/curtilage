@@ -155,7 +155,6 @@ module Curtilage
 
     def count = @on.count(true)
     def area = count * @cell * @cell
-    def on?(point) = @on[index_at(point) || -1] == true
 
     # Sets (or clears) every cell whose centre is inside the ring.
     def paint(xy, value: true, cells: @on)
