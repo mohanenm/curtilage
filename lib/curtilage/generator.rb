@@ -117,14 +117,12 @@ module Curtilage
       snap_m: nil,                   # move a pin that's off any building onto the nearest within this (nil: don't)
       unit_m: nil,                   # store zone of a large building: this much frontage round the pin (nil: all)
       entrances: :near,              # :near, or :all (follow driveways to every entrance; premises not convex)
-      lot_split: :square,            # shared lots: :square (cut square to the building) or :voronoi (nearest building)
       neighbour_cut: :line,          # after taking the lot: :line (cut across) or :notch (cut round the neighbour)
-      parcel_mode: :clip,            # with parcels: :clip, :grow (take in paving inside) or :start (begin there)
+      parcel_mode: :clip,            # with parcels: :clip, or :grow (also take in the paving inside the site's parcels)
       shared_checks: false,          # mark large and shared buildings as estimates (flags, confidence, explanation)
     }.freeze
 
     BUILDING_SOURCES = %i[osm osm_or_ml osm_filled ml].freeze
-    LOT_SPLITS = %i[square voronoi].freeze
     SCOPES = %i[site centre].freeze
 
     # Allowed values for the numeric options: [min, max, whole number?].
@@ -209,7 +207,7 @@ module Curtilage
 
     # The options that take one of a few names, and the names.
     def choices
-      { scope: SCOPES, buildings: BUILDING_SOURCES, entrances: ENTRANCES, lot_split: LOT_SPLITS,
+      { scope: SCOPES, buildings: BUILDING_SOURCES, entrances: ENTRANCES,
         neighbour_cut: NEIGHBOUR_CUTS, parcel_mode: PARCEL_MODES, store_zone: [true, false],
         shared_checks: [true, false] }
     end
@@ -327,7 +325,9 @@ module Curtilage
       target = find_building(features, opts, log)
       return [nil, nil] unless target
 
-      poly = start_shape(features, target, opts, log)
+      poly = grown(target, opts[:grow_m], opts)
+      log.note("grew the building rectangle by #{opts[:grow_m]} m", step: "grow", rule: "grow_m", features: [target.id],
+                                                                    distance_m: opts[:grow_m], area_after_m2: m2(poly))
       poly = trim_at_roads(poly, features, target, opts, log)
       lots, shared = own_parking(features, target, opts, log)
       whole = whole_centre(shared, Site.new(features, target, opts, log)) if opts[:scope] == :centre
