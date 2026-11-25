@@ -11,6 +11,8 @@ Held-out sites are replaced only for data problems visible without running the g
 
 The second held-out set (16 sites, drawn 2026-11-24) needed no redraws at draw time: every pick had a building within 40 m of its point. Two were replaced while labelling (above).
 
+The third held-out set (8 sites, drawn 2026-11-25, seed 20261128) needed no redraws at draw time. In this set a pin off the business is kept, not replaced (README, held-out rule 3).
+
 ## Corrections before the first release check
 
 Labels may be corrected before a held-out set's first release check, while no result for it has been seen; after that they never change.
