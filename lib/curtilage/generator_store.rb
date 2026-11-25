@@ -8,6 +8,11 @@ module Curtilage
 
     module_function
 
+    def add_store(result, premises, (target, features), opts, log)
+      store = store_xy(target, premises, opts, log, features)
+      result.store_ring = ring_of(store, result.pin, opts[:precision]) if store
+    end
+
     # The building's OSM footprint, simplified to max_store_vertices.
     # Footprints can be any shape (L, U, courtyards' outer edge); if
     # simplifying would make the outline cross itself, its convex outline is
@@ -20,7 +25,7 @@ module Curtilage
         xy = Geometry.self_intersects?(simple) ? Geometry.simplify(target.hull, opts[:max_store_vertices]) : simple
       end
       unit = opts[:unit_m] && unit_xy(xy, target, features, opts, log)
-      unit ? xy = unit : flag_unit(target, opts, log)
+      unit ? xy = unit : flag_unit(target, opts, log, features)
       inside = inside_premises(xy, premises, store_margin(opts[:precision]))
       unless inside
         log.note("left out the store zone: it doesn't fit inside the premises",
@@ -88,7 +93,8 @@ module Curtilage
       end
     end
 
-    def flag_unit(target, opts, log)
+    def flag_unit(target, opts, log, features = nil)
+      return flag_shared_unit(target, features, opts, log) if opts[:shared_checks]
       return unless target.area > opts[:large_building_note_m2]
 
       log.flag(:store_may_be_unit, "the store outline is the whole #{target.area.round} m2 building: " \

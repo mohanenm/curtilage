@@ -120,6 +120,7 @@ module Curtilage
       lot_split: :square,            # shared lots: :square (cut square to the building) or :voronoi (nearest building)
       neighbour_cut: :line,          # after taking the lot: :line (cut across) or :notch (cut round the neighbour)
       parcel_mode: :clip,            # with parcels: :clip, :grow (take in paving inside) or :start (begin there)
+      shared_checks: false,          # mark large and shared buildings as estimates (flags, confidence, explanation)
     }.freeze
 
     BUILDING_SOURCES = %i[osm osm_or_ml osm_filled ml].freeze
@@ -204,13 +205,13 @@ module Curtilage
         raise ArgumentError, "unknown #{key}: #{opts[key].inspect} (have: #{allowed.join(", ")})" \
           unless allowed.include?(opts[key])
       end
-      raise ArgumentError, "store_zone must be true or false" unless [true, false].include?(opts[:store_zone])
     end
 
     # The options that take one of a few names, and the names.
     def choices
       { scope: SCOPES, buildings: BUILDING_SOURCES, entrances: ENTRANCES, lot_split: LOT_SPLITS,
-        neighbour_cut: NEIGHBOUR_CUTS, parcel_mode: PARCEL_MODES }
+        neighbour_cut: NEIGHBOUR_CUTS, parcel_mode: PARCEL_MODES, store_zone: [true, false],
+        shared_checks: [true, false] }
     end
 
     def check_range(key, value, min, max, whole)
@@ -261,13 +262,11 @@ module Curtilage
 
       premises = premises_xy(xy, target, opts, log)
       result.ring = ring_of(premises, pin, opts[:precision])
-      if target && opts[:store_zone]
-        store = store_xy(target, premises, opts, log, features)
-        result.store_ring = ring_of(store, pin, opts[:precision]) if store
-      end
+      add_store(result, premises, [target, features], opts, log) if target && opts[:store_zone]
       result.validation = Validation.check(pin, result.ring, **opts[:validation])
       result.details = details(target, premises, features, pin, log, precision: opts[:precision])
       add_zones(result, [premises, target, features], opts, log)
+      note_estimate(result) if opts[:shared_checks]
       result
     end
 

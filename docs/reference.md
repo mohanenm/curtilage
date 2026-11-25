@@ -158,6 +158,7 @@ All distances in metres, areas in square metres. These are `Curtilage::Generator
 | `house_street_m` | `25` | ... when two more small buildings are this close. |
 | `parking_reach_m` | `20` | Mapped parking this close to the building is its lot. |
 | `aisle_m` | `9` | Treat this much either side of each service road near the building (within `parking_reach_m` plus this) as parking, for lots OpenStreetMap maps only as aisles and driveways. The strips are claimed, shared, trimmed and fenced like mapped parking. 9 m is half an aisle plus a stall. `nil` turns it off. |
+| `shared_checks` | `false` | Experimental (`--shared-checks`): mark large and shared buildings as the estimates they are. The premises don't change. `store_may_be_unit` is raised for a building over `large_building_note_m2` unless its type normally has one occupant (hotel, school, hospital, place of worship, civic or public building, library, post office, supermarket, warehouse and similar), and for a building joined to another (within 1 m, as in a row of shops); `shared_lot` is also raised for a claimed lot touching two other buildings (claimed whole); those two count for more in the confidence score (0.25 and 0.20); and the explanation starts with an "Estimate: ..." line saying why. |
 | `parcel_mode` | `:clip` | With parcels: `:clip` clips to the building's parcel; `:grow` adds the paving inside the site's parcels, without clipping; `:start` begins from the site's parcels and trims them with the usual rules. Experimental ([Parcels](#parcels)). |
 | `neighbour_cut` | `:line` | How the premises keep off neighbouring buildings after the lot is taken in: `:line` cuts straight across, square to the building; `:notch` (experimental) cuts round each neighbour 1 m clear, so a lot running past a neighbour keeps the part beyond it. Neighbours the premises surround still get a line cut. |
 | `centre_max_m2` | `50000` | With `scope: :centre`, a centre bigger than this (a regional mall) isn't used: the site keeps its own share of the lot (flag `large_centre`), as "anywhere in the mall" is too coarse to mean at the store. |
@@ -273,6 +274,7 @@ In GeoJSON they're extra features with `properties.role` `approach`, `pickup` an
 | `estimate_unit` | The store zone estimated as one unit of a large building (flag `unit_estimated`). | `unit_m` |
 | `clip_parcel` | The premises clipped to the building's parcel (or kept past it for the site's parking, flag `beyond_parcel`), or with `parcel_mode: :grow`, the paving inside the site's parcels taken in. | `parcels`, `parcel_mode` |
 | `site_parcels` | The building's parcel holds other businesses' buildings: used only as a limit (flag `shared_parcel`). | `parcel_mode` |
+| `estimate` | First step with `shared_checks: true` when the store may be one unit or the lot is shared: says the result is an estimate, and why. | `shared_checks` |
 
 New step names may be added in minor versions; treat an unknown one as a plain note.
 
@@ -290,9 +292,9 @@ New step names may be added in minor versions; treat an unknown one as a plain n
 | `mapped_parking` | 0.15 | Mapped parking is inside the premises. |
 | `road_frontage` | 0.15 | At least one side of the premises runs along a public road. |
 | `osm_building` | 0.10 | The building is from OpenStreetMap (no `ml_footprint`). |
-| `single_building_store` | 0.10 | The building is small enough to be one store (no `large_building` or `store_may_be_unit`). |
+| `single_building_store` | 0.10 (0.25 with `shared_checks`) | The building is small enough to be one store (no `large_building` or `store_may_be_unit`; with `shared_checks`, no `store_may_be_unit`). |
 | `no_homes_next_door` | 0.10 | No home borders the lot (no `near_houses`). |
-| `own_lot` | 0.10 | The lot isn't split with other buildings (no `shared_lot`). |
+| `own_lot` | 0.10 (0.20 with `shared_checks`) | The lot isn't split with other buildings (no `shared_lot`). |
 | `no_warnings` | 0.05 | Validation raised no warnings. |
 
 The weights are judgement for now, to be calibrated on the public benchmark once its reference polygons are drawn; treat the score as an order, not a probability. Data age isn't a factor, so the same inputs always score the same.
@@ -308,10 +310,10 @@ The same list is `Curtilage::FLAGS` (flag => what it asks a person to check).
 | `small_building` | Building under 50 m2: may be a kiosk or canopy rather than the store. |
 | `building_not_under_pin` | No building under the pin; the nearest one within 30 m was used. |
 | `pin_moved` | The pin wasn't on a building and was moved onto the nearest one (`snap_m:`): check it's the right one. |
-| `store_may_be_unit` | The store zone is a building over 1,500 m2: the store may be one unit of it. |
+| `store_may_be_unit` | The store zone is a building over 1,500 m2 (with `shared_checks`: unless its type normally has one occupant, or joined to another building): the store may be one unit of it. |
 | `shopping_centre` | `scope: :centre` mapped the whole centre. |
 | `large_centre` | `scope: :centre`, but the centre is over `centre_max_m2` (50,000 m2 by default): the premises are the site's own share, not the whole centre. |
-| `shared_lot` | The lot is shared with other buildings and was split by nearest building: where it really divides isn't in the map, so check the line. |
+| `shared_lot` | The lot is shared with other buildings and was split by nearest building: where it really divides isn't in the map, so check the line. With `shared_checks`, also a lot touching two other buildings, claimed whole. |
 | `fallback` | The main method failed validation; the building rectangle was used. |
 | `ml_footprint` | Built on a machine-learned footprint, not an OSM building. |
 | `unit_estimated` | The store zone is an estimated unit of a large building (`unit_m:`): check it. |

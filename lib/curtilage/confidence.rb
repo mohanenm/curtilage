@@ -26,6 +26,10 @@ module Curtilage
       no_warnings: [0.05, "Validation raised no warnings (size, shape and position look typical)."],
     }.freeze
 
+    # With shared_checks: true, a store that may be one unit and a shared lot
+    # count for more: they are where results are least sure.
+    SHARED_WEIGHTS = { single_building_store: 0.25, own_lot: 0.20 }.freeze
+
     module_function
 
     # [score, factors]: the score rounded to 2 places, and every factor as
@@ -33,9 +37,20 @@ module Curtilage
     def assess(result)
       return [result.ok? ? 1.0 : 0.0, [{ name: :valid, met: result.ok?, weight: 1.0 }]] if result.method_name == :manual
 
-      factors = met(result).map { |name, ok| { name: name, met: ok, weight: FACTORS.fetch(name)[0] } }
+      shared = result.provenance&.dig(:options, :shared_checks)
+      factors = met(result).map do |name, ok|
+        { name: name, met: ok, weight: (shared && SHARED_WEIGHTS[name]) || FACTORS.fetch(name)[0] }
+      end
       lost = factors.reject { |f| f[:met] }.sum { |f| f[:weight] }
       [[1.0 - lost, 0.0].max.round(2), factors]
+    end
+
+    # With shared_checks, store_may_be_unit alone says it (it leaves out
+    # single-occupant buildings that large_building flags by size).
+    def single_store?(result)
+      return false if result.flags.include?(:store_may_be_unit)
+
+      result.provenance&.dig(:options, :shared_checks) || !result.flags.include?(:large_building)
     end
 
     def met(result)
@@ -46,7 +61,7 @@ module Curtilage
         building_under_pin: !flags.intersect?(%i[building_not_under_pin pin_moved]),
         full_data: !flags.include?(:partial_data),
         osm_building: !flags.include?(:ml_footprint),
-        single_building_store: !flags.intersect?(%i[large_building store_may_be_unit]),
+        single_building_store: single_store?(result),
         plausible_building: !flags.include?(:small_building),
         mapped_parking: details[:parking_area_m2].to_f.positive?, road_frontage: details[:frontage_m].to_f.positive?,
         no_homes_next_door: !flags.include?(:near_houses), own_lot: !flags.include?(:shared_lot),
