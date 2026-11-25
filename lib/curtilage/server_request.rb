@@ -62,7 +62,7 @@ module Curtilage
     # "options": { ... } }, a GeoJSON FeatureCollection of points, or NDJSON
     # (Content-Type: application/x-ndjson) as the command line reads it.
     module ServerInput
-      CHOICES = %i[scope buildings entrances lot_split preset method parcel_mode].freeze
+      CHOICES = %i[scope buildings entrances preset method parcel_mode].freeze
 
       module_function
 

@@ -146,8 +146,6 @@ module Curtilage
     # driveways linking the claimed lot to a public road are taken in.
     def add_parking(poly, lots, site)
       far = fence(site, site.opts[:parking_max_extent_m])
-      # parcel_mode: :start began from the parcel: that is the reach.
-      far = Geometry.counter_clockwise(Geometry.convex_hull(far + poly)) if site.opts[:parcel_mode] == :start
       parts = lots.map { |lot| lot_part(Geometry.clip_convex(lot.xy, far), lot, site) }
       grown = lot_box(poly + parts.select { |p| p.size >= 3 }.flatten(1), far, site.target)
       grown = add_entrances(grown, far, site) unless only_aisles?(lots)
@@ -259,31 +257,7 @@ module Curtilage
       part
     end
 
-    def lot_part(part, lot, site)
-      voronoi = site.opts[:lot_split] == :voronoi && site.shared.include?(lot)
-      voronoi ? voronoi_part(part, lot, site) : share_lot(part, lot, site)
-    end
-
-    # lot_split: :voronoi. The part of a shared lot nearer this building's
-    # walls than any other building's on it (homes included), on a Grid of
-    # a metre or two; its convex outline, which lot_box squares up anyway.
-    def voronoi_part(part, lot, site)
-      features, target, opts, log = site.to_a
-      others = lot_neighbours(lot, features, target, opts).reject { |o| LOT_TYPES.include?(o.category) }
-      return part if part.size < 3 || others.empty?
-
-      log.note("parking #{lot.id}: claimed the part nearer this building than #{others.size} others on it",
-               step: "share_lot", rule: "lot_split", features: [lot.id, *others.map(&:id)])
-      hull = nearer_part(part, target.hull, others.map(&:hull))
-      hull.size >= 3 ? Geometry.counter_clockwise(hull) : []
-    end
-
-    # On a Grid of a metre or two (it's squared up afterwards anyway).
-    def nearer_part(part, mine, others)
-      extent = Geometry.bounds(part + mine + others.flatten(1))
-      cell = ((extent[2] - extent[0]) + (extent[3] - extent[1])).fdiv(600).clamp(1.0, 2.0)
-      Grid.new(extent, cell).paint(part).keep_nearer(mine, others).hull
-    end
+    def lot_part(part, lot, site) = share_lot(part, lot, site)
 
     # Other buildings the lot touches (not ones joined to the site's own),
     # nearest first.

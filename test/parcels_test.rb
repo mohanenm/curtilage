@@ -68,14 +68,6 @@ class ParcelsTest < Minitest::Test
     assert(plain.all? { |p| G.contains?(xy(grow), p) || G.distance_to_edges(xy(grow), p) < 1.5 }) # only adds
   end
 
-  def test_parcel_mode_start_begins_from_the_parcel
-    result = Curtilage.generate(PIN, scene + [parcel(9, -100, -35, 40, 30)], parcel_mode: :start)
-
-    assert result.ok?, result.validation.errors.inspect
-    assert(result.steps.any? { |s| s[:text].to_s.start_with?("started from the building's parcel") })
-    assert G.contains?(xy(result), [-80, 25])
-  end
-
   # A parcel also holding two other businesses' buildings is a centre: only
   # a limit, as :clip.
   def test_shared_parcels_are_only_a_limit
