@@ -70,6 +70,19 @@ The held-out rules:
 2. **Never used for tuning.** `rake benchmark` leaves held-out sites out and only counts them (how many, how many labelled). Scoring them needs both `CURTILAGE_BENCHMARK_HOLDOUT=1` and `CURTILAGE_RELEASE_CHECK=1` and every held-out label sealed; that run scores tuning, validation and held-out sites side by side for every view (each held-out set, `holdout_set` in `sites.geojson`, and all of them together), and prints and saves totals only: nothing per site, per point or per category. The gallery, review pages, diagnosis and parcel tooling skip them.
 3. **Replaced only for data problems visible without running the gem**, decided from the site data alone (the Overture place and the map data around it), such as no matching business at the Overture point or a pin far from any building. Every replacement is logged in `holdout_replacements.md` with its reason. From the third set on, a pin that is off the business is kept, as real input often is: the business is labelled where it really is, and the site is replaced only if the business can't be found near the pin at all.
 
+## How the labels were made
+
+Every label in the public benchmark was placed by one person, the project's maintainer, on the labelling page (`rake benchmark:label_page`), over public-domain USGS aerial imagery (NAIP photos, with USGS cached tiles underneath where the photos load slowly), following [LABELS.md](LABELS.md): each point says what is physically there, and the views decide what counts.
+
+| Set | Sites | Labelled | Seen results first? |
+|---|---|---|---|
+| Tuning | 25 | over several rounds; some labels corrected after reviewing results (`corrections.csv`) | yes |
+| Validation (the first held-out set) | 7 | blind, before any result | no, results seen since |
+| Held-out set 2 | 16 | blind; parking re-checked before any result was seen (`holdout_replacements.md`) | no |
+| Held-out set 3 | 8 | blind; pins off the business kept and the business labelled where it is | no |
+
+The held-out sets were labelled by the same person who reviews tuning results and directs rule changes, so they share that person's judgement of what counts as the lot. To check that, a random sample of points from each held-out set is checked on imagery by a second labeller who has never seen the rules' output; the agreement rate is recorded here, and disagreements are logged, not fixed (sealed labels never change).
+
 ## Correcting a label
 
 Labels change only to record what's physically there more accurately, never to improve a score. Corrections made while looking at results drift toward them: the corrections log's backfill (127 changes since the 30-site expansion) found that, under the core view, 108 raised the score and 10 lowered it.
