@@ -1,11 +1,11 @@
 {
   "gem_version": "0.9.0",
-  "commit": "7598d58-dirty",
+  "commit": "64bda59",
   "overture_release": "2026-11-18.0",
   "options": {
     "buildings": "osm_or_ml"
   },
-  "run_at": "2026-11-25T21:22:19Z",
+  "run_at": "2026-11-25T21:35:12Z",
   "summary": {
     "all": {
       "sites": 42,
@@ -25,7 +25,7 @@
         "shared_lot": 4,
         "store_may_be_unit": 12
       },
-      "total_ms": 2250
+      "total_ms": 2260
     },
     "categories": {
       "backs_onto_houses": {
@@ -38,7 +38,7 @@
         "median_area_ratio": 0.27,
         "fallbacks": 0,
         "flags": {},
-        "total_ms": 60
+        "total_ms": 51
       },
       "big_box": {
         "sites": 1,
@@ -66,7 +66,7 @@
         "median_area_ratio": 1.38,
         "fallbacks": 0,
         "flags": {},
-        "total_ms": 20
+        "total_ms": 29
       },
       "deep_lot": {
         "sites": 1,
@@ -80,7 +80,7 @@
         "flags": {
           "store_may_be_unit": 1
         },
-        "total_ms": 9
+        "total_ms": 7
       },
       "fuel_station": {
         "sites": 1,
@@ -92,7 +92,7 @@
         "median_area_ratio": 0.53,
         "fallbacks": 0,
         "flags": {},
-        "total_ms": 78
+        "total_ms": 80
       },
       "missing_building": {
         "sites": 2,
@@ -106,7 +106,7 @@
         "flags": {
           "ml_footprint": 2
         },
-        "total_ms": 12
+        "total_ms": 13
       },
       "next_to_railway": {
         "sites": 1,
@@ -118,7 +118,7 @@
         "median_area_ratio": 0.45,
         "fallbacks": 0,
         "flags": {},
-        "total_ms": 32
+        "total_ms": 34
       },
       "random": {
         "sites": 30,
@@ -138,7 +138,7 @@
           "shared_lot": 2,
           "store_may_be_unit": 9
         },
-        "total_ms": 1917
+        "total_ms": 1912
       },
       "shared_lot": {
         "sites": 1,
@@ -153,7 +153,7 @@
           "near_houses": 1,
           "shared_lot": 1
         },
-        "total_ms": 25
+        "total_ms": 34
       },
       "shopping_centre_unit": {
         "sites": 1,
@@ -165,7 +165,7 @@
         "median_area_ratio": 0.11,
         "fallbacks": 0,
         "flags": {},
-        "total_ms": 42
+        "total_ms": 41
       },
       "standalone": {
         "sites": 1,
@@ -191,7 +191,7 @@
         "median_area_ratio": 0.18,
         "fallbacks": 0,
         "flags": {},
-        "total_ms": 16
+        "total_ms": 19
       }
     },
     "placeholders": {
@@ -1508,7 +1508,6 @@
       "id": "standalone-public",
       "category": "standalone",
       "role": "tuning",
-      "holdout_set": null,
       "placeholder": false,
       "ok": true,
       "method": "grow_trim",
@@ -1520,7 +1519,7 @@
       "reference_area_m2": 9987,
       "iou": 0.729,
       "area_ratio": 1.14,
-      "ms": 13.6,
+      "ms": 13.7,
       "views": {
         "arrival": {
           "in": 56,
@@ -2740,7 +2739,6 @@
       "id": "corner-commercial",
       "category": "corner_lot",
       "role": "tuning",
-      "holdout_set": null,
       "placeholder": false,
       "ok": true,
       "method": "grow_trim",
@@ -2750,7 +2748,7 @@
       "reference_area_m2": 3176,
       "iou": 0.435,
       "area_ratio": 1.38,
-      "ms": 20.1,
+      "ms": 28.6,
       "views": {
         "arrival": {
           "in": 30,
@@ -3762,7 +3760,6 @@
       "id": "deep-lot-retail",
       "category": "deep_lot",
       "role": "tuning",
-      "holdout_set": null,
       "placeholder": false,
       "ok": true,
       "method": "grow_trim",
@@ -3774,7 +3771,7 @@
       "reference_area_m2": 20550,
       "iou": 0.172,
       "area_ratio": 0.38,
-      "ms": 8.5,
+      "ms": 7.2,
       "views": {
         "arrival": {
           "in": 13,
@@ -4356,7 +4353,6 @@
       "id": "railway-government",
       "category": "next_to_railway",
       "role": "tuning",
-      "holdout_set": null,
       "placeholder": false,
       "ok": true,
       "method": "grow_trim",
@@ -4366,7 +4362,7 @@
       "reference_area_m2": 16050,
       "iou": 0.385,
       "area_ratio": 0.45,
-      "ms": 32.0,
+      "ms": 34.1,
       "views": {
         "arrival": {
           "in": 12,
@@ -5114,7 +5110,6 @@
       "id": "backs-onto-houses",
       "category": "backs_onto_houses",
       "role": "tuning",
-      "holdout_set": null,
       "placeholder": false,
       "ok": true,
       "method": "grow_trim",
@@ -5124,7 +5119,7 @@
       "reference_area_m2": 20785,
       "iou": 0.172,
       "area_ratio": 0.27,
-      "ms": 59.8,
+      "ms": 51.1,
       "parcel": {
         "reference_area_m2": 20936,
         "iou": 0.261,
@@ -5136,7 +5131,6 @@
       "id": "big-box-retail",
       "category": "big_box",
       "role": "tuning",
-      "holdout_set": null,
       "placeholder": false,
       "ok": true,
       "method": "grow_trim",
@@ -5150,7 +5144,7 @@
       "reference_area_m2": 42883,
       "iou": 0.504,
       "area_ratio": 0.76,
-      "ms": 26.1,
+      "ms": 26.4,
       "views": {
         "arrival": {
           "in": 25,
@@ -5672,7 +5666,6 @@
       "id": "shared-lot-restaurant",
       "category": "shared_lot",
       "role": "tuning",
-      "holdout_set": null,
       "placeholder": false,
       "ok": true,
       "method": "grow_trim",
@@ -5685,7 +5678,7 @@
       "reference_area_m2": 5608,
       "iou": 0.489,
       "area_ratio": 0.71,
-      "ms": 25.3,
+      "ms": 34.1,
       "views": {
         "arrival": {
           "in": 27,
@@ -6931,7 +6924,6 @@
       "id": "centre-unit",
       "category": "shopping_centre_unit",
       "role": "tuning",
-      "holdout_set": null,
       "placeholder": false,
       "ok": true,
       "method": "grow_trim",
@@ -6941,7 +6933,7 @@
       "reference_area_m2": 55412,
       "iou": 0.109,
       "area_ratio": 0.11,
-      "ms": 41.5,
+      "ms": 41.4,
       "views": {
         "arrival": {
           "in": 54,
@@ -8091,7 +8083,6 @@
       "id": "urban-storefront",
       "category": "urban_storefront",
       "role": "tuning",
-      "holdout_set": null,
       "placeholder": false,
       "ok": true,
       "method": "grow_trim",
@@ -8101,7 +8092,7 @@
       "reference_area_m2": 5450,
       "iou": 0.182,
       "area_ratio": 0.18,
-      "ms": 16.4,
+      "ms": 18.5,
       "views": {
         "arrival": {
           "in": 9,
@@ -8824,7 +8815,6 @@
       "id": "fuel-station",
       "category": "fuel_station",
       "role": "tuning",
-      "holdout_set": null,
       "placeholder": false,
       "ok": true,
       "method": "grow_trim",
@@ -8834,7 +8824,7 @@
       "reference_area_m2": 7898,
       "iou": 0.476,
       "area_ratio": 0.53,
-      "ms": 77.7,
+      "ms": 80.3,
       "views": {
         "arrival": {
           "in": 58,
@@ -10912,7 +10902,6 @@
       "id": "ma-gas-station",
       "category": "random",
       "role": "tuning",
-      "holdout_set": null,
       "placeholder": false,
       "ok": true,
       "method": "grow_trim",
@@ -10921,7 +10910,7 @@
         "near_houses"
       ],
       "area_m2": 2197,
-      "ms": 166.4,
+      "ms": 185.9,
       "views": {
         "arrival": {
           "in": 19,
@@ -11733,7 +11722,6 @@
       "id": "md-restaurant",
       "category": "random",
       "role": "tuning",
-      "holdout_set": null,
       "placeholder": false,
       "ok": true,
       "method": "grow_trim",
@@ -11742,7 +11730,7 @@
         "store_may_be_unit"
       ],
       "area_m2": 14545,
-      "ms": 38.7,
+      "ms": 37.6,
       "views": {
         "arrival": {
           "in": 83,
@@ -12500,7 +12488,6 @@
       "id": "nc-department-store",
       "category": "random",
       "role": "tuning",
-      "holdout_set": null,
       "placeholder": false,
       "ok": true,
       "method": "grow_trim",
@@ -12510,7 +12497,7 @@
         "store_may_be_unit"
       ],
       "area_m2": 23666,
-      "ms": 32.6,
+      "ms": 28.9,
       "views": {
         "arrival": {
           "in": 47,
@@ -13452,14 +13439,13 @@
       "id": "fl-post-office",
       "category": "random",
       "role": "validation",
-      "holdout_set": null,
       "placeholder": false,
       "ok": true,
       "method": "grow_trim",
       "fallback": false,
       "flags": [],
       "area_m2": 8830,
-      "ms": 16.6,
+      "ms": 16.5,
       "views": {
         "arrival": {
           "in": 34,
@@ -14190,7 +14176,6 @@
       "id": "wi-department-store",
       "category": "random",
       "role": "tuning",
-      "holdout_set": null,
       "placeholder": false,
       "ok": true,
       "method": "grow_trim",
@@ -14199,7 +14184,7 @@
         "building_not_under_pin"
       ],
       "area_m2": 10920,
-      "ms": 30.3,
+      "ms": 22.4,
       "parcel": {
         "reference_area_m2": 17237,
         "iou": 0.033,
@@ -14211,14 +14196,13 @@
       "id": "tx-coffee-shop",
       "category": "random",
       "role": "tuning",
-      "holdout_set": null,
       "placeholder": false,
       "ok": true,
       "method": "grow_trim",
       "fallback": false,
       "flags": [],
       "area_m2": 8227,
-      "ms": 6.7,
+      "ms": 6.2,
       "views": {
         "arrival": {
           "in": 15,
@@ -14732,7 +14716,6 @@
       "id": "ut-post-office",
       "category": "random",
       "role": "tuning",
-      "holdout_set": null,
       "placeholder": false,
       "ok": true,
       "method": "grow_trim",
@@ -14741,7 +14724,7 @@
         "building_not_under_pin"
       ],
       "area_m2": 9119,
-      "ms": 56.8,
+      "ms": 59.3,
       "views": {
         "arrival": {
           "in": 33,
@@ -15721,7 +15704,6 @@
       "id": "ma-hardware-store",
       "category": "random",
       "role": "validation",
-      "holdout_set": null,
       "placeholder": false,
       "ok": true,
       "method": "grow_trim",
@@ -15731,7 +15713,7 @@
         "store_may_be_unit"
       ],
       "area_m2": 23030,
-      "ms": 43.3,
+      "ms": 42.9,
       "views": {
         "arrival": {
           "in": 50,
@@ -16599,14 +16581,13 @@
       "id": "md-post-office",
       "category": "random",
       "role": "tuning",
-      "holdout_set": null,
       "placeholder": false,
       "ok": true,
       "method": "grow_trim",
       "fallback": false,
       "flags": [],
       "area_m2": 6562,
-      "ms": 10.8,
+      "ms": 11.7,
       "views": {
         "arrival": {
           "in": 42,
@@ -17202,7 +17183,6 @@
       "id": "nc-fast-food-restaurant",
       "category": "random",
       "role": "tuning",
-      "holdout_set": null,
       "placeholder": false,
       "ok": false,
       "method": "building",
@@ -17212,7 +17192,7 @@
         "store_may_be_unit"
       ],
       "area_m2": 174158,
-      "ms": 804.2,
+      "ms": 806.7,
       "views": {
         "arrival": {
           "in": 23,
@@ -18464,7 +18444,6 @@
       "id": "fl-hotel",
       "category": "random",
       "role": "tuning",
-      "holdout_set": null,
       "placeholder": false,
       "ok": true,
       "method": "grow_trim",
@@ -18474,7 +18453,7 @@
         "ml_footprint"
       ],
       "area_m2": 5411,
-      "ms": 14.3,
+      "ms": 15.1,
       "views": {
         "arrival": {
           "in": 30,
@@ -18942,7 +18921,6 @@
       "id": "wi-hotel",
       "category": "random",
       "role": "validation",
-      "holdout_set": null,
       "placeholder": false,
       "ok": true,
       "method": "grow_trim",
@@ -18951,7 +18929,7 @@
         "store_may_be_unit"
       ],
       "area_m2": 12125,
-      "ms": 53.0,
+      "ms": 55.8,
       "views": {
         "arrival": {
           "in": 36,
@@ -19563,7 +19541,6 @@
       "id": "tx-restaurant",
       "category": "random",
       "role": "tuning",
-      "holdout_set": null,
       "placeholder": false,
       "ok": true,
       "method": "grow_trim",
@@ -19575,7 +19552,7 @@
         "store_may_be_unit"
       ],
       "area_m2": 30338,
-      "ms": 55.5,
+      "ms": 53.8,
       "views": {
         "arrival": {
           "in": 0,
@@ -19986,7 +19963,6 @@
       "id": "ut-coffee-shop",
       "category": "random",
       "role": "tuning",
-      "holdout_set": null,
       "placeholder": false,
       "ok": true,
       "method": "grow_trim",
@@ -19995,7 +19971,7 @@
         "building_not_under_pin"
       ],
       "area_m2": 3656,
-      "ms": 43.3,
+      "ms": 39.4,
       "views": {
         "arrival": {
           "in": 21,
@@ -20511,7 +20487,6 @@
       "id": "ma-coffee-shop",
       "category": "random",
       "role": "tuning",
-      "holdout_set": null,
       "placeholder": false,
       "ok": true,
       "method": "grow_trim",
@@ -20521,13 +20496,12 @@
         "ml_footprint"
       ],
       "area_m2": 3126,
-      "ms": 21.5
+      "ms": 20.3
     },
     {
       "id": "nc-convenience-store",
       "category": "random",
       "role": "tuning",
-      "holdout_set": null,
       "placeholder": false,
       "ok": true,
       "method": "grow_trim",
@@ -20536,7 +20510,7 @@
         "ml_footprint"
       ],
       "area_m2": 2468,
-      "ms": 10.4,
+      "ms": 10.9,
       "views": {
         "arrival": {
           "in": 22,
@@ -21036,14 +21010,13 @@
       "id": "fl-library",
       "category": "random",
       "role": "tuning",
-      "holdout_set": null,
       "placeholder": false,
       "ok": true,
       "method": "grow_trim",
       "fallback": false,
       "flags": [],
       "area_m2": 5654,
-      "ms": 28.0,
+      "ms": 28.6,
       "views": {
         "arrival": {
           "in": 31,
@@ -21687,14 +21660,13 @@
       "id": "wi-pharmacy",
       "category": "random",
       "role": "tuning",
-      "holdout_set": null,
       "placeholder": false,
       "ok": true,
       "method": "grow_trim",
       "fallback": false,
       "flags": [],
       "area_m2": 4442,
-      "ms": 50.4,
+      "ms": 46.3,
       "views": {
         "arrival": {
           "in": 27,
@@ -22538,7 +22510,6 @@
       "id": "tx-gas-station",
       "category": "random",
       "role": "validation",
-      "holdout_set": null,
       "placeholder": false,
       "ok": true,
       "method": "grow_trim",
@@ -22547,7 +22518,7 @@
         "building_not_under_pin"
       ],
       "area_m2": 7527,
-      "ms": 18.4,
+      "ms": 19.7,
       "views": {
         "arrival": {
           "in": 30,
@@ -22750,7 +22721,6 @@
       "id": "ut-hotel",
       "category": "random",
       "role": "tuning",
-      "holdout_set": null,
       "placeholder": false,
       "ok": true,
       "method": "grow_trim",
@@ -22759,7 +22729,7 @@
         "building_not_under_pin"
       ],
       "area_m2": 2851,
-      "ms": 7.7,
+      "ms": 10.6,
       "views": {
         "arrival": {
           "in": 13,
@@ -23531,14 +23501,13 @@
       "id": "ma-post-office",
       "category": "random",
       "role": "tuning",
-      "holdout_set": null,
       "placeholder": false,
       "ok": true,
       "method": "grow_trim",
       "fallback": false,
       "flags": [],
       "area_m2": 6587,
-      "ms": 15.2,
+      "ms": 15.6,
       "parcel": {
         "reference_area_m2": 6872,
         "iou": 0.637,
@@ -23550,14 +23519,13 @@
       "id": "md-restaurant-2",
       "category": "random",
       "role": "tuning",
-      "holdout_set": null,
       "placeholder": false,
       "ok": true,
       "method": "grow_trim",
       "fallback": false,
       "flags": [],
       "area_m2": 9437,
-      "ms": 33.1,
+      "ms": 31.5,
       "parcel": {
         "reference_area_m2": 10684,
         "iou": 0.563,
@@ -23569,7 +23537,6 @@
       "id": "fl-hotel-2",
       "category": "random",
       "role": "tuning",
-      "holdout_set": null,
       "placeholder": false,
       "ok": true,
       "method": "grow_trim",
@@ -23579,7 +23546,7 @@
         "store_may_be_unit"
       ],
       "area_m2": 8950,
-      "ms": 30.2,
+      "ms": 33.3,
       "parcel": {
         "reference_area_m2": 4448,
         "iou": 0.497,
@@ -23591,14 +23558,13 @@
       "id": "wi-post-office",
       "category": "random",
       "role": "tuning",
-      "holdout_set": null,
       "placeholder": false,
       "ok": true,
       "method": "grow_trim",
       "fallback": false,
       "flags": [],
       "area_m2": 2301,
-      "ms": 15.0,
+      "ms": 13.6,
       "parcel": {
         "reference_area_m2": 1771,
         "iou": 0.725,
@@ -23610,7 +23576,6 @@
       "id": "tx-fast-food-restaurant",
       "category": "random",
       "role": "tuning",
-      "holdout_set": null,
       "placeholder": false,
       "ok": true,
       "method": "grow_trim",
@@ -23619,7 +23584,7 @@
         "building_not_under_pin"
       ],
       "area_m2": 4766,
-      "ms": 26.0,
+      "ms": 25.9,
       "parcel": {
         "reference_area_m2": 3079,
         "iou": 0.6,
@@ -23631,7 +23596,6 @@
       "id": "ut-bank",
       "category": "random",
       "role": "validation",
-      "holdout_set": null,
       "placeholder": false,
       "ok": true,
       "method": "grow_trim",
@@ -23641,7 +23605,7 @@
         "store_may_be_unit"
       ],
       "area_m2": 20644,
-      "ms": 70.3,
+      "ms": 60.3,
       "views": {
         "arrival": {
           "in": 35,
@@ -25029,7 +24993,6 @@
       "id": "tx-missing-building-1",
       "category": "missing_building",
       "role": "tuning",
-      "holdout_set": null,
       "placeholder": false,
       "ok": true,
       "method": "grow_trim",
@@ -25038,7 +25001,7 @@
         "ml_footprint"
       ],
       "area_m2": 2939,
-      "ms": 8.7,
+      "ms": 8.8,
       "parcel": {
         "reference_area_m2": 3042,
         "iou": 0.328,
@@ -25050,7 +25013,6 @@
       "id": "tx-missing-building-2",
       "category": "missing_building",
       "role": "tuning",
-      "holdout_set": null,
       "placeholder": false,
       "ok": true,
       "method": "grow_trim",
@@ -25059,7 +25021,7 @@
         "ml_footprint"
       ],
       "area_m2": 6577,
-      "ms": 3.6,
+      "ms": 3.7,
       "parcel": {
         "reference_area_m2": 4173,
         "iou": 0.48,
@@ -25071,7 +25033,6 @@
       "id": "md-gas-station-2",
       "category": "random",
       "role": "validation",
-      "holdout_set": null,
       "placeholder": false,
       "ok": true,
       "method": "grow_trim",
@@ -25080,7 +25041,7 @@
         "building_not_under_pin"
       ],
       "area_m2": 3163,
-      "ms": 4.8,
+      "ms": 4.7,
       "views": {
         "arrival": {
           "in": 22,
@@ -25512,7 +25473,6 @@
       "id": "nc-pharmacy-2",
       "category": "random",
       "role": "validation",
-      "holdout_set": null,
       "placeholder": false,
       "ok": true,
       "method": "building",
@@ -25523,7 +25483,7 @@
         "store_may_be_unit"
       ],
       "area_m2": 80077,
-      "ms": 114.9,
+      "ms": 110.1,
       "views": {
         "arrival": {
           "in": 33,
@@ -26383,7 +26343,6 @@
       "id": "mi-pharmacy",
       "category": "random",
       "role": "tuning",
-      "holdout_set": null,
       "placeholder": false,
       "ok": true,
       "method": "grow_trim",
@@ -26394,7 +26353,7 @@
         "near_houses"
       ],
       "area_m2": 4088,
-      "ms": 85.7,
+      "ms": 86.6,
       "views": {
         "arrival": {
           "in": 16,
@@ -26558,7 +26517,6 @@
       "id": "mo-library",
       "category": "random",
       "role": "tuning",
-      "holdout_set": null,
       "placeholder": false,
       "ok": true,
       "method": "grow_trim",
@@ -26567,7 +26525,7 @@
         "building_not_under_pin"
       ],
       "area_m2": 3283,
-      "ms": 12.9,
+      "ms": 12.1,
       "views": {
         "arrival": {
           "in": 7,
