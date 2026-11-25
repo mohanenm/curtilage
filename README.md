@@ -1,12 +1,14 @@
 # curtilage
 
-[![Gem Version](https://badge.fury.io/rb/curtilage.svg)](https://badge.fury.io/rb/curtilage)
+[![Gem Version](https://img.shields.io/gem/v/curtilage)](https://rubygems.org/gems/curtilage)
 
-**Free, explainable premises polygons and geofences for any store, from OpenStreetMap.**
+**Free lot outlines for any business, from open map data: the building and its parking, up to the kerb, with flags saying what to check.**
 
 *Curtilage: the land immediately around a building, such as its yard, drive and lot.*
 
-Give it a pin; it gives back the site's **premises polygon** (the building plus its customer-facing lot, up to the kerb) and a **store zone** (the building's own outline), with review flags, a confidence score and a plain-words explanation of every step. Map data is fetched as needed, so nobody has to draw polygons by hand or host anything.
+Give it a location; it gives back the site's **premises** (the building plus its own parking and driveways, stopping at public roads, railways and the neighbours) and the building's outline, with review flags, a confidence score and every step explained in plain words. It reads OpenStreetMap and Overture data as needed, so there's nothing to host and nothing to draw. Where you have tax parcels, it can use them.
+
+**How it does on sites it was never tuned on.** On 24 held-out sites in 24 states, labelled blind and scored once, the premises took in 80% of what should be inside and 6.8% of what should stay out. A 50 m circle round the same pins takes in about as much of the lot (80%) but over three times as much that isn't the site's (23%); a 75 m circle reaches 94% only by taking in half the surroundings (51%). On the benchmark's hardest sites (a pin in the road, very large shared buildings) curtilage only ties a circle, and a published tax parcel does better. [How it compares](#how-it-compares).
 
 ## Try it
 
@@ -39,12 +41,13 @@ sites = json.load(urllib.request.urlopen("http://127.0.0.1:8754/premises", body)
 
 ## Who it's for
 
-- **Geofencing and pickup:** know when a customer arrives on site, not just near it; optional approach and pickup zones ([geofence server](docs/recipes/geofence-server.md), [platforms](docs/recipes/geofence-platforms.md), [mobile circles](docs/recipes/mobile-circles.md)).
-- **Delivery:** a drop-off area per address that stops at the street ([Rails background job](docs/recipes/rails.md)).
-- **Location analytics:** count visits inside the lot rather than within a radius ([DuckDB](docs/recipes/duckdb.md), [GeoPandas](docs/recipes/geopandas.md), [PostGIS](docs/recipes/postgis.md)).
-- **Site selection:** parking area, street frontage and driveway entrances for every candidate site, e.g. all pharmacies in a state from `curtilage places` ([QGIS](docs/recipes/qgis.md)).
-- **Research:** a documented, rule-based method you can rerun and cite, with a public [benchmark](benchmark/README.md).
-- **OpenStreetMap mapping:** a task list of stores whose building is missing from the map ([Giving back](#giving-back-to-openstreetmap)).
+- **Site selection and real estate:** lot area, street frontage and driveway entrances for every candidate site, e.g. all pharmacies in a state from `curtilage places`; with your county's parcels, the paved ground inside them too ([QGIS](docs/recipes/qgis.md)).
+- **Research:** a documented, rule-based method you can rerun and cite, with a public benchmark of labelled sites, its held-out results and a gallery of results on aerial imagery, failures included ([benchmark](benchmark/README.md)).
+- **Open data:** polygons under the ODbL from open map data, with the attribution carried in every output, and a task list of businesses whose building is missing from OpenStreetMap ([Giving back](#giving-back-to-openstreetmap)).
+- **Location analytics:** visits counted inside the lot rather than within a radius ([DuckDB](docs/recipes/duckdb.md), [GeoPandas](docs/recipes/geopandas.md), [PostGIS](docs/recipes/postgis.md)).
+- **Geofencing, pickup and delivery:** arrival on site rather than nearby, optional approach and pickup zones, and drop-off areas that stop at the street ([geofence server](docs/recipes/geofence-server.md), [platforms](docs/recipes/geofence-platforms.md), [mobile circles](docs/recipes/mobile-circles.md), [Rails](docs/recipes/rails.md)).
+
+**What to expect.** Results are drafts for review, not property lines. They're usually good when the pin is on or near the business's own building with its own lot. They're weakest for one store in a large shared building and for lots shared with other stores, where the map doesn't say how the lot divides; those results are flagged. Confidence gives a rough review order, not a reason to skip a flagged result. [Known limitations](#known-limitations).
 
 ## How it compares
 

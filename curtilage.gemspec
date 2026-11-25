@@ -7,11 +7,11 @@ Gem::Specification.new do |spec|
   spec.version = Curtilage::VERSION
   spec.authors = ["Emil M"]
   spec.email = ["curtilage.cohesive702@8shield.net"]
-  spec.summary = "Premises polygons and geofences (building + parking lot) for any location, from OpenStreetMap."
+  spec.summary = "Free lot outlines (building + parking, up to the kerb) for any business, from open map data."
   spec.description = <<~TEXT
     Generates a site's premises polygon (the building and its customer-facing parking lot,
     stopping at public roads, railways and neighbours) and the building's outline from a
-    single point, for geofencing, pickup and delivery zones, location analytics and GIS.
+    single point, for site selection, research, location analytics, geofencing and delivery zones.
     Each polygon comes with review flags, a confidence score, validation and an explanation
     of every step. Free map data, no hosting: OpenStreetMap read in place from Overture Maps,
     or built from Geofabrik extracts. Rule-based (no machine learning); outputs GeoJSON,

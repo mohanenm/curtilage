@@ -1,6 +1,6 @@
 # curtilage
 
-Free, explainable premises polygons and geofences for any store: the building plus its parking lot, up to the kerb, from OpenStreetMap and Overture.
+Free lot outlines for any business, from open map data: the building and its parking, up to the kerb, with flags saying what to check. From OpenStreetMap and Overture.
 
 - [Gallery](gallery/): the public benchmark sites (all but the held-out ones) over public-domain USGS aerial snapshots, with their premises, zones, flags and steps, and what their labels say each got wrong.
 - [Reference](reference.md): every option, flag and command.
