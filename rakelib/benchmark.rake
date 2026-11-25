@@ -187,7 +187,9 @@ namespace :benchmark do
     view = b.views(*b.paths[:views]).fetch("default")
     puts JSON.pretty_generate(b.spot_check_score(Integer(args[:set]), answers, view))
   end
+end
 
+namespace :benchmark do
   desc "Log uncommitted label corrections, with their effect: rake \"benchmark:log_corrections[REASON,CHECKED,yes]\""
   task :log_corrections, %i[reason checked reviewed] do |_, args|
     unless args[:reviewed] == "yes"
