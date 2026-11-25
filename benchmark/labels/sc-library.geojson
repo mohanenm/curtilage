@@ -214,20 +214,6 @@
   {
    "type": "Feature",
    "properties": {
-    "kind": "neighbour_building",
-    "source": "hand"
-   },
-   "geometry": {
-    "type": "Point",
-    "coordinates": [
-     -82.2029471,
-     34.6960267
-    ]
-   }
-  },
-  {
-   "type": "Feature",
-   "properties": {
     "kind": "public_road",
     "source": "hand"
    },
@@ -388,20 +374,6 @@
    "geometry": {
     "type": "Point",
     "coordinates": [
-     -82.2037545,
-     34.6966883
-    ]
-   }
-  },
-  {
-   "type": "Feature",
-   "properties": {
-    "kind": "centre_entrance",
-    "source": "hand"
-   },
-   "geometry": {
-    "type": "Point",
-    "coordinates": [
      -82.2033629,
      34.6964876
     ]
@@ -418,34 +390,6 @@
     "coordinates": [
      -82.2040737,
      34.694966
-    ]
-   }
-  },
-  {
-   "type": "Feature",
-   "properties": {
-    "kind": "shared_parking_near",
-    "source": "hand"
-   },
-   "geometry": {
-    "type": "Point",
-    "coordinates": [
-     -82.2037625,
-     34.6952791
-    ]
-   }
-  },
-  {
-   "type": "Feature",
-   "properties": {
-    "kind": "shared_parking_near",
-    "source": "hand"
-   },
-   "geometry": {
-    "type": "Point",
-    "coordinates": [
-     -82.2039557,
-     34.6951777
     ]
    }
   },
@@ -502,6 +446,48 @@
     "coordinates": [
      -82.2041112,
      34.69662
+    ]
+   }
+  },
+  {
+   "type": "Feature",
+   "properties": {
+    "kind": "shared_parking_far",
+    "source": "hand"
+   },
+   "geometry": {
+    "type": "Point",
+    "coordinates": [
+     -82.2038618,
+     34.6952769
+    ]
+   }
+  },
+  {
+   "type": "Feature",
+   "properties": {
+    "kind": "shared_parking_far",
+    "source": "hand"
+   },
+   "geometry": {
+    "type": "Point",
+    "coordinates": [
+     -82.2040227,
+     34.6951777
+    ]
+   }
+  },
+  {
+   "type": "Feature",
+   "properties": {
+    "kind": "shared_parking_far",
+    "source": "hand"
+   },
+   "geometry": {
+    "type": "Point",
+    "coordinates": [
+     -82.2039127,
+     34.695116
     ]
    }
   }

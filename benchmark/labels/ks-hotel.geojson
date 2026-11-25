@@ -662,132 +662,6 @@
   {
    "type": "Feature",
    "properties": {
-    "kind": "own_parking",
-    "source": "hand"
-   },
-   "geometry": {
-    "type": "Point",
-    "coordinates": [
-     -96.5820578,
-     39.1858781
-    ]
-   }
-  },
-  {
-   "type": "Feature",
-   "properties": {
-    "kind": "own_parking",
-    "source": "hand"
-   },
-   "geometry": {
-    "type": "Point",
-    "coordinates": [
-     -96.5820578,
-     39.1857804
-    ]
-   }
-  },
-  {
-   "type": "Feature",
-   "properties": {
-    "kind": "own_parking",
-    "source": "hand"
-   },
-   "geometry": {
-    "type": "Point",
-    "coordinates": [
-     -96.582047,
-     39.1856972
-    ]
-   }
-  },
-  {
-   "type": "Feature",
-   "properties": {
-    "kind": "own_parking",
-    "source": "hand"
-   },
-   "geometry": {
-    "type": "Point",
-    "coordinates": [
-     -96.5820417,
-     39.1856078
-    ]
-   }
-  },
-  {
-   "type": "Feature",
-   "properties": {
-    "kind": "own_parking",
-    "source": "hand"
-   },
-   "geometry": {
-    "type": "Point",
-    "coordinates": [
-     -96.582039,
-     39.185535
-    ]
-   }
-  },
-  {
-   "type": "Feature",
-   "properties": {
-    "kind": "own_parking",
-    "source": "hand"
-   },
-   "geometry": {
-    "type": "Point",
-    "coordinates": [
-     -96.5819398,
-     39.185535
-    ]
-   }
-  },
-  {
-   "type": "Feature",
-   "properties": {
-    "kind": "own_parking",
-    "source": "hand"
-   },
-   "geometry": {
-    "type": "Point",
-    "coordinates": [
-     -96.5819398,
-     39.1856639
-    ]
-   }
-  },
-  {
-   "type": "Feature",
-   "properties": {
-    "kind": "own_parking",
-    "source": "hand"
-   },
-   "geometry": {
-    "type": "Point",
-    "coordinates": [
-     -96.5819344,
-     39.1857741
-    ]
-   }
-  },
-  {
-   "type": "Feature",
-   "properties": {
-    "kind": "own_parking",
-    "source": "hand"
-   },
-   "geometry": {
-    "type": "Point",
-    "coordinates": [
-     -96.5819263,
-     39.1858573
-    ]
-   }
-  },
-  {
-   "type": "Feature",
-   "properties": {
     "kind": "entrance",
     "source": "hand"
    },
@@ -992,6 +866,160 @@
     "coordinates": [
      -96.5820444,
      39.1850673
+    ]
+   }
+  },
+  {
+   "type": "Feature",
+   "properties": {
+    "kind": "shared_parking_far",
+    "source": "hand"
+   },
+   "geometry": {
+    "type": "Point",
+    "coordinates": [
+     -96.5817788,
+     39.1858905
+    ]
+   }
+  },
+  {
+   "type": "Feature",
+   "properties": {
+    "kind": "shared_parking_far",
+    "source": "hand"
+   },
+   "geometry": {
+    "type": "Point",
+    "coordinates": [
+     -96.5817788,
+     39.1857908
+    ]
+   }
+  },
+  {
+   "type": "Feature",
+   "properties": {
+    "kind": "shared_parking_far",
+    "source": "hand"
+   },
+   "geometry": {
+    "type": "Point",
+    "coordinates": [
+     -96.5817788,
+     39.1856951
+    ]
+   }
+  },
+  {
+   "type": "Feature",
+   "properties": {
+    "kind": "shared_parking_far",
+    "source": "hand"
+   },
+   "geometry": {
+    "type": "Point",
+    "coordinates": [
+     -96.5817761,
+     39.1856286
+    ]
+   }
+  },
+  {
+   "type": "Feature",
+   "properties": {
+    "kind": "shared_parking_far",
+    "source": "hand"
+   },
+   "geometry": {
+    "type": "Point",
+    "coordinates": [
+     -96.5820819,
+     39.1852918
+    ]
+   }
+  },
+  {
+   "type": "Feature",
+   "properties": {
+    "kind": "shared_parking_far",
+    "source": "hand"
+   },
+   "geometry": {
+    "type": "Point",
+    "coordinates": [
+     -96.58187,
+     39.1852793
+    ]
+   }
+  },
+  {
+   "type": "Feature",
+   "properties": {
+    "kind": "shared_parking_far",
+    "source": "hand"
+   },
+   "geometry": {
+    "type": "Point",
+    "coordinates": [
+     -96.581752,
+     39.1852793
+    ]
+   }
+  },
+  {
+   "type": "Feature",
+   "properties": {
+    "kind": "shared_parking_near",
+    "source": "hand"
+   },
+   "geometry": {
+    "type": "Point",
+    "coordinates": [
+     -96.58209,
+     39.1858531
+    ]
+   }
+  },
+  {
+   "type": "Feature",
+   "properties": {
+    "kind": "shared_parking_near",
+    "source": "hand"
+   },
+   "geometry": {
+    "type": "Point",
+    "coordinates": [
+     -96.5820873,
+     39.1857887
+    ]
+   }
+  },
+  {
+   "type": "Feature",
+   "properties": {
+    "kind": "shared_parking_near",
+    "source": "hand"
+   },
+   "geometry": {
+    "type": "Point",
+    "coordinates": [
+     -96.5820792,
+     39.1856993
+    ]
+   }
+  },
+  {
+   "type": "Feature",
+   "properties": {
+    "kind": "shared_parking_near",
+    "source": "hand"
+   },
+   "geometry": {
+    "type": "Point",
+    "coordinates": [
+     -96.5820792,
+     39.1855953
     ]
    }
   }

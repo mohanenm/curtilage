@@ -130,20 +130,6 @@
   {
    "type": "Feature",
    "properties": {
-    "kind": "centre_building",
-    "source": "hand"
-   },
-   "geometry": {
-    "type": "Point",
-    "coordinates": [
-     -74.0031633,
-     40.7397746
-    ]
-   }
-  },
-  {
-   "type": "Feature",
-   "properties": {
     "kind": "walkway",
     "source": "hand"
    },
@@ -166,20 +152,6 @@
     "coordinates": [
      -74.0032142,
      40.7398457
-    ]
-   }
-  },
-  {
-   "type": "Feature",
-   "properties": {
-    "kind": "neighbour_building",
-    "source": "hand"
-   },
-   "geometry": {
-    "type": "Point",
-    "coordinates": [
-     -74.0034878,
-     40.739925
     ]
    }
   },
@@ -318,8 +290,8 @@
    "geometry": {
     "type": "Point",
     "coordinates": [
-     -74.0031861,
-     40.7398945
+     -74.0031901,
+     40.7398701
     ]
    }
   }

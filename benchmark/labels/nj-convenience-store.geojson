@@ -130,188 +130,6 @@
   {
    "type": "Feature",
    "properties": {
-    "kind": "own_parking",
-    "source": "hand"
-   },
-   "geometry": {
-    "type": "Point",
-    "coordinates": [
-     -74.2720038,
-     40.6286728
-    ]
-   }
-  },
-  {
-   "type": "Feature",
-   "properties": {
-    "kind": "own_parking",
-    "source": "hand"
-   },
-   "geometry": {
-    "type": "Point",
-    "coordinates": [
-     -74.2720293,
-     40.6286464
-    ]
-   }
-  },
-  {
-   "type": "Feature",
-   "properties": {
-    "kind": "own_parking",
-    "source": "hand"
-   },
-   "geometry": {
-    "type": "Point",
-    "coordinates": [
-     -74.2720346,
-     40.628627
-    ]
-   }
-  },
-  {
-   "type": "Feature",
-   "properties": {
-    "kind": "entrance",
-    "source": "hand"
-   },
-   "geometry": {
-    "type": "Point",
-    "coordinates": [
-     -74.271871,
-     40.6285517
-    ]
-   }
-  },
-  {
-   "type": "Feature",
-   "properties": {
-    "kind": "entrance",
-    "source": "hand"
-   },
-   "geometry": {
-    "type": "Point",
-    "coordinates": [
-     -74.2716055,
-     40.6287705
-    ]
-   }
-  },
-  {
-   "type": "Feature",
-   "properties": {
-    "kind": "entrance",
-    "source": "hand"
-   },
-   "geometry": {
-    "type": "Point",
-    "coordinates": [
-     -74.2717101,
-     40.6286107
-    ]
-   }
-  },
-  {
-   "type": "Feature",
-   "properties": {
-    "kind": "sidewalk",
-    "source": "hand"
-   },
-   "geometry": {
-    "type": "Point",
-    "coordinates": [
-     -74.2721996,
-     40.6286555
-    ]
-   }
-  },
-  {
-   "type": "Feature",
-   "properties": {
-    "kind": "sidewalk",
-    "source": "hand"
-   },
-   "geometry": {
-    "type": "Point",
-    "coordinates": [
-     -74.2722425,
-     40.6286769
-    ]
-   }
-  },
-  {
-   "type": "Feature",
-   "properties": {
-    "kind": "sidewalk",
-    "source": "hand"
-   },
-   "geometry": {
-    "type": "Point",
-    "coordinates": [
-     -74.2723002,
-     40.6286942
-    ]
-   }
-  },
-  {
-   "type": "Feature",
-   "properties": {
-    "kind": "sidewalk",
-    "source": "hand"
-   },
-   "geometry": {
-    "type": "Point",
-    "coordinates": [
-     -74.2715357,
-     40.6288133
-    ]
-   }
-  },
-  {
-   "type": "Feature",
-   "properties": {
-    "kind": "sidewalk",
-    "source": "hand"
-   },
-   "geometry": {
-    "type": "Point",
-    "coordinates": [
-     -74.2715102,
-     40.6288632
-    ]
-   }
-  },
-  {
-   "type": "Feature",
-   "properties": {
-    "kind": "sidewalk",
-    "source": "hand"
-   },
-   "geometry": {
-    "type": "Point",
-    "coordinates": [
-     -74.2714821,
-     40.6289293
-    ]
-   }
-  },
-  {
-   "type": "Feature",
-   "properties": {
-    "kind": "sidewalk",
-    "source": "hand"
-   },
-   "geometry": {
-    "type": "Point",
-    "coordinates": [
-     -74.2714459,
-     40.6289721
-    ]
-   }
-  },
-  {
-   "type": "Feature",
-   "properties": {
     "kind": "neighbour_lot",
     "source": "hand"
    },
@@ -334,6 +152,272 @@
     "coordinates": [
      -74.2717449,
      40.6289731
+    ]
+   }
+  },
+  {
+   "type": "Feature",
+   "properties": {
+    "kind": "public_road",
+    "source": "hand"
+   },
+   "geometry": {
+    "type": "Point",
+    "coordinates": [
+     -74.272787,
+     40.6288184
+    ]
+   }
+  },
+  {
+   "type": "Feature",
+   "properties": {
+    "kind": "public_road",
+    "source": "hand"
+   },
+   "geometry": {
+    "type": "Point",
+    "coordinates": [
+     -74.2726046,
+     40.6287512
+    ]
+   }
+  },
+  {
+   "type": "Feature",
+   "properties": {
+    "kind": "public_road",
+    "source": "hand"
+   },
+   "geometry": {
+    "type": "Point",
+    "coordinates": [
+     -74.2725134,
+     40.6287044
+    ]
+   }
+  },
+  {
+   "type": "Feature",
+   "properties": {
+    "kind": "public_road",
+    "source": "hand"
+   },
+   "geometry": {
+    "type": "Point",
+    "coordinates": [
+     -74.2723632,
+     40.6286352
+    ]
+   }
+  },
+  {
+   "type": "Feature",
+   "properties": {
+    "kind": "public_road",
+    "source": "hand"
+   },
+   "geometry": {
+    "type": "Point",
+    "coordinates": [
+     -74.2721942,
+     40.628566
+    ]
+   }
+  },
+  {
+   "type": "Feature",
+   "properties": {
+    "kind": "public_road",
+    "source": "hand"
+   },
+   "geometry": {
+    "type": "Point",
+    "coordinates": [
+     -74.2720681,
+     40.628509
+    ]
+   }
+  },
+  {
+   "type": "Feature",
+   "properties": {
+    "kind": "public_road",
+    "source": "hand"
+   },
+   "geometry": {
+    "type": "Point",
+    "coordinates": [
+     -74.2719582,
+     40.628456
+    ]
+   }
+  },
+  {
+   "type": "Feature",
+   "properties": {
+    "kind": "public_road",
+    "source": "hand"
+   },
+   "geometry": {
+    "type": "Point",
+    "coordinates": [
+     -74.271808,
+     40.628397
+    ]
+   }
+  },
+  {
+   "type": "Feature",
+   "properties": {
+    "kind": "public_road",
+    "source": "hand"
+   },
+   "geometry": {
+    "type": "Point",
+    "coordinates": [
+     -74.2717034,
+     40.6283644
+    ]
+   }
+  },
+  {
+   "type": "Feature",
+   "properties": {
+    "kind": "public_road",
+    "source": "hand"
+   },
+   "geometry": {
+    "type": "Point",
+    "coordinates": [
+     -74.2716256,
+     40.6284927
+    ]
+   }
+  },
+  {
+   "type": "Feature",
+   "properties": {
+    "kind": "public_road",
+    "source": "hand"
+   },
+   "geometry": {
+    "type": "Point",
+    "coordinates": [
+     -74.2715719,
+     40.6285761
+    ]
+   }
+  },
+  {
+   "type": "Feature",
+   "properties": {
+    "kind": "public_road",
+    "source": "hand"
+   },
+   "geometry": {
+    "type": "Point",
+    "coordinates": [
+     -74.2714995,
+     40.6286922
+    ]
+   }
+  },
+  {
+   "type": "Feature",
+   "properties": {
+    "kind": "public_road",
+    "source": "hand"
+   },
+   "geometry": {
+    "type": "Point",
+    "coordinates": [
+     -74.2713922,
+     40.6288448
+    ]
+   }
+  },
+  {
+   "type": "Feature",
+   "properties": {
+    "kind": "public_road",
+    "source": "hand"
+   },
+   "geometry": {
+    "type": "Point",
+    "coordinates": [
+     -74.2713279,
+     40.6289446
+    ]
+   }
+  },
+  {
+   "type": "Feature",
+   "properties": {
+    "kind": "public_road",
+    "source": "hand"
+   },
+   "geometry": {
+    "type": "Point",
+    "coordinates": [
+     -74.2712608,
+     40.6290545
+    ]
+   }
+  },
+  {
+   "type": "Feature",
+   "properties": {
+    "kind": "neighbour_building",
+    "source": "hand"
+   },
+   "geometry": {
+    "type": "Point",
+    "coordinates": [
+     -74.2711133,
+     40.6286616
+    ]
+   }
+  },
+  {
+   "type": "Feature",
+   "properties": {
+    "kind": "entrance",
+    "source": "hand"
+   },
+   "geometry": {
+    "type": "Point",
+    "coordinates": [
+     -74.2716175,
+     40.6287858
+    ]
+   }
+  },
+  {
+   "type": "Feature",
+   "properties": {
+    "kind": "entrance",
+    "source": "hand"
+   },
+   "geometry": {
+    "type": "Point",
+    "coordinates": [
+     -74.2717248,
+     40.6286128
+    ]
+   }
+  },
+  {
+   "type": "Feature",
+   "properties": {
+    "kind": "entrance",
+    "source": "hand"
+   },
+   "geometry": {
+    "type": "Point",
+    "coordinates": [
+     -74.2718348,
+     40.6285619
     ]
    }
   }
