@@ -45,6 +45,12 @@ class BenchmarkDiagnoseTest < Minitest::Test
     assert_equal({ "v" => [2, 1] }, B.label_totals(labels, { "v" => view }))
   end
 
+  def test_rank_correlation
+    assert_in_delta(-1.0, B.spearman([0.9, 0.5, 0.1], [0.0, 0.2, 0.6]))
+    assert_equal [0.5, 0.5, 2.0], B.ranks([3, 3, 7])
+    assert_nil B.spearman([1, 2], [2, 1])
+  end
+
   def test_held_out_sites_are_never_diagnosed
     assert_empty B.diagnose([{ "id" => "x", "role" => "holdout", "pin" => [0, 0] }], {}, {}, {})
   end

@@ -14,6 +14,7 @@ require_relative "corrections"
 require_relative "review_sample"
 require_relative "diagnose"
 require_relative "parcel_modes"
+require_relative "flags_check"
 
 # The public benchmark (not part of the gem): runs curtilage on the sites in
 # benchmark/sites.geojson against a pinned Overture release, scores each
