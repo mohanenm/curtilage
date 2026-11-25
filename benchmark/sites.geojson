@@ -687,15 +687,15 @@
       "geometry": {
         "type": "Point",
         "coordinates": [
-          -83.19747351,
-          42.21026917
+          -83.280222,
+          42.471154
         ]
       },
       "properties": {
-        "id": "mi-pharmacy",
+        "id": "mi-bank",
         "category": "random",
         "role": "holdout",
-        "notes": "Random pick (seed 20261125): Byron Pharmacy, pharmacy in Michigan. Overture place f641f3d8-eddf-4982-a49e-1c3f96742fb4."
+        "notes": "Random pick (seed 20261127): Comerica Bank, bank in Michigan. Overture place 241bf3a1-b68e-4ba6-a713-eac7741ed62c."
       }
     },
     {
@@ -703,15 +703,15 @@
       "geometry": {
         "type": "Point",
         "coordinates": [
-          -93.55294169,
-          37.06720316
+          -90.427319,
+          38.7040518
         ]
       },
       "properties": {
-        "id": "mo-library",
+        "id": "mo-pharmacy",
         "category": "random",
         "role": "holdout",
-        "notes": "Random pick (seed 20261125): Billings Library, library in Missouri. Overture place f03ae824-652d-4cc6-9651-d1eda9ea7700."
+        "notes": "Random pick (seed 20261127): PharMerica – St. Louis, MO, pharmacy in Missouri. Overture place 61489e48-0a69-4187-95af-3a3611ea879e."
       }
     },
     {

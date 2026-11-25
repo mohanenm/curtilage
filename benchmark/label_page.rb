@@ -165,6 +165,10 @@ module CurtilageBenchmark
         { maxNativeZoom: 16, maxZoom: 21, attribution: credit }),
     };
     if (IMAGERY) {
+      // The quick cached tiles always sit underneath, so something shows at
+      // once while the sharp NAIP photos (often seconds a tile) load on top.
+      L.tileLayer("https://basemap.nationalmap.gov/arcgis/rest/services/USGSImageryOnly/MapServer/tile/{z}/{y}/{x}",
+        { maxNativeZoom: 16, maxZoom: 21, zIndex: 0 }).addTo(map);
       let base = NAIP;
       try { if (layers[localStorage.getItem("labels-imagery")]) base = localStorage.getItem("labels-imagery"); } catch (e) {}
       layers[base].addTo(map);
