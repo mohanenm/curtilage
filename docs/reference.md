@@ -248,7 +248,7 @@ In GeoJSON they're extra features with `properties.role` `approach`, `pickup` an
 | `error` | Generation raised an error (flag `error`). | |
 | `drop_features` | Unusable map features were dropped. | |
 | `find_building` | The building under the pin, the nearest one in reach, or none. | `building_max_distance_m` when not under the pin |
-| `check_building`, `check_store` | The building's size or source raised a flag or a note. | `small_building_m2`, `large_building_m2`, `large_building_note_m2` |
+| `check_building`, `check_store` | The building's size or source raised a flag or a note. | `small_building_m2`, `large_building_m2`, `large_building_note_m2`, `shared_checks` |
 | `grow` | The building's rectangle grown toward its lot. | `grow_m`, or `building_margin_m` (fallback) |
 | `trim_road` | Trimmed at a public road or railway (one step per road). | `road_class_half_width`, `road_offset_m`, or `clearance` when the building or pin clearance kept the cut closer to the centreline |
 | `keep_road_side` | A road wasn't trimmed at because the cut would cross the building. | |

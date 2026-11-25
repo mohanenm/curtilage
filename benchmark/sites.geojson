@@ -873,6 +873,166 @@
         "role": "holdout",
         "notes": "Random pick (seed 20261125): Kent's Supply Center, hardware store in Nevada. Overture place 8b779ace-7fa2-4172-88ac-ba2b1d58c96a."
       }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          -86.13051946,
+          38.23502987
+        ]
+      },
+      "properties": {
+        "id": "in-department-store",
+        "category": "random",
+        "role": "holdout",
+        "notes": "Held-out set 3, random pick (seed 20261128): Walmart CORYDON #922, department store in Indiana. Overture place 55e67087-2bd5-448f-8281-2e1ed1a69d82."
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          -92.10971843,
+          43.37057755
+        ]
+      },
+      "properties": {
+        "id": "ia-hotel",
+        "category": "random",
+        "role": "holdout",
+        "notes": "Held-out set 3, random pick (seed 20261128): Super 8, hotel in Iowa. Overture place 460f8101-54f8-4286-aa62-9d563cb9eca9."
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          -94.40568964,
+          35.32159662
+        ]
+      },
+      "properties": {
+        "id": "ar-hardware-store",
+        "category": "random",
+        "role": "holdout",
+        "notes": "Held-out set 3, random pick (seed 20261128): Sherwin-Williams, hardware store in Arkansas. Overture place dcd3c5ea-1115-49b9-92d4-fd780efd18ec."
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          -89.1374967,
+          30.4221464
+        ]
+      },
+      "properties": {
+        "id": "ms-fast-food-restaurant",
+        "category": "random",
+        "role": "holdout",
+        "notes": "Held-out set 3, random pick (seed 20261128): Wendy's, fast food restaurant in Mississippi. Overture place 0c673192-9101-4618-96f7-1c7c4dfa9787."
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          -80.55083979,
+          40.39907305
+        ]
+      },
+      "properties": {
+        "id": "wv-coffee-shop",
+        "category": "random",
+        "role": "holdout",
+        "notes": "Held-out set 3, random pick (seed 20261128): Dunkin', coffee shop in West Virginia. Overture place f6271f13-0a31-4042-b259-bf4674dc2bb5."
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          -116.88242590450716,
+          47.816487436364596
+        ]
+      },
+      "properties": {
+        "id": "id-convenience-store",
+        "category": "random",
+        "role": "holdout",
+        "notes": "Held-out set 3, random pick (seed 20261128): Jeco, convenience store in Idaho. Overture place adba5d31-e80f-4033-83dc-eea1bb0d9498."
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          -73.5586,
+          41.02438
+        ]
+      },
+      "properties": {
+        "id": "ct-convenience-store",
+        "category": "random",
+        "role": "holdout",
+        "notes": "Held-out set 3, random pick (seed 20261128): Green Witch, convenience store in Connecticut. Overture place 9a0355af-a39b-49ac-8298-24c77b4a94d1."
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          -110.57134317,
+          45.65152084
+        ]
+      },
+      "properties": {
+        "id": "mt-hardware-store",
+        "category": "random",
+        "role": "holdout",
+        "notes": "Held-out set 3, random pick (seed 20261129): True Value Superstore, hardware store in Montana. Overture place bf55672b-fa50-435e-ba99-196a8395a089."
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          -83.19747351,
+          42.21026917
+        ]
+      },
+      "properties": {
+        "id": "mi-pharmacy",
+        "category": "random",
+        "role": "tuning",
+        "notes": "Tuning site with a pin off the business (drawn as a held-out pick, seed 20261125, and replaced there before labelling): Byron Pharmacy, pharmacy in Michigan. Overture place f641f3d8-eddf-4982-a49e-1c3f96742fb4."
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          -93.55294169,
+          37.06720316
+        ]
+      },
+      "properties": {
+        "id": "mo-library",
+        "category": "random",
+        "role": "tuning",
+        "notes": "Tuning site with a pin off the business (drawn as a held-out pick, seed 20261125, and replaced there before labelling): Billings Library, library in Missouri. Overture place f03ae824-652d-4cc6-9651-d1eda9ea7700."
+      }
     }
   ]
 }

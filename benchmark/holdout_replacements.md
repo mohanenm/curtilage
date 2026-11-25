@@ -8,8 +8,11 @@ Held-out sites are replaced only for data problems visible without running the g
 | 2026-11-24 | nc-pharmacy | nc-pharmacy-2 (now a validation site) | The only supermarket-sized building near the Overture point (the store's likely building) was 160 m away; nothing within 80 m matched. | Map data round the point (building sizes and names). |
 | 2026-11-24 | mi-pharmacy | mi-bank | The Overture point was off the business: it couldn't be found near the point on the labelling page. | Labelling page (imagery and map data only), before any result for the site was seen. Redrawn with seed 20261127, same procedure. |
 | 2026-11-24 | mo-library | mo-pharmacy | The Overture point was off the business: it couldn't be found near the point on the labelling page. | Labelling page (imagery and map data only), before any result for the site was seen. Redrawn with seed 20261127, same procedure. |
+| 2026-11-25 | mt-fast-food-restaurant | mt-hardware-store | The business couldn't be found: the imagery at the Overture point showed an open field (likely built after the photo). | Labelling page (imagery and map data only), before any result for the site was seen. Redrawn with seed 20261129, same procedure; the first labels, placed on the empty field, were not used. |
 
 The second held-out set (16 sites, drawn 2026-11-24) needed no redraws at draw time: every pick had a building within 40 m of its point. Two were replaced while labelling (above).
+
+The third held-out set (8 sites, drawn 2026-11-25, seed 20261128) needed no redraws at draw time. In this set a pin off the business is kept, not replaced (README, held-out rule 3). The two sites replaced while labelling the second set (`mi-pharmacy`, `mo-library`) are back as tuning sites, as examples of pins off the business.
 
 ## Corrections before the first release check
 
