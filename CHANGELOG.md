@@ -2,6 +2,14 @@
 
 ## [Unreleased]
 
+### Changed
+
+- README: the comparison table shows the held-out sites beside the tuning sites. On the held-out sites a 50 m circle scores about the same as curtilage and a published tax parcel does better; the README says why.
+
+### Fixed
+
+- Docs: `curtilage serve --port` in the reference, the download retry in the security notes, the gallery's imagery on the Pages landing page.
+
 ## [0.7.0] - 2026-11-24
 
 ### Added

@@ -62,6 +62,17 @@ class CliTest < Minitest::Test
     end
   end
 
+  # The options reach the gem (they're recorded in each result's provenance).
+  def test_parcel_mode_and_shared_checks_reach_the_gem
+    with_setup do |_, args|
+      out, err, = cli("generate", *args, "--parcel-mode", "grow", "--shared-checks", "--format", "ndjson")
+      options = JSON.parse(out.lines.first).dig("properties", "provenance", "options")
+
+      assert_equal "grow", options["parcel_mode"], err
+      assert options["shared_checks"]
+    end
+  end
+
   def test_results_alone_on_standard_output
     with_setup do |_, args|
       out, err, status = cli("generate", *args, "--format", "ndjson")

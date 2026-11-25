@@ -170,7 +170,8 @@ end
 
 # --preset NAME from --profiles FILE becomes that profile's options.
 def style(opts)
-  style = opts.slice(:preset, :buildings, :store_zone, :approach_m, :pickup_m, :snap_m, :candidates, :entrances)
+  style = opts.slice(:preset, :buildings, :store_zone, :approach_m, :pickup_m, :snap_m, :candidates, :entrances,
+                     :parcel_mode, :shared_checks)
   return style unless opts[:profiles]
 
   profiles = Curtilage::Profiles.load(opts[:profiles])
@@ -209,6 +210,10 @@ def data_flags(o, opts)
   o.on("--parcels FILE", "Clip premises to your property lines (GeoJSON, or GeoParquet path or URL)") do |v|
     opts[:parcels] = v
   end
+  o.on("--parcel-mode MODE", Curtilage::Generator::PARCEL_MODES.map(&:to_s),
+       "With --parcels: clip (default), grow (take in paving inside) or start (begin from them); experimental") do |v|
+    opts[:parcel_mode] = v.to_sym
+  end
 end
 
 def style_flags(o, opts)
@@ -219,6 +224,9 @@ def style_flags(o, opts)
   o.on("--buildings FLAVOUR", Curtilage::Generator::BUILDING_SOURCES.map(&:to_s),
        "osm (default), osm_or_ml, osm_filled or ml") { |v| opts[:buildings] = v.to_sym }
   o.on("--[no-]store", "Include the store zone (default: yes)") { |v| opts[:store_zone] = v }
+  o.on("--shared-checks", "Mark large and shared buildings as estimates (flags, confidence; experimental)") do
+    opts[:shared_checks] = true
+  end
   o.on("--entrances WHICH", Curtilage::Generator::ENTRANCES.map(&:to_s),
        "near (default) or all: follow driveways to every entrance (experimental; premises not convex)") do |v|
     opts[:entrances] = v.to_sym

@@ -1,5 +1,6 @@
 # frozen_string_literal: true
 
+require "digest"
 require "fileutils"
 require "json"
 require "open3"
@@ -9,6 +10,11 @@ require_relative "labels"
 require_relative "label_page"
 require_relative "gallery"
 require_relative "parcels"
+require_relative "corrections"
+require_relative "review_sample"
+require_relative "diagnose"
+require_relative "parcel_modes"
+require_relative "flags_check"
 
 # The public benchmark (not part of the gem): runs curtilage on the sites in
 # benchmark/sites.geojson against a pinned Overture release, scores each
@@ -22,7 +28,7 @@ module CurtilageBenchmark
   DATA = File.join(ROOT, "data", "benchmark")
   ID = /\A[a-z0-9][a-z0-9-]{0,63}\z/
   # Options read from JSON whose values are names, not strings.
-  SYMBOL_OPTIONS = %w[buildings scope preset method entrances lot_split neighbour_cut].freeze
+  SYMBOL_OPTIONS = %w[buildings scope preset method entrances lot_split neighbour_cut parcel_mode].freeze
   G = Curtilage::Geometry
 
   module_function
@@ -100,12 +106,82 @@ module CurtilageBenchmark
     data["pin"] == site["pin"] ? data["features"] : nil
   end
 
-  # Held-out sites ("holdout": true) are never scored with the rest, so rule
-  # changes can't be tuned on them: CURTILAGE_BENCHMARK_HOLDOUT=1 scores
-  # only them, for a final check.
+  # Each site's role: "tuning" (rules may be judged on it, never on it
+  # alone), "validation" (seen, no longer blind; judged together with
+  # tuning) or "holdout" (sealed: labelled blind, scored only for a release
+  # check). Older files mark held-out sites "holdout": true.
+  ROLES = %w[tuning validation holdout].freeze
+
+  def role(site) = site["role"] || (site["holdout"] == true ? "holdout" : "tuning")
+
+  # Tuning and validation sites. Held-out sites only with
+  # CURTILAGE_BENCHMARK_HOLDOUT=1 and CURTILAGE_RELEASE_CHECK=1, and then
+  # only them.
+  # Tuning and validation sites; with the release check (both flags), every
+  # site, held-out ones included, once their labels are all sealed. A
+  # release-check run keeps totals only (summary_only).
   def scored_sites(all = sites)
-    holdout = ENV["CURTILAGE_BENCHMARK_HOLDOUT"] == "1"
-    all.select { |s| (s["holdout"] == true) == holdout }
+    return all.reject { |s| role(s) == "holdout" } unless holdout_run?
+    unless release_check?
+      raise ArgumentError, "held-out sites are scored only for a release check: set CURTILAGE_RELEASE_CHECK=1 as well"
+    end
+
+    problems = unsealed(all)
+    raise ArgumentError, "held-out labels aren't all sealed (rake benchmark:seal): #{problems.first(3).inspect}" \
+      if problems.any?
+
+    all
+  end
+
+  # [held-out sites, how many have labels]: counted, never run.
+  def holdout_counts(all = sites)
+    held = all.select { |s| role(s) == "holdout" }
+    [held.size, held.count { |s| File.file?(File.join(paths[:labels], "#{s["id"]}.geojson")) }]
+  end
+
+  SEAL_FILE = File.join(DIR, "holdout_labels.sha256")
+
+  # { "labels/<id>.geojson" => sha256 } from the seal file.
+  def seals(file = SEAL_FILE)
+    File.readlines(file, chomp: true).grep_v(/\A\s*(#|\z)/).to_h { |line| line.split(/\s+/, 2).reverse }
+  end
+
+  # Held-out sites with a label file whose hash differs from its seal, or
+  # that has none: [[id, problem], ...]. Empty when every label is sealed.
+  def unsealed(all = sites, labels_dir: File.join(DIR, "labels"), file: SEAL_FILE)
+    known = seals(file)
+    all.select { |s| role(s) == "holdout" }.filter_map do |site|
+      path = File.join(labels_dir, "#{site["id"]}.geojson")
+      next unless File.file?(path)
+
+      sha = Digest::SHA256.file(path).hexdigest
+      seal = known["labels/#{site["id"]}.geojson"]
+      next if seal == sha
+
+      [site["id"], seal ? "changed after it was sealed" : "labelled but not sealed (rake benchmark:seal)"]
+    end
+  end
+
+  # Records the hash of every held-out label file not yet sealed. Never
+  # changes an existing seal.
+  def seal!(all = sites, labels_dir: File.join(DIR, "labels"), file: SEAL_FILE)
+    changed = unsealed(all, labels_dir: labels_dir, file: file).select { |_, why| why.start_with?("changed") }
+    raise ArgumentError, "held-out labels changed after sealing: #{changed.map(&:first).join(", ")}" if changed.any?
+
+    new = unsealed(all, labels_dir: labels_dir, file: file).map(&:first)
+    File.open(file, "a") do |f|
+      new.each { |id| f.puts "#{Digest::SHA256.file(File.join(labels_dir, "#{id}.geojson")).hexdigest}  labels/#{id}.geojson" }
+    end
+    new
+  end
+
+  def holdout_run? = ENV["CURTILAGE_BENCHMARK_HOLDOUT"] == "1"
+  def release_check? = ENV["CURTILAGE_RELEASE_CHECK"] == "1"
+
+  # A held-out run keeps only totals: no site, point or category detail
+  # anyone could tune against.
+  def summary_only(run)
+    run.merge("sites" => [], "summary" => run["summary"].slice("all", "views", "roles", "parcel"))
   end
 
   def run(sites: scored_sites, features: nil, references: paths[:references], config: self.config,
@@ -176,7 +252,8 @@ module CurtilageBenchmark
   # Metrics for one result. IoU and area ratio need a reference; a result
   # with no polygon scores IoU 0 against it.
   def score(site, result, reference)
-    row = { "id" => site["id"], "category" => site["category"], "placeholder" => site["placeholder"] == true,
+    row = { "id" => site["id"], "category" => site["category"], "role" => role(site),
+            "placeholder" => site["placeholder"] == true,
             "ok" => result.ok?, "method" => result.method_name.to_s,
             "fallback" => result.flags.include?(:fallback), "flags" => result.flags.map(&:to_s),
             "area_m2" => result.validation.metrics[:area_m2] }
@@ -200,14 +277,30 @@ module CurtilageBenchmark
   end
 
   # Placeholder sites are reported apart and never counted in the totals.
+  # Label scores ("views", "parcel") are the tuning sites' when there are
+  # any, as before; "roles" has each role's views apart.
   def summary(rows)
     real = rows.reject { |r| r["placeholder"] }
     categories = real.group_by { |r| r["category"] }.sort.to_h
     views = real.flat_map { |r| (r["views"] || {}).keys }.uniq
+    primary = real.select { |r| r["role"] == "tuning" }
+    primary = real if primary.empty?
     { "all" => stats(real), "categories" => categories.transform_values { |r| stats(r) },
       "placeholders" => stats(rows.select { |r| r["placeholder"] }),
-      "views" => views.to_h { |v| [v, label_stats(real.filter_map { |r| r.dig("views", v) })] },
-      "parcel" => parcel_summary(real.filter_map { |r| r["parcel"] }, views) }
+      "views" => view_stats(primary, views), "roles" => role_stats(real, views),
+      "parcel" => parcel_summary(primary.filter_map { |r| r["parcel"] }, views) }
+  end
+
+  def view_stats(rows, views)
+    views.to_h { |v| [v, label_stats(rows.filter_map { |r| r.dig("views", v) })] }
+  end
+
+  def role_stats(rows, views)
+    groups = rows.group_by { |r| r["role"] }.sort_by { |role, _| ROLES.index(role) || ROLES.size }
+    groups.to_h do |role, group|
+      labelled = group.count { |r| r["views"] }
+      [role, { "sites" => group.size, "labelled" => labelled, "views" => view_stats(group, views) }]
+    end
   end
 
   def parcel_summary(parcels, views)
@@ -293,7 +386,7 @@ module CurtilageBenchmark
   end
 
   def category_rows(run)
-    run["summary"]["categories"].merge("ALL" => run["summary"]["all"]).map do |name, s|
+    (run["summary"]["categories"] || {}).merge("ALL" => run["summary"]["all"]).map do |name, s|
       row(name, s["sites"], s["valid"], s["median_iou"], s["median_area_ratio"], s["fallbacks"])
     end
   end

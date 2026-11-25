@@ -173,7 +173,6 @@
       "properties": {
         "id": "ma-gas-station",
         "category": "random",
-        "holdout": false,
         "notes": "Random pick (seed 20261123): Speedway, gas station in Massachusetts. Overture place 96fa526f-b0cd-4a44-8432-bbf2e9845918."
       }
     },
@@ -189,7 +188,6 @@
       "properties": {
         "id": "md-restaurant",
         "category": "random",
-        "holdout": false,
         "notes": "Random pick (seed 20261123): Sneha Indian Cuisine, restaurant in Maryland. Overture place 2ccf3a24-32e3-4c82-b0d3-de837c746ca5."
       }
     },
@@ -205,7 +203,6 @@
       "properties": {
         "id": "nc-department-store",
         "category": "random",
-        "holdout": false,
         "notes": "Random pick (seed 20261123): Goody's, department store in North carolina. Overture place ea100cee-a9d6-42e1-8fad-b19c57ec2c1a."
       }
     },
@@ -221,8 +218,8 @@
       "properties": {
         "id": "fl-post-office",
         "category": "random",
-        "holdout": true,
-        "notes": "Random pick (seed 20261123): USPS Aloma Carrier Annex, post office in Florida. Overture place 65433969-356c-4ff0-be16-d5374401382d."
+        "notes": "Random pick (seed 20261123): USPS Aloma Carrier Annex, post office in Florida. Overture place 65433969-356c-4ff0-be16-d5374401382d.",
+        "role": "validation"
       }
     },
     {
@@ -237,7 +234,6 @@
       "properties": {
         "id": "wi-department-store",
         "category": "random",
-        "holdout": false,
         "notes": "Random pick (seed 20261123): Kohl's, department store in Wisconsin. Overture place 4c3d99f4-66d4-46d6-bb15-033ed34a6ee3."
       }
     },
@@ -253,7 +249,6 @@
       "properties": {
         "id": "tx-coffee-shop",
         "category": "random",
-        "holdout": false,
         "notes": "Random pick (seed 20261123): Shaka Brew Coffee, coffee shop in Texas. Overture place 581648a8-01f6-41ce-9d4b-e7bacaaf55a6."
       }
     },
@@ -269,7 +264,6 @@
       "properties": {
         "id": "ut-post-office",
         "category": "random",
-        "holdout": false,
         "notes": "Random pick (seed 20261123): United States Postal Service, post office in Utah. Overture place a37df16d-db0f-4b1b-9699-fddc5c0bdc78."
       }
     },
@@ -285,8 +279,8 @@
       "properties": {
         "id": "ma-hardware-store",
         "category": "random",
-        "holdout": true,
-        "notes": "Random pick (seed 20261123): Ace Hardware, hardware store in Massachusetts. Overture place ecbd3d99-a35d-4bfa-8e75-6d2485a4cc0f."
+        "notes": "Random pick (seed 20261123): Ace Hardware, hardware store in Massachusetts. Overture place ecbd3d99-a35d-4bfa-8e75-6d2485a4cc0f.",
+        "role": "validation"
       }
     },
     {
@@ -301,7 +295,6 @@
       "properties": {
         "id": "md-post-office",
         "category": "random",
-        "holdout": false,
         "notes": "Random pick (seed 20261123): United States Postal Service, post office in Maryland. Overture place f6a3aaf9-9f1b-45af-ae49-509684a8b684."
       }
     },
@@ -317,7 +310,6 @@
       "properties": {
         "id": "nc-fast-food-restaurant",
         "category": "random",
-        "holdout": false,
         "notes": "Random pick (seed 20261123): Chick-fil-A, fast food restaurant in North carolina. Overture place 7b1c1217-cfbe-4984-987c-f6661f58bb64."
       }
     },
@@ -333,7 +325,6 @@
       "properties": {
         "id": "fl-hotel",
         "category": "random",
-        "holdout": false,
         "notes": "Random pick (seed 20261123): The Diplomat Hollywood Florida, hotel in Florida. Overture place b312111d-238e-465b-92f8-822938d465c8."
       }
     },
@@ -349,8 +340,8 @@
       "properties": {
         "id": "wi-hotel",
         "category": "random",
-        "holdout": true,
-        "notes": "Random pick (seed 20261123): Clarion Pointe Racine, hotel in Wisconsin. Overture place 7bf3816f-f19c-4d64-98ef-80948a9703a6."
+        "notes": "Random pick (seed 20261123): Clarion Pointe Racine, hotel in Wisconsin. Overture place 7bf3816f-f19c-4d64-98ef-80948a9703a6.",
+        "role": "validation"
       }
     },
     {
@@ -365,7 +356,6 @@
       "properties": {
         "id": "tx-restaurant",
         "category": "random",
-        "holdout": false,
         "notes": "Random pick (seed 20261123): Tiger Noodle House, restaurant in Texas. Overture place cf9b1023-7b00-4720-bc67-63016bccae2d."
       }
     },
@@ -381,7 +371,6 @@
       "properties": {
         "id": "ut-coffee-shop",
         "category": "random",
-        "holdout": false,
         "notes": "Random pick (seed 20261123): Dutch Bros Coffee, coffee shop in Utah. Overture place 520fd431-18e0-4309-8f9c-e66b94514dbd."
       }
     },
@@ -397,7 +386,6 @@
       "properties": {
         "id": "ma-coffee-shop",
         "category": "random",
-        "holdout": false,
         "notes": "Random pick (seed 20261123): Dunkin' Donuts, coffee shop in Massachusetts. Overture place fcdc84c9-d072-42d4-86e9-0b06d278e0a0."
       }
     },
@@ -413,7 +401,6 @@
       "properties": {
         "id": "nc-convenience-store",
         "category": "random",
-        "holdout": false,
         "notes": "Random pick (seed 20261123): Merchant's Grocery, convenience store in North carolina. Overture place 10940dd9-9406-48a9-81a8-4a2d74415156."
       }
     },
@@ -429,7 +416,6 @@
       "properties": {
         "id": "fl-library",
         "category": "random",
-        "holdout": false,
         "notes": "Random pick (seed 20261123): Island Branch Library, library in Florida. Overture place 1274b16d-f439-483a-a409-56f9abf481e9."
       }
     },
@@ -445,7 +431,6 @@
       "properties": {
         "id": "wi-pharmacy",
         "category": "random",
-        "holdout": false,
         "notes": "Random pick (seed 20261123): Ben Franklin Store, pharmacy in Wisconsin. Overture place cf1a6e48-8775-41ba-9a90-a3951dee2b83."
       }
     },
@@ -461,8 +446,8 @@
       "properties": {
         "id": "tx-gas-station",
         "category": "random",
-        "holdout": true,
-        "notes": "Random pick (seed 20261123): Texaco, gas station in Texas. Overture place ed83728b-a9c0-42e3-8b94-a6f0c625e435."
+        "notes": "Random pick (seed 20261123): Texaco, gas station in Texas. Overture place ed83728b-a9c0-42e3-8b94-a6f0c625e435.",
+        "role": "validation"
       }
     },
     {
@@ -477,7 +462,6 @@
       "properties": {
         "id": "ut-hotel",
         "category": "random",
-        "holdout": false,
         "notes": "Random pick (seed 20261123): Canyonlands Motor Inn, hotel in Utah. Overture place bbc51d54-2d28-4e49-a406-7aa28d3338a9."
       }
     },
@@ -493,7 +477,6 @@
       "properties": {
         "id": "ma-post-office",
         "category": "random",
-        "holdout": false,
         "notes": "Random pick (seed 20261123): Georgetown Post Office, post office in Massachusetts. Overture place 18e23db9-8c5e-4c33-b962-9d8df8cce05c."
       }
     },
@@ -509,7 +492,6 @@
       "properties": {
         "id": "md-restaurant-2",
         "category": "random",
-        "holdout": false,
         "notes": "Random pick (seed 20261123): Betty Lou's, restaurant in Maryland. Overture place 3818ce52-2d48-4268-851f-8b534c6c70f0."
       }
     },
@@ -525,7 +507,6 @@
       "properties": {
         "id": "fl-hotel-2",
         "category": "random",
-        "holdout": false,
         "notes": "Random pick (seed 20261123): Best Western Plus Hollywood/aventura, hotel in Florida. Overture place d5bdd7a3-a875-4254-9d38-2cb7030a7c2f."
       }
     },
@@ -541,7 +522,6 @@
       "properties": {
         "id": "wi-post-office",
         "category": "random",
-        "holdout": false,
         "notes": "Random pick (seed 20261123): United States Postal Service, post office in Wisconsin. Overture place e88c3ba0-1c09-48ef-88df-5344da31b786."
       }
     },
@@ -557,7 +537,6 @@
       "properties": {
         "id": "tx-fast-food-restaurant",
         "category": "random",
-        "holdout": false,
         "notes": "Random pick (seed 20261123): Taco Bell, fast food restaurant in Texas. Overture place 49873f34-0b6c-4936-935a-8a6b03956c3d."
       }
     },
@@ -573,8 +552,8 @@
       "properties": {
         "id": "ut-bank",
         "category": "random",
-        "holdout": true,
-        "notes": "Random pick (seed 20261123): U.s. Bank Branch, bank in Utah. Overture place ddc27cfb-a7c9-424a-b242-baf8415e1d72."
+        "notes": "Random pick (seed 20261123): U.s. Bank Branch, bank in Utah. Overture place ddc27cfb-a7c9-424a-b242-baf8415e1d72.",
+        "role": "validation"
       }
     },
     {
@@ -589,7 +568,6 @@
       "properties": {
         "id": "tx-missing-building-1",
         "category": "missing_building",
-        "holdout": false,
         "notes": "Random pick (seed 20261124) with no OSM building at the pin, only an ML footprint: Wendy's, fast food restaurant in Texas. Overture place d1c32320-384c-4b04-8aae-9fac150e2e39."
       }
     },
@@ -605,7 +583,6 @@
       "properties": {
         "id": "tx-missing-building-2",
         "category": "missing_building",
-        "holdout": false,
         "notes": "Random pick (seed 20261124) with no OSM building at the pin, only an ML footprint: United States Postal Service, post office in Texas. Overture place f971efeb-e712-4a6f-99bc-a9426bccf7e1."
       }
     },
@@ -621,8 +598,8 @@
       "properties": {
         "id": "md-gas-station-2",
         "category": "random",
-        "holdout": true,
-        "notes": "Random pick (seed 20261125), replacing md-gas-station, whose Overture point had no gas station within 45 m: Fair Price Market, gas station in Maryland. Overture place 4fed62dc-e22d-4b14-80d2-eee4dded618e."
+        "notes": "Random pick (seed 20261125), replacing md-gas-station, whose Overture point had no gas station within 45 m: Fair Price Market, gas station in Maryland. Overture place 4fed62dc-e22d-4b14-80d2-eee4dded618e.",
+        "role": "validation"
       }
     },
     {
@@ -637,8 +614,264 @@
       "properties": {
         "id": "nc-pharmacy-2",
         "category": "random",
-        "holdout": true,
-        "notes": "Random pick (seed 20261126), replacing nc-pharmacy, whose Overture point was 160 m from the store: Cvs Pharmacy, pharmacy in North Carolina. Overture place 3b66daac-2b81-4268-bce3-ab49273acdcd."
+        "notes": "Random pick (seed 20261126), replacing nc-pharmacy, whose Overture point was 160 m from the store: Cvs Pharmacy, pharmacy in North Carolina. Overture place 3b66daac-2b81-4268-bce3-ab49273acdcd.",
+        "role": "validation"
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          -77.07491552,
+          38.89502643
+        ]
+      },
+      "properties": {
+        "id": "va-grocery-store",
+        "category": "random",
+        "role": "holdout",
+        "notes": "Random pick (seed 20261125): Safeway, grocery store in Virginia. Overture place 6bd8cf10-6656-4454-aa12-5cf1be761cac."
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          -74.27185,
+          40.62872
+        ]
+      },
+      "properties": {
+        "id": "nj-convenience-store",
+        "category": "random",
+        "role": "holdout",
+        "notes": "Random pick (seed 20261125): 7-Eleven, convenience store in New Jersey. Overture place 65a4429f-b11c-4594-a5b1-cf6f0c64dfd6."
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          -74.0033376100991,
+          40.739864021506435
+        ]
+      },
+      "properties": {
+        "id": "ny-coffee-shop",
+        "category": "random",
+        "role": "holdout",
+        "notes": "Random pick (seed 20261125): 787 Coffee, coffee shop in New York. Overture place 4af36ed1-64a7-4917-8bd4-cf7a06e62231."
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          -89.70810131,
+          39.74760453
+        ]
+      },
+      "properties": {
+        "id": "il-hotel",
+        "category": "random",
+        "role": "holdout",
+        "notes": "Random pick (seed 20261125): Sleep Inn Springfield West, hotel in Illinois. Overture place be6ec2fb-793b-4169-a67d-dbc58c9f5f3c."
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          -83.280222,
+          42.471154
+        ]
+      },
+      "properties": {
+        "id": "mi-bank",
+        "category": "random",
+        "role": "holdout",
+        "notes": "Random pick (seed 20261127): Comerica Bank, bank in Michigan. Overture place 241bf3a1-b68e-4ba6-a713-eac7741ed62c."
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          -90.427319,
+          38.7040518
+        ]
+      },
+      "properties": {
+        "id": "mo-pharmacy",
+        "category": "random",
+        "role": "holdout",
+        "notes": "Random pick (seed 20261127): PharMerica – St. Louis, MO, pharmacy in Missouri. Overture place 61489e48-0a69-4187-95af-3a3611ea879e."
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          -87.50978082418442,
+          37.27611030683186
+        ]
+      },
+      "properties": {
+        "id": "ky-post-office",
+        "category": "random",
+        "role": "holdout",
+        "notes": "Random pick (seed 20261125): United States Postal Service, post office in Kentucky. Overture place e33c8d89-f7d3-4828-ae30-64239aa5b3c5."
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          -82.203409,
+          34.695872
+        ]
+      },
+      "properties": {
+        "id": "sc-library",
+        "category": "random",
+        "role": "holdout",
+        "notes": "Random pick (seed 20261125): Fountain Inn Library, library in South Carolina. Overture place 384cb70b-b258-48dc-a901-2b14ef528987."
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          -86.80725,
+          33.50182
+        ]
+      },
+      "properties": {
+        "id": "al-fast-food-restaurant",
+        "category": "random",
+        "role": "holdout",
+        "notes": "Random pick (seed 20261125): Chick-fil-A, fast food restaurant in Alabama. Overture place eaa56b3c-e6f0-4694-820a-314d62a04615."
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          -90.45412062,
+          30.43681335
+        ]
+      },
+      "properties": {
+        "id": "la-grocery-store",
+        "category": "random",
+        "role": "holdout",
+        "notes": "Random pick (seed 20261125): Rouses Markets, grocery store in Louisiana. Overture place ae8c0ef5-b89f-4994-a7a3-60ec65b382f8."
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          -97.21872644,
+          34.73983843
+        ]
+      },
+      "properties": {
+        "id": "ok-department-store",
+        "category": "random",
+        "role": "holdout",
+        "notes": "Random pick (seed 20261125): Sharpe's, department store in Oklahoma. Overture place 6aba286e-f2fa-4921-98e2-4b460669f685."
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          -96.58257434,
+          39.18563192
+        ]
+      },
+      "properties": {
+        "id": "ks-hotel",
+        "category": "random",
+        "role": "holdout",
+        "notes": "Random pick (seed 20261125): Holiday Inn Manhattan at the Campus, hotel in Kansas. Overture place ef1066af-47fc-4476-b1c5-5f13e3d626f9."
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          -101.1653759,
+          40.8375569
+        ]
+      },
+      "properties": {
+        "id": "ne-post-office",
+        "category": "random",
+        "role": "holdout",
+        "notes": "Random pick (seed 20261125): United States Postal Service, post office in Nebraska. Overture place c8c7de2e-d707-4596-8594-c8dd321cd31a."
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          -106.58116805,
+          35.20425383
+        ]
+      },
+      "properties": {
+        "id": "nm-gas-station",
+        "category": "random",
+        "role": "holdout",
+        "notes": "Random pick (seed 20261125): Tiwa 66 Discount Smoke Shop, gas station in New Mexico. Overture place b9e2dc25-698e-4d2c-92c4-bcfd6ff38180."
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          -122.84033824,
+          45.35656861
+        ]
+      },
+      "properties": {
+        "id": "or-library",
+        "category": "random",
+        "role": "holdout",
+        "notes": "Random pick (seed 20261125): Sherwood Public Library, library in Oregon. Overture place 11ab9dae-fbd3-4548-90bd-54137f60385d."
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          -118.77665626,
+          39.47821938
+        ]
+      },
+      "properties": {
+        "id": "nv-hardware-store",
+        "category": "random",
+        "role": "holdout",
+        "notes": "Random pick (seed 20261125): Kent's Supply Center, hardware store in Nevada. Overture place 8b779ace-7fa2-4172-88ac-ba2b1d58c96a."
       }
     }
   ]

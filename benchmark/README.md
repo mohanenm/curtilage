@@ -2,9 +2,9 @@
 
 A small set of public sites that anyone can run curtilage against, so changes to the rules can be judged on numbers anyone can reproduce. It lives in the repository only; none of it ships in the gem.
 
-**What it is:** 40 public sites in eight states (DE, MA, MD, NC, FL, WI, TX, UT): ten picked one per category in Delaware, 28 seeded random picks from Overture places across 13 place types, and 2 sites whose building is missing from OSM. A quarter of the random picks are held out: never scored with the rest, never used for tuning, kept for a final check before each release. Every site has its tax parcel as an independent baseline (`benchmark:parcels`); the ten Delaware sites also have a hand-drawn reference polygon, an IoU guide only (median 0.41 at 0.7.0), since one polygon measures agreement with whoever drew it.
+**What it is:** 56 public sites in 24 states: ten picked one per category in Delaware, 28 seeded random picks from Overture places across 13 place types in eight states (DE, MA, MD, NC, FL, WI, TX, UT), 2 sites whose building is missing from OSM, and 16 held-out sites drawn at random from Overture places in 16 further states, one each. Sites have a role: tuning (rules may be tuned on them), validation (the first held-out set, labelled blind, now scored with every run) and held-out (never scored with the rest, never used for tuning, kept for a final check before each release; see [Roles and the held-out rules](#roles-and-the-held-out-rules)). Every tuning and validation site has its tax parcel as an independent baseline (`benchmark:parcels`); the ten Delaware sites also have a hand-drawn reference polygon, an IoU guide only (median 0.41 at 0.7.0), since one polygon measures agreement with whoever drew it.
 
-**Labelled points.** Each site gets points labelled with what is physically there (a parking stall, the drive-through lane, the road past the kerb, a neighbour's lot). **Views** decide which kinds count as in or out for a use: one table per use case, so the same labels score any of them, and the **core** view counts only what every use case agrees on. See [LABELS.md](LABELS.md) for the kinds, the views and how to label. 26 sites are labelled (by one person; some tuning-site labels were corrected after reviewing results, which is why the held-out sites are the unbiased check). On the 23 labelled tuning sites at 0.7.0, the default settings catch 71% of the "in" points and take in 6.5% of the "out" points (the core view 89% and 1.5%); on the 7 held-out sites, 47% and 14.5% (core 60% and 8.9%), so the tuning numbers are optimistic. A site can be marked `"placeholder": true` (made-up, kept out of the totals) while trying things out.
+**Labelled points.** Each site gets points labelled with what is physically there (a parking stall, the drive-through lane, the road past the kerb, a neighbour's lot). **Views** decide which kinds count as in or out for a use: one table per use case, so the same labels score any of them, and the **core** view counts only what every use case agrees on. See [LABELS.md](LABELS.md) for the kinds, the views and how to label. 42 sites are labelled (by one person; some tuning-site labels were corrected after reviewing results, which is why the held-out sites are the unbiased check). On the 23 labelled tuning sites at 0.7.0, the default settings catch 71% of the "in" points and take in 6.5% of the "out" points (the core view 89% and 1.5%); on the 7 validation sites (labelled blind, before they were scored), 47% and 14.5% (core 60% and 8.9%), so the tuning numbers are optimistic. The 16 held-out sites are labelled (blind) and sealed and scored only in a release check: at the check of 2026-11-25, 77% and 7.8% (core 83% and 4.4%), against 76% and 29% for a 50 m circle around the pin. A site can be marked `"placeholder": true` (made-up, kept out of the totals) while trying things out.
 
 ## Running it
 
@@ -14,9 +14,16 @@ bundle exec rake "benchmark:compare[OLD.json,NEW.json]"     # what changed betwe
 bundle exec rake benchmark:baseline                         # run, and save the numbers as benchmark/baseline.json
 bundle exec rake benchmark:label_page                       # write the labelling page (data/benchmark/label.html)
 bundle exec rake benchmark:gallery                          # write the gallery (docs/gallery/index.html), over USGS snapshots
-CURTILAGE_BENCHMARK_HOLDOUT=1 bundle exec rake benchmark     # score only the held-out sites (final checks)
-bundle exec rake benchmark:parcels                          # fetch each site's tax parcel (data/benchmark/parcels)
+CURTILAGE_BENCHMARK_HOLDOUT=1 CURTILAGE_RELEASE_CHECK=1 bundle exec rake benchmark   # held-out totals (release check only)
+bundle exec rake benchmark:seal                             # seal newly labelled held-out sites
+bundle exec rake "benchmark:review_sample[ID]"              # the four-outcome review sample for one site
+bundle exec rake benchmark:parcels                          # fetch each site's tax parcel and those around it (data/benchmark/parcels)
+bundle exec rake benchmark:parcel_modes                     # the rules alone and with parcels (clip, grow, start), side by side
+bundle exec rake benchmark:flags                            # do flags and confidence mark the poor results? (error by flag, Spearman)
+bundle exec rake benchmark:diagnose                         # why points are wrong: causes ranked per view, scores by pin quality
 ```
+
+`benchmark:diagnose` gives every wrong point on the tuning and validation sites a cause (shared-lot split, reach limit, unmapped parking, neighbour cut, a public road between the building and the point, and so on), read from the map data by the heuristics in `benchmark/diagnose.rb`, and ranks the causes by what fixing each would add to the per-site averages. It also splits the scores by where the pin was (on the business's building, beside it, on another building) and by site context (large or shared building). It never looks at held-out sites.
 
 It needs the DuckDB CLI, like the gem (`curtilage doctor` checks). Each run:
 
@@ -27,11 +34,51 @@ It needs the DuckDB CLI, like the gem (`curtilage doctor` checks). Each run:
 - for each site whose tax parcel was fetched (`benchmark:parcels`, from the state's own parcel service; cached under `data/benchmark/parcels/`, never committed), compares the premises with the parcel, and scores the parcel itself on the labels as if it were the result. Nobody drew parcels for any use of curtilage, so they are a baseline with no convention for shared lots built in. A parcel isn't the premises: it usually stops at the road's right-of-way, short of the kerb, and a shopping centre can be one parcel. Fetching sends each site's location to that state's server;
 - prints a table and saves the full run, polygons included, to `data/benchmark/runs/` (gitignored). `benchmark:baseline` also writes `benchmark/baseline.json`, numbers only, which is committed so runs can be compared over time.
 
+### Parcel sources
+
+`benchmark:parcels` fetches, for each tuning and validation site, the parcel under the pin and every parcel within 120 m (for `benchmark:parcel_modes`, which runs the gem with them as `parcels:`). Only geometry is requested; the files stay in `data/benchmark/parcels/`, are never committed, and no parcel is drawn in the gallery. The services, and their terms as each publishes them (checked 2026-11-24; check again before any other use):
+
+| State | Service | Terms as published |
+|---|---|---|
+| Delaware | FirstMap `DE_StateParcels` | No licence in the service's metadata; FirstMap's disclaimer (as is, at the user's risk). |
+| Maryland | MD iMAP `MD_ParcelBoundaries` (Department of Planning, SDAT) | May be freely distributed with its metadata intact; derived works acknowledge the State of Maryland; as is. |
+| North Carolina | NC OneMap `NC1Map_Parcels` | Free to use by anyone without restriction (NC OneMap disclaimer); no warranty. |
+| Florida | Florida Statewide Cadastral (Department of Revenue tax-roll parcels, on ArcGIS Online) | No licence stated by the service. |
+| Wisconsin | Wisconsin Statewide Parcels (State Cartographer's Office) | Free for public download and use; no warranty; not a survey. |
+| Texas | TxGIO StratMap Land Parcels | Free of charge; no licence stated; from appraisal districts, which may have their own terms. |
+| Utah | UGRC statewide parcels | CC BY 4.0 unless the metadata says otherwise (credit UGRC). |
+| Massachusetts | MassGIS Property Tax Parcels | Public domain (MassGIS FAQ). |
+
 IoU against a hand-drawn polygon is only a guide: references often hug the building more tightly than the whole lot curtilage aims for. Look at the preview too (`curtilage preview`) before judging a change.
 
 `benchmark:compare` also lists, per view, how many labelled sites got better, worse or stayed the same (fewer or more wrong points) and which ones. With few sites, that paired count says more than a change in a median.
 
 If Overture retires the pinned release, pin a newer one in `config.json`, run `benchmark:baseline` again, and compare from there.
+
+## Roles and the held-out rules
+
+Every site has a role (`"role"` in `sites.geojson`):
+
+- **tuning**: rules may be judged on these sites, but never on them alone.
+- **validation**: sites whose results have been seen, so they're no longer blind. The seven sites held out until 0.7.0 are validation sites now. A rule change is judged on tuning and validation together, and `rake benchmark` prints every view for each role side by side.
+- **holdout**: a sealed set for the final check before a release, and nothing else.
+
+The held-out rules:
+
+1. **Labelled before anyone sees results**, on the labelling page, which never shows curtilage's output. Labels are frozen once committed: `rake benchmark:seal` records each file's SHA256 in `holdout_labels.sha256`, and a test fails if a held-out label file differs from its seal or is labelled but unsealed.
+2. **Never used for tuning.** `rake benchmark` leaves held-out sites out and only counts them (how many, how many labelled). Scoring them needs both `CURTILAGE_BENCHMARK_HOLDOUT=1` and `CURTILAGE_RELEASE_CHECK=1` and every held-out label sealed; that run scores tuning, validation and held-out sites side by side for every view, and prints and saves totals only: nothing per site, per point or per category. The gallery, review pages, diagnosis and parcel tooling skip them.
+3. **Replaced only for data problems visible without running the gem**, decided from the site data alone (the Overture place and the map data around it), such as no matching business at the Overture point or a pin far from any building. Every replacement is logged in `holdout_replacements.md` with its reason.
+
+## Correcting a label
+
+Labels change only to record what's physically there more accurately, never to improve a score. Corrections made while looking at results drift toward them: the corrections log's backfill (127 changes since the 30-site expansion) found that, under the core view, 108 raised the score and 10 lowered it.
+
+So every correction to a tuning or validation site:
+
+1. starts with the site's review sample (`rake "benchmark:review_sample[ID]"`): up to five points of each outcome (in caught, in missed, out taken in, out left out) on aerial imagery, so what the rules get right is looked at as closely as what they get wrong;
+2. goes into `corrections.csv`: site, point, old and new kind, the reason, what was checked, that the sample was reviewed, and whether it raised or lowered the score under the default and core views. A test fails if a correction logged after the backfill doesn't record the sample as reviewed.
+
+Held-out labels are never corrected (see above).
 
 ## Files
 
@@ -42,7 +89,7 @@ If Overture retires the pinned release, pin a newer one in `config.json`, run `b
 - `config.json`: the pinned Overture release and the options every run uses.
 - `LABELS.md`: the labelling guide.
 - `vendor/leaflet-1.9.4/`: Leaflet (BSD 2-Clause), inlined into the labelling page.
-- `runner.rb`, `labels.rb`, `label_page.rb`, `gallery.rb`, `parcels.rb`, `check_sites.rb` and `../rakelib/benchmark.rake`: the code.
+- `runner.rb`, `labels.rb`, `label_page.rb`, `gallery.rb`, `parcels.rb`, `parcel_modes.rb`, `flags_check.rb`, `diagnose.rb`, `corrections.rb`, `review_sample.rb`, `check_sites.rb` and `../rakelib/benchmark.rake`: the code.
 
 ## Your own sites and views
 

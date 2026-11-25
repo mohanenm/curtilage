@@ -112,6 +112,10 @@ module Curtilage
         args = { step: "claim_lot", rule: "shared_lot_buildings", features: [lot.id] }
         # With scope: :centre the whole lot is taken, so nothing was split.
         opts[:scope] == :centre ? log.note(text, **args) : log.flag(:shared_lot, text, **args)
+      elsif opts[:shared_checks] && others >= SHARED_CHECK_OTHERS
+        log.flag(:shared_lot, "#{lot_label(lot)} (#{lot.area.round} m2) touches the building and #{others} other " \
+                              "building(s): claimed whole, but it may be shared",
+                 step: "claim_lot", rule: "shared_checks", features: [lot.id])
       else
         log.note("#{lot_label(lot)} (#{lot.area.round} m2) touches the building, so it's part of the lot",
                  step: "claim_lot", rule: "parking_reach_m", features: [lot.id], distance_m: opts[:parking_reach_m])
@@ -142,6 +146,8 @@ module Curtilage
     # driveways linking the claimed lot to a public road are taken in.
     def add_parking(poly, lots, site)
       far = fence(site, site.opts[:parking_max_extent_m])
+      # parcel_mode: :start began from the parcel: that is the reach.
+      far = Geometry.counter_clockwise(Geometry.convex_hull(far + poly)) if site.opts[:parcel_mode] == :start
       parts = lots.map { |lot| lot_part(Geometry.clip_convex(lot.xy, far), lot, site) }
       grown = lot_box(poly + parts.select { |p| p.size >= 3 }.flatten(1), far, site.target)
       grown = add_entrances(grown, far, site) unless only_aisles?(lots)

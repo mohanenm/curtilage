@@ -10,6 +10,8 @@ end
 desc "Run the public benchmark and print the results (writes data/benchmark/runs/*.json)"
 task :benchmark do
   run = benchmark.run
+  # Held-out (release check): totals only, nothing per site or per point.
+  run = benchmark.summary_only(run) if benchmark.holdout_run?
   puts benchmark.table(run)
   puts "", "saved #{benchmark.save(run)}"
 end
@@ -77,7 +79,82 @@ namespace :benchmark do
     if benchmark.paths[:private]
       abort "benchmark:parcels is for the public benchmark only (CURTILAGE_BENCHMARK_DIR is set)"
     end
-    found = benchmark.fetch_parcels(benchmark.sites)
-    found.each { |id, ring| puts "#{id}: #{ring ? "parcel" : "none"}" }
+    # Held-out sites are left out with the rest of the per-site tooling.
+    sites = benchmark.sites.reject { |s| benchmark.role(s) == "holdout" }
+    found = benchmark.fetch_parcels(sites)
+    benchmark.fetch_area_parcels(sites)
+    found.each do |id, ring|
+      puts "#{id}: #{ring ? "parcel" : "none"}, #{benchmark.area_parcel_features(id).size} parcels around it"
+    end
+  end
+end
+
+namespace :benchmark do
+  desc "Seal new held-out label files (records their SHA256 in benchmark/holdout_labels.sha256; never changes one)"
+  task :seal do
+    sealed = benchmark.seal!
+    puts sealed.empty? ? "nothing new to seal" : "sealed #{sealed.join(", ")}"
+  end
+end
+
+namespace :benchmark do
+  desc "Write the review sample for one site (all four outcomes on imagery): rake \"benchmark:review_sample[ID,view]\""
+  task :review_sample, %i[id view] do |_, args|
+    site = benchmark.sites.find { |s| s["id"] == args[:id] } or abort "no site #{args[:id].inspect}"
+    view = args[:view] || "default"
+    data = benchmark.features([site], benchmark.config.fetch("overture_release"))
+    options = benchmark.symbolised(benchmark.config["options"])
+    options = options.merge(benchmark.symbolised(site.fetch("options", {})))
+    ring = Curtilage.generate(site["pin"], data.fetch(site["id"]), **options).ring
+    labels = benchmark.labels(site["id"], benchmark.paths[:labels]) or abort "#{site["id"]} has no labels"
+    sample = benchmark.review_sample(site, ring, labels, benchmark.views(*benchmark.paths[:views]).fetch(view))
+    out = File.join(File.dirname(benchmark.paths[:runs]), "review-#{site["id"]}.html")
+    File.write(out, benchmark.review_page(site, ring, sample, view))
+    puts "wrote #{out}: #{sample.map { |o, l| "#{o} #{l.size}" }.join(", ")}"
+  end
+end
+
+namespace :benchmark do
+  desc "Why points are wrong: causes ranked per view, and scores by pin quality (tuning and validation sites)"
+  task :diagnose do
+    abort "benchmark:diagnose never looks at held-out sites" if benchmark.holdout_run?
+    sites = benchmark.sites.reject { |s| benchmark.role(s) == "holdout" }
+    data = benchmark.features(sites, benchmark.config.fetch("overture_release"))
+    views = benchmark.views(*benchmark.paths[:views])
+    diagnoses = benchmark.diagnose(sites, data, views, benchmark.config["options"])
+    %w[tuning validation].each do |role|
+      ds = diagnoses.select { |d| d["role"] == role }
+      puts "", "== #{role} (#{ds.size} sites) ==", benchmark.diagnosis_report(ds)
+    end
+    out = File.join(File.dirname(benchmark.paths[:runs]), "diagnosis.json")
+    File.write(out, JSON.pretty_generate(diagnoses))
+    puts "", "saved #{out}"
+  end
+end
+
+namespace :benchmark do
+  desc "Parcel modes side by side (rules alone, clip, grow, start) on tuning and validation sites"
+  task :parcel_modes do
+    abort "benchmark:parcel_modes never runs held-out sites" if benchmark.holdout_run?
+    sites = benchmark.sites.reject { |s| benchmark.role(s) == "holdout" }
+    config = benchmark.config
+    data = benchmark.features(sites, config.fetch("overture_release"))
+    runs = benchmark.parcel_mode_runs(sites, data, config)
+    with = sites.map { |s| s["id"] }.select { |id| benchmark.area_parcel_features(id).any? }
+    puts benchmark.parcel_mode_report(runs, benchmark.views(*benchmark.paths[:views]).keys, with)
+    out = File.join(File.dirname(benchmark.paths[:runs]), "parcel_modes.json")
+    File.write(out, JSON.generate(runs.transform_values { |rows| rows.map { |r| r.except("ring") } }))
+    puts "", "saved #{out}"
+  end
+end
+
+namespace :benchmark do
+  desc "Do flags and confidence mark the poor results? Error by flag, confidence vs error, per role"
+  task :flags do
+    sites = benchmark.scored_sites # held-out ones only with the release check
+    config = benchmark.config
+    data = benchmark.features(sites, config.fetch("overture_release"))
+    view = benchmark.views(*benchmark.paths[:views]).fetch("default")
+    puts benchmark.flag_report(benchmark.flag_rows(sites, data, config, view))
   end
 end

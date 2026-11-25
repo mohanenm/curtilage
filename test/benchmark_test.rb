@@ -75,14 +75,79 @@ class BenchmarkTest < Minitest::Test
     end
   end
 
-  def test_held_out_sites_are_scored_only_on_request
-    sites = [site("a"), site("h").merge("holdout" => true)]
+  # Every outer ring around the site becomes a "parcel" feature for the gem.
+  def test_area_parcels_become_parcel_features
+    square = ->(x) { [[x, 0], [x + 10, 0], [x + 10, 10], [x, 10], [x, 0]].map { |a, b| lnglat(a, b) } }
+    doc = { "features" => [{ "geometry" => { "type" => "Polygon", "coordinates" => [square.call(0)] } },
+                           { "geometry" => { "type" => "MultiPolygon",
+                                             "coordinates" => [[square.call(20)], [square.call(40)]] } },
+                           { "geometry" => nil }] }
+    Dir.mktmpdir do |dir|
+      File.write(File.join(dir, "a.geojson"), JSON.generate(doc))
+      parcels = B.area_parcel_features("a", dir)
 
-    assert_equal(["a"], B.scored_sites(sites).map { |s| s["id"] })
+      assert_equal 3, parcels.size
+      assert(parcels.all? { |f| f["feature"] == "parcel" })
+      assert_empty B.area_parcel_features("missing", dir)
+    end
+  end
+
+  # Every role side by side; held-out sites outside a release check are
+  # only counted.
+  def test_role_table_shows_every_role_and_the_held_out_count
+    stats = { "in_caught" => 0.7, "out_included" => 0.1 }
+    roles = { "tuning" => { "sites" => 23, "labelled" => 23, "views" => { "default" => stats } },
+              "validation" => { "sites" => 7, "labelled" => 7, "views" => { "default" => stats } } }
+    lines = B.role_table({ "summary" => { "roles" => roles } }, holdout: [16, 0])
+
+    assert_match(/tuning 23 labelled of 23, validation 7 labelled of 7/, lines[1])
+    assert_match(%r{tuning 0.7 / 0.1   validation 0.7 / 0.1}, lines[2])
+    assert_match(/holdout: 16 sites, 0 labelled; scored only by the release check/, lines[3])
+  end
+
+  # Held-out labels are frozen: every held-out label file in the repository
+  # matches the hash it was sealed with.
+  def test_held_out_labels_match_their_seals
+    assert_empty B.unsealed, "held-out labels must be sealed once and never changed"
+  end
+
+  def test_sealing_adds_new_held_out_labels_and_refuses_changed_ones
+    Dir.mktmpdir do |dir|
+      labels = File.join(dir, "labels")
+      FileUtils.mkdir_p(labels)
+      file = File.join(dir, "seals")
+      File.write(file, "# seals\n")
+      sites = [site("h").merge("role" => "holdout"), site("t")]
+      File.write(File.join(labels, "h.geojson"), "{}")
+      File.write(File.join(labels, "t.geojson"), "{}")
+
+      assert_equal [["h", "labelled but not sealed (rake benchmark:seal)"]],
+                   B.unsealed(sites, labels_dir: labels, file: file)
+      assert_equal ["h"], B.seal!(sites, labels_dir: labels, file: file)
+      assert_empty B.unsealed(sites, labels_dir: labels, file: file)
+      File.write(File.join(labels, "h.geojson"), "{\"changed\": 1}")
+      assert_raises(ArgumentError) { B.seal!(sites, labels_dir: labels, file: file) }
+    end
+  end
+
+  # Roles: tuning and validation are scored together; held-out sites only
+  # for a release check, and then only them; old files' "holdout": true is a
+  # held-out site. A held-out run keeps totals only.
+  def test_held_out_sites_are_scored_only_for_a_release_check
+    sites = [site("a"), site("v").merge("role" => "validation"), site("h").merge("role" => "holdout"),
+             site("o").merge("holdout" => true)]
+
+    assert_equal(%w[a v], B.scored_sites(sites).map { |s| s["id"] })
     ENV["CURTILAGE_BENCHMARK_HOLDOUT"] = "1"
-    assert_equal(["h"], B.scored_sites(sites).map { |s| s["id"] })
+    assert_raises(ArgumentError) { B.scored_sites(sites) }
+    ENV["CURTILAGE_RELEASE_CHECK"] = "1"
+    assert_equal(%w[a v h o], B.scored_sites(sites).map { |s| s["id"] }) # every role, side by side
+    run = { "sites" => [{ "id" => "h" }], "summary" => { "all" => {}, "views" => {}, "categories" => { "x" => {} } } }
+    assert_empty B.summary_only(run)["sites"]
+    refute B.summary_only(run)["summary"].key?("categories")
   ensure
     ENV.delete("CURTILAGE_BENCHMARK_HOLDOUT")
+    ENV.delete("CURTILAGE_RELEASE_CHECK")
   end
 
   def test_features_are_fetched_once_then_cached

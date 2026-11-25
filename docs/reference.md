@@ -158,6 +158,8 @@ All distances in metres, areas in square metres. These are `Curtilage::Generator
 | `house_street_m` | `25` | ... when two more small buildings are this close. |
 | `parking_reach_m` | `20` | Mapped parking this close to the building is its lot. |
 | `aisle_m` | `9` | Treat this much either side of each service road near the building (within `parking_reach_m` plus this) as parking, for lots OpenStreetMap maps only as aisles and driveways. The strips are claimed, shared, trimmed and fenced like mapped parking. 9 m is half an aisle plus a stall. `nil` turns it off. |
+| `shared_checks` | `false` | Experimental (`--shared-checks`): mark large and shared buildings as the estimates they are. The premises don't change. `store_may_be_unit` is raised for a building over `large_building_note_m2` unless its type normally has one occupant (hotel, school, hospital, place of worship, civic or public building, library, post office, supermarket, warehouse and similar), and for a building joined to another (within 1 m, as in a row of shops); `shared_lot` is also raised for a claimed lot touching two other buildings (claimed whole); those two count for more in the confidence score (0.25 and 0.20); and the explanation starts with an "Estimate: ..." line saying why. |
+| `parcel_mode` | `:clip` | With parcels: `:clip` clips to the building's parcel; `:grow` adds the paving inside the site's parcels, without clipping; `:start` begins from the site's parcels and trims them with the usual rules. Experimental ([Parcels](#parcels)). |
 | `neighbour_cut` | `:line` | How the premises keep off neighbouring buildings after the lot is taken in: `:line` cuts straight across, square to the building; `:notch` (experimental) cuts round each neighbour 1 m clear, so a lot running past a neighbour keeps the part beyond it. Neighbours the premises surround still get a line cut. |
 | `centre_max_m2` | `50000` | With `scope: :centre`, a centre bigger than this (a regional mall) isn't used: the site keeps its own share of the lot (flag `large_centre`), as "anywhere in the mall" is too coarse to mean at the store. |
 | `lot_share_reach_m` | `5` | Another building this close to the site's lot (across a walkway) shares it: with `shared_lot_buildings` or more such buildings the lot is split between them. Buildings farther off, across an aisle or behind, don't count. The site itself takes a share of such a shared lot only when it's this close too; a shared lot across an aisle or planting strip belongs to the others. |
@@ -211,6 +213,7 @@ Property lines are an extra boundary when you have them. Curtilage never fetches
 - `generate_many(pins, parcels: "parcels.geojson")` (or GeoParquet, local or a URL) reads the parcels near the pins once and adds them to each pin's map data as `"parcel"` features. With `Curtilage.generate(pin, features)`, add them yourself: `{ "feature" => "parcel", "id" => ..., "geometry" => polygon }`.
 - The parcel holding at least half the building is the site's. The premises are clipped to it (to within a cell of 0.5-1 m), keeping the building and pin. Where the site's own mapped parking runs at least 100 m2 past the parcel, that parking stays in and the result is flagged `beyond_parcel`.
 - A parcel that doesn't hold the building changes nothing. The premises can then be non-convex.
+- `parcel_mode:` (experimental, `--parcel-mode`) says how else the parcels are used. `:clip` (the default) only clips, as above. `:grow` instead adds the mapped parking and service roads (3 m either side) inside the site's parcels, across gaps under 6 m, to the premises, and doesn't clip them. `:start` begins from the site's parcels (their outline with the building) instead of the grown building rectangle, and the usual rules trim it at roads, railways and neighbours; the parcels then set how far the lot reaches, in place of `parking_max_extent_m`. For both, the site's parcels are every parcel holding a quarter of the building (a building on several parcels) and, touching those, any parcel at least 30% covered by the site's own parking (a lot split over parcels); mapped parking mostly inside them counts as the site's. A parcel that also holds two or more other businesses' buildings (a centre) is only a limit: `:grow` and `:start` then clip as `:clip` does, flagged `shared_parcel`. `:start` falls back to the grown rectangle when the parcels' outline is over `centre_max_m2`.
 - Input caps as for map data: 100 MB for a GeoJSON file, at most 5,000 corners a polygon, invalid shapes dropped.
 
 ### Candidates
@@ -269,7 +272,9 @@ In GeoJSON they're extra features with `properties.role` `approach`, `pickup` an
 | `snap_pin` | The pin moved onto the nearest building (flag `pin_moved`). | `snap_m` |
 | `take_entrance` | Corridors along driveways to further entrances were added. | `entrances` |
 | `estimate_unit` | The store zone estimated as one unit of a large building (flag `unit_estimated`). | `unit_m` |
-| `clip_parcel` | The premises clipped to the building's parcel (or kept past it for the site's parking, flag `beyond_parcel`). | `parcels` |
+| `clip_parcel` | The premises clipped to the building's parcel (or kept past it for the site's parking, flag `beyond_parcel`), or with `parcel_mode: :grow`, the paving inside the site's parcels taken in. | `parcels`, `parcel_mode` |
+| `site_parcels` | The building's parcel holds other businesses' buildings: used only as a limit (flag `shared_parcel`). | `parcel_mode` |
+| `estimate` | First step with `shared_checks: true` when the store may be one unit or the lot is shared: says the result is an estimate, and why. | `shared_checks` |
 
 New step names may be added in minor versions; treat an unknown one as a plain note.
 
@@ -287,9 +292,9 @@ New step names may be added in minor versions; treat an unknown one as a plain n
 | `mapped_parking` | 0.15 | Mapped parking is inside the premises. |
 | `road_frontage` | 0.15 | At least one side of the premises runs along a public road. |
 | `osm_building` | 0.10 | The building is from OpenStreetMap (no `ml_footprint`). |
-| `single_building_store` | 0.10 | The building is small enough to be one store (no `large_building` or `store_may_be_unit`). |
+| `single_building_store` | 0.10 (0.25 with `shared_checks`) | The building is small enough to be one store (no `large_building` or `store_may_be_unit`; with `shared_checks`, no `store_may_be_unit`). |
 | `no_homes_next_door` | 0.10 | No home borders the lot (no `near_houses`). |
-| `own_lot` | 0.10 | The lot isn't split with other buildings (no `shared_lot`). |
+| `own_lot` | 0.10 (0.20 with `shared_checks`) | The lot isn't split with other buildings (no `shared_lot`). |
 | `no_warnings` | 0.05 | Validation raised no warnings. |
 
 The weights are judgement for now, to be calibrated on the public benchmark once its reference polygons are drawn; treat the score as an order, not a probability. Data age isn't a factor, so the same inputs always score the same.
@@ -305,14 +310,15 @@ The same list is `Curtilage::FLAGS` (flag => what it asks a person to check).
 | `small_building` | Building under 50 m2: may be a kiosk or canopy rather than the store. |
 | `building_not_under_pin` | No building under the pin; the nearest one within 30 m was used. |
 | `pin_moved` | The pin wasn't on a building and was moved onto the nearest one (`snap_m:`): check it's the right one. |
-| `store_may_be_unit` | The store zone is a building over 1,500 m2: the store may be one unit of it. |
+| `store_may_be_unit` | The store zone is a building over 1,500 m2 (with `shared_checks`: unless its type normally has one occupant, or joined to another building): the store may be one unit of it. |
 | `shopping_centre` | `scope: :centre` mapped the whole centre. |
 | `large_centre` | `scope: :centre`, but the centre is over `centre_max_m2` (50,000 m2 by default): the premises are the site's own share, not the whole centre. |
-| `shared_lot` | The lot is shared with other buildings and was split by nearest building: where it really divides isn't in the map, so check the line. |
+| `shared_lot` | The lot is shared with other buildings and was split by nearest building: where it really divides isn't in the map, so check the line. With `shared_checks`, also a lot touching two other buildings, claimed whole. |
 | `fallback` | The main method failed validation; the building rectangle was used. |
 | `ml_footprint` | Built on a machine-learned footprint, not an OSM building. |
 | `unit_estimated` | The store zone is an estimated unit of a large building (`unit_m:`): check it. |
 | `beyond_parcel` | The site's parking runs past the building's parcel (parcels supplied): check the property line. |
+| `shared_parcel` | `parcel_mode: :grow` or `:start`: the building's parcel also holds other businesses' buildings (a centre or shared lot), so it was used only as a limit. |
 | `no_data` | No map data covers the pin. |
 | `error` | Generating this site raised an error (see its explanation); the rest of the batch went on. |
 | `partial_data` | Part of the area around the pin is in a region that isn't built (a hand-built catalogue near a border): buildings or roads there are missing. |
@@ -446,7 +452,7 @@ Standard output carries only results (`generate` without `--out`, and the file p
 
 ### HTTP server: `curtilage serve`
 
-`curtilage serve` answers HTTP on the standard library alone (no server gem), so any language can ask for premises. The spec is [docs/openapi.yaml](openapi.yaml).
+`curtilage serve [--host HOST] [--port PORT]` (default 127.0.0.1:8754) answers HTTP on the standard library alone (no server gem), so any language can ask for premises. The spec is [docs/openapi.yaml](openapi.yaml).
 
 - `GET /health`: `{"status":"ok"}`, no token needed. `GET /version`: the gem, DuckDB and the default data source.
 - `POST /premises`: `{"pins": [[lng, lat], ...] or [{"id": ..., "pin": [lng, lat]}], "options": {...}}`, a GeoJSON FeatureCollection of points, or NDJSON (`Content-Type: application/x-ndjson`). Answers a GeoJSON FeatureCollection, or NDJSON (one site per line, [schema](schema/site-v1.json)) with `Accept: application/x-ndjson`. A request may set generation options only (and `preset`, `candidates`, `method`); where map data comes from is fixed at start (`--source`, `--catalogue`, `--parquet`, `--cache-dir`), so a request can't point the server at files.
