@@ -75,6 +75,23 @@ class BenchmarkTest < Minitest::Test
     end
   end
 
+  # Every outer ring around the site becomes a "parcel" feature for the gem.
+  def test_area_parcels_become_parcel_features
+    square = ->(x) { [[x, 0], [x + 10, 0], [x + 10, 10], [x, 10], [x, 0]].map { |a, b| lnglat(a, b) } }
+    doc = { "features" => [{ "geometry" => { "type" => "Polygon", "coordinates" => [square.call(0)] } },
+                           { "geometry" => { "type" => "MultiPolygon",
+                                             "coordinates" => [[square.call(20)], [square.call(40)]] } },
+                           { "geometry" => nil }] }
+    Dir.mktmpdir do |dir|
+      File.write(File.join(dir, "a.geojson"), JSON.generate(doc))
+      parcels = B.area_parcel_features("a", dir)
+
+      assert_equal 3, parcels.size
+      assert(parcels.all? { |f| f["feature"] == "parcel" })
+      assert_empty B.area_parcel_features("missing", dir)
+    end
+  end
+
   # Held-out labels are frozen: every held-out label file in the repository
   # matches the hash it was sealed with.
   def test_held_out_labels_match_their_seals

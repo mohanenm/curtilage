@@ -13,6 +13,7 @@ require_relative "parcels"
 require_relative "corrections"
 require_relative "review_sample"
 require_relative "diagnose"
+require_relative "parcel_modes"
 
 # The public benchmark (not part of the gem): runs curtilage on the sites in
 # benchmark/sites.geojson against a pinned Overture release, scores each
@@ -26,7 +27,7 @@ module CurtilageBenchmark
   DATA = File.join(ROOT, "data", "benchmark")
   ID = /\A[a-z0-9][a-z0-9-]{0,63}\z/
   # Options read from JSON whose values are names, not strings.
-  SYMBOL_OPTIONS = %w[buildings scope preset method entrances lot_split neighbour_cut].freeze
+  SYMBOL_OPTIONS = %w[buildings scope preset method entrances lot_split neighbour_cut parcel_mode].freeze
   G = Curtilage::Geometry
 
   module_function

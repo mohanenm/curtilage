@@ -80,8 +80,12 @@ namespace :benchmark do
       abort "benchmark:parcels is for the public benchmark only (CURTILAGE_BENCHMARK_DIR is set)"
     end
     # Held-out sites are left out with the rest of the per-site tooling.
-    found = benchmark.fetch_parcels(benchmark.sites.reject { |s| benchmark.role(s) == "holdout" })
-    found.each { |id, ring| puts "#{id}: #{ring ? "parcel" : "none"}" }
+    sites = benchmark.sites.reject { |s| benchmark.role(s) == "holdout" }
+    found = benchmark.fetch_parcels(sites)
+    benchmark.fetch_area_parcels(sites)
+    found.each do |id, ring|
+      puts "#{id}: #{ring ? "parcel" : "none"}, #{benchmark.area_parcel_features(id).size} parcels around it"
+    end
   end
 end
 
@@ -124,6 +128,22 @@ namespace :benchmark do
     end
     out = File.join(File.dirname(benchmark.paths[:runs]), "diagnosis.json")
     File.write(out, JSON.pretty_generate(diagnoses))
+    puts "", "saved #{out}"
+  end
+end
+
+namespace :benchmark do
+  desc "Parcel modes side by side (rules alone, clip, grow, start) on tuning and validation sites"
+  task :parcel_modes do
+    abort "benchmark:parcel_modes never runs held-out sites" if benchmark.holdout_run?
+    sites = benchmark.sites.reject { |s| benchmark.role(s) == "holdout" }
+    config = benchmark.config
+    data = benchmark.features(sites, config.fetch("overture_release"))
+    runs = benchmark.parcel_mode_runs(sites, data, config)
+    with = sites.map { |s| s["id"] }.select { |id| benchmark.area_parcel_features(id).any? }
+    puts benchmark.parcel_mode_report(runs, benchmark.views(*benchmark.paths[:views]).keys, with)
+    out = File.join(File.dirname(benchmark.paths[:runs]), "parcel_modes.json")
+    File.write(out, JSON.generate(runs.transform_values { |rows| rows.map { |r| r.except("ring") } }))
     puts "", "saved #{out}"
   end
 end
