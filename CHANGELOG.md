@@ -4,6 +4,7 @@
 
 ### Added
 
+- Public benchmark: a spot-check of held-out labels. `benchmark:spot_check_sample` draws a seeded sample of 5 hand-placed points per site from a sealed held-out set, handed out under shuffled numbers without their kinds, with USGS imagery; `benchmark:spot_check_score` gives a second labeller's agreement with the sealed labels. Set 3, checked by a separate AI process from imagery: the same kind for 78% of 40 points, and the same side of the default view for 92% of those it answered (`benchmark/spot_checks.md`).
 - Public benchmark: `rake "benchmark:log_corrections[REASON,CHECKED,yes]"` logs uncommitted label corrections in `benchmark/corrections.csv`, each with its effect on the default and core views; it refuses held-out sites and needs the review sample to have been looked at.
 
 ## [0.9.0] - 2026-11-25

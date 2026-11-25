@@ -19,3 +19,7 @@ Gemfile.lock
 
 # Working notes (progress, decisions, open questions): private.
 /notes/
+
+# Private agent instructions and personal settings.
+/CLAUDE.local.md
+/.claude/settings.local.json

@@ -169,6 +169,25 @@ namespace :benchmark do
 end
 
 namespace :benchmark do
+  desc "Spot-check sample of a sealed held-out set, without kinds, with USGS imagery: " \
+       "rake \"benchmark:spot_check_sample[3]\""
+  task :spot_check_sample, %i[set] do |_, args|
+    set = Integer(args[:set] || abort("give the held-out set"))
+    dir = File.join(File.dirname(benchmark.paths[:runs]), "spot_check", "set#{set}")
+    sample = benchmark.spot_check_sample(set)
+    benchmark.spot_check_images(sample, dir)
+    File.write(File.join(dir, "sample.json"), "#{JSON.pretty_generate(sample)}\n")
+    puts "wrote #{dir}: #{sample.size} points, their imagery and sample.json"
+  end
+
+  desc "A second labeller's agreement with the sealed labels: rake \"benchmark:spot_check_score[3,ANSWERS.json]\""
+  task :spot_check_score, %i[set answers] do |_, args|
+    b = benchmark # loads the benchmark (and json) first
+    answers = JSON.parse(File.read(args[:answers] || abort("give the answers file"), encoding: "utf-8"))
+    view = b.views(*b.paths[:views]).fetch("default")
+    puts JSON.pretty_generate(b.spot_check_score(Integer(args[:set]), answers, view))
+  end
+
   desc "Log uncommitted label corrections, with their effect: rake \"benchmark:log_corrections[REASON,CHECKED,yes]\""
   task :log_corrections, %i[reason checked reviewed] do |_, args|
     unless args[:reviewed] == "yes"
