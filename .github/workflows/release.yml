@@ -1,10 +1,6 @@
 name: Release
 
-# Publishes a tagged version: tests, then (after approval in the `release`
-# environment) builds the gem, attests its provenance (Sigstore, recorded in
-# GitHub's attestation store), pushes it to RubyGems with a short-lived token
-# from trusted publishing (no API key stored anywhere) and creates the GitHub
-# release. docs/design/release-plan.md has the steps and the one-time setup.
+# Publishes a tagged version; docs/design/release-plan.md has the steps and setup.
 on:
   push:
     tags:
@@ -52,21 +48,27 @@ jobs:
         with:
           ruby-version: "4.0"
       - name: Build the gem
-        run: gem build curtilage.gemspec --output "curtilage-${GITHUB_REF_NAME#v}.gem"
+        run: gem build curtilage.gemspec
       - name: Attest its provenance
         id: attest
         uses: actions/attest-build-provenance@4d101475d8b20a2381f78447822ac1eab6504dd8 # v4.2.2
         with:
-          subject-path: curtilage-*.gem
-      - uses: rubygems/configure-rubygems-credentials@c6ca7f4bac0e29c9bde8eeae0a0a986b27efa05f # v2.2.0
-      - name: Push to RubyGems
-        env:
-          ATTESTATION_FILE: ${{ steps.attest.outputs.bundle-path }}
-        run: gem push "curtilage-${GITHUB_REF_NAME#v}.gem" --attestation "${ATTESTATION_FILE}"
-      - name: Create the GitHub release
+          subject-path: curtilage-*.gem # the one gem just built
+      # A draft first, so nothing but publishing it is left once the gem is on RubyGems.
+      - name: Draft the GitHub release
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
           version="${GITHUB_REF_NAME#v}"
           ruby .github/release_notes.rb "${version}" > notes.md
-          gh release create "${GITHUB_REF_NAME}" "curtilage-${version}.gem" --title "${version}" --notes-file notes.md --verify-tag
+          gh release create "${GITHUB_REF_NAME}" "curtilage-${version}.gem" --draft --title "${version}" \
+            --notes-file notes.md --verify-tag
+      - uses: rubygems/configure-rubygems-credentials@c6ca7f4bac0e29c9bde8eeae0a0a986b27efa05f # v2.2.0
+      - name: Push to RubyGems
+        env:
+          ATTESTATION_FILE: ${{ steps.attest.outputs.bundle-path }}
+        run: gem push "curtilage-${GITHUB_REF_NAME#v}.gem" --attestation "${ATTESTATION_FILE}"
+      - name: Publish the GitHub release
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: gh release edit "${GITHUB_REF_NAME}" --draft=false

@@ -7,4 +7,6 @@ section = File.read(File.expand_path("../CHANGELOG.md", __dir__), encoding: "utf
   /^## \[#{Regexp.escape(version)}\].*?(?=^## \[|\z)/m
 ]
 abort "no CHANGELOG section for #{version}" unless section
-puts section.lines.drop(1).join.strip
+notes = section.lines.drop(1).join.strip
+abort "the CHANGELOG section for #{version} is empty" if notes.empty?
+puts notes
