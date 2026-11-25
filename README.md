@@ -237,6 +237,7 @@ The current folder is mounted at `/work`, so file names are relative to it. The 
 | `ml_footprint` | Built on a machine-learned footprint, not an OSM building |
 | `unit_estimated` | The store zone is an estimated unit of a large building (`unit_m:`): check it |
 | `beyond_parcel` | The site's parking runs past the building's parcel (parcels supplied): check the property line |
+| `shared_parcel` | `parcel_mode: :grow` or `:start`: the building's parcel also holds other businesses, so it was only a limit |
 | `no_data` | No map data covers the pin |
 | `error` | Generating this site raised an error (see its explanation); the rest of the batch went on |
 

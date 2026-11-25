@@ -142,6 +142,8 @@ module Curtilage
     # driveways linking the claimed lot to a public road are taken in.
     def add_parking(poly, lots, site)
       far = fence(site, site.opts[:parking_max_extent_m])
+      # parcel_mode: :start began from the parcel: that is the reach.
+      far = Geometry.counter_clockwise(Geometry.convex_hull(far + poly)) if site.opts[:parcel_mode] == :start
       parts = lots.map { |lot| lot_part(Geometry.clip_convex(lot.xy, far), lot, site) }
       grown = lot_box(poly + parts.select { |p| p.size >= 3 }.flatten(1), far, site.target)
       grown = add_entrances(grown, far, site) unless only_aisles?(lots)

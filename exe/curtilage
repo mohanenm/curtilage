@@ -209,6 +209,10 @@ def data_flags(o, opts)
   o.on("--parcels FILE", "Clip premises to your property lines (GeoJSON, or GeoParquet path or URL)") do |v|
     opts[:parcels] = v
   end
+  o.on("--parcel-mode MODE", Curtilage::Generator::PARCEL_MODES.map(&:to_s),
+       "With --parcels: clip (default), grow (take in paving inside) or start (begin from them); experimental") do |v|
+    opts[:parcel_mode] = v.to_sym
+  end
 end
 
 def style_flags(o, opts)

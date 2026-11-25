@@ -41,6 +41,63 @@ class ParcelsTest < Minitest::Test
     assert_equal Curtilage.generate(PIN, scene).ring, Curtilage.generate(PIN, scene + elsewhere).ring
   end
 
+  # A tract kilometres across is cut to a window round the pin.
+  def test_huge_parcels_are_cut_to_a_window
+    features = Curtilage::Features.new(PIN, [parcel(9, -5000, -5000, 5000, 5000)])
+
+    assert_equal [-500, -500, 500, 500], G.bounds(features.parcels.first.xy).map(&:round)
+  end
+
+  def test_parcel_mode_clip_is_the_default
+    with = scene + [parcel(9, -50, -35, 20, 30)]
+
+    assert_equal Curtilage.generate(PIN, with).ring, Curtilage.generate(PIN, with, parcel_mode: :clip).ring
+  end
+
+  # Parking 40-85 m west of the building, past the rules' reach, inside the
+  # building's parcel: :grow takes it in, :clip doesn't.
+  def test_parcel_mode_grow_takes_in_paving_inside_the_parcel
+    far = scene + [polygon("parking", 5, -95, -20, -50, 20), parcel(9, -100, -35, 40, 30)]
+    clip = Curtilage.generate(PIN, far)
+    grow = Curtilage.generate(PIN, far, parcel_mode: :grow)
+
+    assert grow.ok?, grow.validation.errors.inspect
+    refute G.contains?(xy(clip), [-80, 0])
+    assert G.contains?(xy(grow), [-80, 0])
+    plain = xy(Curtilage.generate(PIN, scene))
+    assert(plain.all? { |p| G.contains?(xy(grow), p) || G.distance_to_edges(xy(grow), p) < 1.5 }) # only adds
+  end
+
+  def test_parcel_mode_start_begins_from_the_parcel
+    result = Curtilage.generate(PIN, scene + [parcel(9, -100, -35, 40, 30)], parcel_mode: :start)
+
+    assert result.ok?, result.validation.errors.inspect
+    assert(result.steps.any? { |s| s[:text].to_s.start_with?("started from the building's parcel") })
+    assert G.contains?(xy(result), [-80, 25])
+  end
+
+  # A parcel also holding two other businesses' buildings is a centre: only
+  # a limit, as :clip.
+  def test_shared_parcels_are_only_a_limit
+    centre = scene + [polygon("building", 6, -10, 40, 10, 55), polygon("building", 7, 20, 40, 40, 55),
+                      parcel(9, -100, -35, 45, 60)]
+    grow = Curtilage.generate(PIN, centre, parcel_mode: :grow)
+
+    assert_includes grow.flags, :shared_parcel
+    assert_equal Curtilage.generate(PIN, centre).ring, grow.ring
+  end
+
+  # A building on two parcels uses both; a parcel mostly covered by the
+  # site's own parking joins them (a lot split over parcels).
+  def test_buildings_on_several_parcels_and_split_lots
+    parcels = [parcel(8, -20, -35, 0, 30), parcel(9, 0, -35, 40, 30), parcel(10, -60, -35, -20, 30)]
+    grow = Curtilage.generate(PIN, scene + parcels, parcel_mode: :grow)
+
+    assert grow.ok?, grow.validation.errors.inspect
+    assert G.contains?(xy(grow), [30, 20])
+    assert G.contains?(xy(grow), [-40, 0])
+  end
+
   # generate_many reads the parcels file and hands each pin its parcels.
   def test_generate_many_takes_a_parcels_file
     Dir.mktmpdir do |dir|

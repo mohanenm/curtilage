@@ -15,6 +15,8 @@ module Curtilage
   class Features
     MAX_FEATURES = 20_000
     MAX_VERTICES = 5_000
+    # Parcels are cut to this square round the pin (m): a tract can run for km.
+    PARCEL_WINDOW = [[-500, -500], [500, -500], [500, 500], [-500, 500]].freeze
 
     # category: the building type from OSM (house, parking, roof, ...), or nil.
     # source: where a non-OSM building came from (Overture's dataset name).
@@ -143,14 +145,14 @@ module Curtilage
     end
 
     def add_polygon(feature, kind, xy)
+      xy = Geometry.clip_convex(Geometry.counter_clockwise(Geometry.open_ring(xy)), PARCEL_WINDOW) if kind == "parcel"
       ring = Geometry.clean(Geometry.open_ring(xy))
       area = ring.size >= 3 ? Geometry.area(ring) : 0
       return @dropped += 1 if area < 1 || Geometry.self_intersects?(ring)
 
-      category = field(feature, :highway).to_s
       polygon = Polygon.new(id: field(feature, :id), kind: kind, name: field(feature, :name),
-                            xy: Geometry.counter_clockwise(ring), area: area,
-                            category: category.empty? ? nil : category, source: field(feature, :source))
+                            xy: Geometry.counter_clockwise(ring), area: area, source: field(feature, :source),
+                            category: field(feature, :highway).to_s.then { |c| c.empty? ? nil : c })
       case kind
       when "building" then @buildings << polygon
       when "ml_building" then @ml_buildings << polygon

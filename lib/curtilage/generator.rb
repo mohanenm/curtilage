@@ -119,6 +119,7 @@ module Curtilage
       entrances: :near,              # :near, or :all (follow driveways to every entrance; premises not convex)
       lot_split: :square,            # shared lots: :square (cut square to the building) or :voronoi (nearest building)
       neighbour_cut: :line,          # after taking the lot: :line (cut across) or :notch (cut round the neighbour)
+      parcel_mode: :clip,            # with parcels: :clip, :grow (take in paving inside) or :start (begin there)
     }.freeze
 
     BUILDING_SOURCES = %i[osm osm_or_ml osm_filled ml].freeze
@@ -209,7 +210,7 @@ module Curtilage
     # The options that take one of a few names, and the names.
     def choices
       { scope: SCOPES, buildings: BUILDING_SOURCES, entrances: ENTRANCES, lot_split: LOT_SPLITS,
-        neighbour_cut: NEIGHBOUR_CUTS }
+        neighbour_cut: NEIGHBOUR_CUTS, parcel_mode: PARCEL_MODES }
     end
 
     def check_range(key, value, min, max, whole)
@@ -327,9 +328,7 @@ module Curtilage
       target = find_building(features, opts, log)
       return [nil, nil] unless target
 
-      poly = grown(target, opts[:grow_m], opts)
-      log.note("grew the building rectangle by #{opts[:grow_m]} m", step: "grow", rule: "grow_m", features: [target.id],
-                                                                    distance_m: opts[:grow_m], area_after_m2: m2(poly))
+      poly = start_shape(features, target, opts, log)
       poly = trim_at_roads(poly, features, target, opts, log)
       lots, shared = own_parking(features, target, opts, log)
       whole = whole_centre(shared, Site.new(features, target, opts, log)) if opts[:scope] == :centre
@@ -339,13 +338,16 @@ module Curtilage
       features = features.with_buildings(features.buildings - claimed) unless claimed.empty?
       poly = trim_at_neighbours(poly, features, target, opts, log)
       poly = take_lot(poly, lots, Site.new(features, target, opts, log, shared))
-      [keep_off_other_lots(poly, features, target, lots, log), target]
+      [keep_off_other_lots(poly, features, target, lots + parcel_lots(features, target, opts), log), target]
     end
 
     def take_lot(poly, lots, site)
       poly = add_parking(poly, lots, site) unless lots.empty?
       poly = add_all_entrances(poly, site) if site.opts[:entrances] == :all
-      site.features.parcels.empty? ? poly : clip_to_parcel(poly, lots, site)
+      return poly if site.features.parcels.empty?
+
+      grown = grow_in_parcels(poly, lots, site) if site.opts[:parcel_mode] == :grow
+      grown || clip_to_parcel(poly, lots, site)
     end
 
     def neighbours(features, target, opts)
