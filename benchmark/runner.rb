@@ -112,13 +112,17 @@ module CurtilageBenchmark
   # tuning) or "holdout" (sealed: labelled blind, scored only for a release
   # check). Older files mark held-out sites "holdout": true.
   ROLES = %w[tuning validation holdout].freeze
+  MIN_SET_SITES = 5
 
   # { name => sites or rows } by role, with each held-out set beside the
   # combined held-out group when there's more than one ("holdout set 3").
   def role_groups(items)
     groups = items.group_by { |i| role(i) }.sort_by { |name, _| ROLES.index(name) || ROLES.size }.to_h
     sets = groups.fetch("holdout", []).group_by { |i| i["holdout_set"] }
-    sets.size > 1 ? groups.merge(sets.sort_by { |s, _| s.to_i }.to_h { |s, g| ["holdout set #{s}", g] }) : groups
+    # A set this small would show per-site results: kept in the combined group only.
+    return groups if sets.size < 2 || sets.values.any? { |g| g.size < MIN_SET_SITES }
+
+    groups.merge(sets.sort_by { |s, _| s.to_i }.to_h { |s, g| ["holdout set #{s}", g] })
   end
 
   def role(site) = site["role"] || (site["holdout"] == true ? "holdout" : "tuning")
@@ -189,8 +193,16 @@ module CurtilageBenchmark
 
   # A held-out run keeps only totals: no site, point or category detail
   # anyone could tune against.
+  # Per-kind counts go too for held-out groups: a kind found at one site
+  # would show that site's result.
   def summary_only(run)
-    run.merge("sites" => [], "summary" => run["summary"].slice("all", "views", "roles", "parcel"))
+    summary = run["summary"].slice("all", "views", "roles", "parcel")
+    roles = summary["roles"]&.to_h do |name, r|
+      next [name, r] unless name.start_with?("holdout")
+
+      [name, r.merge("views" => r["views"].transform_values { |v| v.except("kinds") })]
+    end
+    run.merge("sites" => [], "summary" => summary.merge("roles" => roles).compact)
   end
 
   def run(sites: scored_sites, features: nil, references: paths[:references], config: self.config,
@@ -262,10 +274,11 @@ module CurtilageBenchmark
   # with no polygon scores IoU 0 against it.
   def score(site, result, reference)
     row = { "id" => site["id"], "category" => site["category"], "role" => role(site),
-            "holdout_set" => site["holdout_set"], "placeholder" => site["placeholder"] == true,
+            "placeholder" => site["placeholder"] == true,
             "ok" => result.ok?, "method" => result.method_name.to_s,
             "fallback" => result.flags.include?(:fallback), "flags" => result.flags.map(&:to_s),
             "area_m2" => result.validation.metrics[:area_m2] }
+    row["holdout_set"] = site["holdout_set"] if site["holdout_set"]
     reference ? row.merge(against(local(reference, site["pin"]), result.ring && local(result.ring, site["pin"]))) : row
   end
 

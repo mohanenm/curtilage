@@ -59,6 +59,7 @@ namespace :benchmark do
   task :gallery do
     paths = benchmark.paths
     abort "benchmark:gallery is for the public benchmark only (CURTILAGE_BENCHMARK_DIR is set)" if paths[:private]
+    abort "benchmark:gallery never shows held-out sites: unset CURTILAGE_BENCHMARK_HOLDOUT" if benchmark.holdout_run?
     config = benchmark.config
     sites = benchmark.scored_sites
     out = File.expand_path("../docs/gallery/index.html", __dir__)

@@ -93,14 +93,32 @@ class BenchmarkTest < Minitest::Test
   end
 
   # Each held-out set is reported beside the combined held-out group.
-  def test_role_groups_split_held_out_sets
-    sites = [site("t"), site("a").merge("role" => "holdout", "holdout_set" => 2),
-             site("b").merge("role" => "holdout", "holdout_set" => 3), site("v").merge("role" => "validation")]
-    groups = B.role_groups(sites).transform_values { |g| g.map { |s| s["id"] } }
+  # Each held-out set is reported beside the combined group, but only when
+  # every set is big enough that its totals can't show one site's result.
+  def test_role_groups_split_held_out_sets_of_five_or_more
+    held = ->(set, n) { (1..n).map { |i| site("#{set}-#{i}").merge("role" => "holdout", "holdout_set" => set) } }
+    names = ->(sites) { B.role_groups(sites).keys }
 
-    assert_equal ["tuning", "validation", "holdout", "holdout set 2", "holdout set 3"], groups.keys
-    assert_equal %w[a b], groups["holdout"]
-    assert_equal({ "tuning" => ["t"] }, B.role_groups([site("t")]).transform_values { |g| g.map { |s| s["id"] } })
+    assert_equal ["tuning", "holdout", "holdout set 2", "holdout set 3"],
+                 names.call([site("t")] + held.call(2, 5) + held.call(3, 5))
+    assert_equal %w[tuning holdout], names.call([site("t")] + held.call(2, 5) + held.call(3, 2))
+  end
+
+  def test_every_held_out_site_has_its_set
+    held = B.sites.select { |s| B.role(s) == "holdout" }
+    assert(held.all? { |s| [2, 3].include?(s["holdout_set"]) })
+  end
+
+  # A held-out release-check run keeps no per-kind counts for held-out groups.
+  def test_summary_only_drops_held_out_kinds
+    view = { "in_caught" => 0.5, "kinds" => { "own_parking" => { "n" => 1 } } }
+    group = { "views" => { "default" => view } }
+    roles = { "tuning" => group, "holdout set 3" => group }
+    run = { "sites" => [{ "id" => "h" }], "summary" => { "all" => {}, "views" => {}, "roles" => roles } }
+    kept = B.summary_only(run)["summary"]["roles"]
+
+    assert kept["tuning"]["views"]["default"].key?("kinds")
+    refute kept["holdout set 3"]["views"]["default"].key?("kinds")
   end
 
   def test_circle_ring_is_closed_and_the_right_size

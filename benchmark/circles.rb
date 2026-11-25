@@ -8,9 +8,9 @@ module CurtilageBenchmark
 
   module_function
 
-  def circle_ring(pin, radius, sides = 64)
-    xy = (0...sides).map { |k| [Math.cos(2 * Math::PI * k / sides), Math.sin(2 * Math::PI * k / sides)] }
-    ring = G.unproject(xy.map { |x, y| [x * radius, y * radius] }, pin)
+  def circle_ring(pin, radius)
+    angles = (0...64).map { |k| k * Math::PI / 32 }
+    ring = G.unproject(angles.map { |a| [radius * Math.cos(a), radius * Math.sin(a)] }, pin)
     ring + [ring.first]
   end
 
@@ -21,11 +21,11 @@ module CurtilageBenchmark
   end
 
   # Lines: per group, radius and view, in caught / out taken in.
-  def circle_report(sites, views, labels_dir: paths[:labels], radii: CIRCLE_RADII)
-    labelled = sites.filter_map { |s| (l = labels(s["id"], labels_dir)) && [s, l] }.to_h { |s, l| [s["id"], [s, l]] }
-    role_groups(labelled.values.map(&:first)).flat_map do |name, group|
-      pairs = group.map { |s| labelled[s["id"]] }
-      radii.product(views.to_a).map { |r, (view_name, view)| circle_line(name, pairs, r, view_name, view) }
+  def circle_report(sites, views)
+    labels_by_id = sites.to_h { |s| [s["id"], labels(s["id"], paths[:labels])] }.compact
+    role_groups(sites.select { |s| labels_by_id[s["id"]] }).flat_map do |name, group|
+      pairs = group.map { |s| [s, labels_by_id[s["id"]]] }
+      CIRCLE_RADII.product(views.to_a).map { |r, (view_name, view)| circle_line(name, pairs, r, view_name, view) }
     end
   end
 end
