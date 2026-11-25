@@ -121,6 +121,26 @@ class BenchmarkTest < Minitest::Test
     refute kept["holdout set 3"]["views"]["default"].key?("kinds")
   end
 
+  # The second labeller's sample carries no kinds and no positions in the
+  # label file (which would hint at the kind); scoring maps the shuffled
+  # numbers back to the sealed labels.
+  def test_spot_check_sample_and_score
+    sample = B.spot_check_sample(3)
+    view = { "in" => %w[own_parking building], "out" => %w[public_road] }
+
+    assert_equal sample, B.spot_check_sample(3)
+    assert_equal (1..40).map(&:to_s).sort, sample.map { |p| p["id"] }.sort
+    assert(sample.none? { |p| p.key?("kind") || p.key?("index") })
+
+    sealed = B.spot_check_points(3).to_h { |p| [p["id"], p["kind"]] }
+    assert_equal 1.0, B.spot_check_score(3, sealed, view)["kind_agreement"]
+    unsure = B.spot_check_score(3, sealed.merge("1" => "unclear"), view)
+    assert_equal [39, 1.0], [unsure["answered"], unsure["answered_agreement"]]
+    assert_equal(["1"], unsure["disagreements"].map { |d| d["id"] })
+    assert_raises(ArgumentError) { B.spot_check_score(3, sealed.except("1"), view) }
+    assert_raises(ArgumentError) { B.spot_check_sample(9) }
+  end
+
   def test_circle_ring_is_closed_and_the_right_size
     ring = B.circle_ring(PIN, 50)
     g = Curtilage::Geometry

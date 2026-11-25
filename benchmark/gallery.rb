@@ -45,8 +45,9 @@ module CurtilageBenchmark
     end
   end
 
-  def snapshot(pin)
-    uri = snapshot_uri(pin)
+  # half: metres either side of the pin (the gallery map's square by default).
+  def snapshot(pin, half = Curtilage::Preview::VIEW_M)
+    uri = snapshot_uri(pin, half)
     response = Net::HTTP.start(uri.host, uri.port, use_ssl: true, open_timeout: 20, read_timeout: 120) do |http|
       http.request(Net::HTTP::Get.new(uri))
     end
@@ -59,8 +60,7 @@ module CurtilageBenchmark
     body
   end
 
-  def snapshot_uri(pin)
-    half = Curtilage::Preview::VIEW_M
+  def snapshot_uri(pin, half = Curtilage::Preview::VIEW_M)
     (w, s), (e, n) = G.unproject([[-half, -half], [half, half]], pin)
     width = (SNAPSHOT_PX * (e - w) / (n - s)).round
     URI("#{SNAPSHOT_SERVICE}?#{URI.encode_www_form(bbox: [w, s, e, n].join(","), bboxSR: 4326, imageSR: 4326,
