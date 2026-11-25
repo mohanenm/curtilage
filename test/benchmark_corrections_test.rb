@@ -45,6 +45,19 @@ class BenchmarkCorrectionsTest < Minitest::Test
     assert_equal :none, B.correction_effect(VIEW, xy, PIN, [inside, "own_parking", "entrance"])
   end
 
+  # Each change becomes a log row with its effect under the default and
+  # core views, the sample recorded as reviewed.
+  def test_correction_rows_carry_the_effects
+    views = { "default" => VIEW, "core" => VIEW }
+    site = { "id" => "made-up", "pin" => PIN, "role" => "tuning" }
+    rows = B.correction_rows(site, [[lnglat(60, 0), "entrance", "public_road"]], square, views,
+                             ["after abc1234", "kerb misread", "imagery"])
+
+    assert_equal 1, rows.size
+    assert_equal ["after abc1234", "made-up", "tuning"], rows[0][1, 3]
+    assert_equal ["entrance", "public_road", "kerb misread", "imagery", "yes", "raised", "raised"], rows[0][5..]
+  end
+
   def test_corrections_round_trip_through_the_log
     Dir.mktmpdir do |dir|
       file = File.join(dir, "c.csv")
