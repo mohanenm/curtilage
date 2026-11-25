@@ -83,7 +83,7 @@ Every label in the public benchmark was placed by one person, the project's main
 | Held-out set 2 | 16 | blind; parking re-checked before any result was seen (`holdout_replacements.md`) | no |
 | Held-out set 3 | 8 | blind; pins off the business kept and the business labelled where it is | no |
 
-The held-out sets were labelled by the same person who reviews tuning results and directs rule changes, so they share that person's judgement of what counts as the lot. To check that, a random sample of points from each held-out set is to be checked on imagery by a second labeller who has never seen the rules' output, with the agreement rate recorded here and disagreements logged, not fixed (sealed labels never change). No sample has been checked yet.
+The held-out sets were labelled by the same person who reviews tuning results and directs rule changes, so they share that person's judgement of what counts as the lot. To check that, a random sample of points from each held-out set is to be checked on imagery by a second labeller who has never seen the rules' output, with the agreement rate recorded here and disagreements logged in [spot_checks.md](spot_checks.md), not fixed (sealed labels never change). Set 3 has been checked by a separate AI process given only imagery and the kinds table (weaker than a second person): of 40 points it gave the same kind for 31 (78%) and `unclear` for 7; where it gave a kind, 31 of 33 matched (94%) and all 33 fell on the same side of the default view. Set 2 hasn't been checked.
 
 ## Correcting a label
 
@@ -104,6 +104,7 @@ Held-out labels are never corrected (see above).
 - `views/<name>.json`: a view: `name`, `description`, `options` (curtilage options it scores, e.g. `{ "scope": "centre" }`), and the kinds it counts `in` and `out` (the rest are ignored).
 - `config.json`: the pinned Overture release and the options every run uses.
 - `LABELS.md`: the labelling guide.
+- `spot_checks.md`: second-labeller checks of held-out labels, with every disagreement.
 - `vendor/leaflet-1.9.4/`: Leaflet (BSD 2-Clause), inlined into the labelling page.
 - `runner.rb`, `labels.rb`, `label_page.rb`, `gallery.rb`, `parcels.rb`, `parcel_modes.rb`, `flags_check.rb`, `circles.rb`, `spot_check.rb`, `diagnose.rb`, `corrections.rb`, `review_sample.rb`, `check_sites.rb` and `../rakelib/benchmark.rake`: the code.
 

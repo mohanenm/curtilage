@@ -181,8 +181,9 @@ namespace :benchmark do
 
   desc "Agreement of a second labeller's kinds ({ point_id => kind } JSON) with the sealed labels"
   task :spot_check_score, %i[answers] do |_, args|
+    view = benchmark.views(*benchmark.paths[:views]).fetch("default") # loads the benchmark (and json) first
     answers = JSON.parse(File.read(args[:answers] || abort("give the answers file"), encoding: "utf-8"))
-    result = benchmark.spot_check_score(answers, benchmark.views(*benchmark.paths[:views]).fetch("default"))
+    result = benchmark.spot_check_score(answers, view)
     puts JSON.pretty_generate(result)
   end
 end
