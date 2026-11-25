@@ -2,6 +2,10 @@
 
 ## [Unreleased]
 
+### Added
+
+- Public benchmark: `rake "benchmark:log_corrections[REASON,CHECKED,yes]"` logs uncommitted label corrections in `benchmark/corrections.csv`, each with its effect on the default and core views; it refuses held-out sites and needs the review sample to have been looked at.
+
 ## [0.9.0] - 2026-11-25
 
 Default results are unchanged from 0.8.0.

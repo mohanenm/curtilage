@@ -167,3 +167,19 @@ namespace :benchmark do
     puts benchmark.circle_report(benchmark.scored_sites, views)
   end
 end
+
+namespace :benchmark do
+  desc "Log uncommitted label corrections, with their effect: rake \"benchmark:log_corrections[REASON,CHECKED,yes]\""
+  task :log_corrections, %i[reason checked reviewed] do |_, args|
+    unless args[:reviewed] == "yes"
+      abort "look at the site's review sample first (rake \"benchmark:review_sample[ID]\"), then pass yes"
+    end
+    abort "give the reason and what was checked" unless args[:reason] && args[:checked]
+
+    rows = benchmark.pending_corrections(args[:reason], args[:checked])
+    abort "no uncommitted changes to tuning or validation labels" if rows.empty?
+
+    benchmark.append_corrections(rows)
+    puts "logged #{rows.size} change(s) in benchmark/corrections.csv"
+  end
+end

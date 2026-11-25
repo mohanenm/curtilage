@@ -90,7 +90,7 @@ Labels change only to record what's physically there more accurately, never to i
 So every correction to a tuning or validation site:
 
 1. starts with the site's review sample (`rake "benchmark:review_sample[ID]"`): up to five points of each outcome (in caught, in missed, out taken in, out left out) on aerial imagery, so what the rules get right is looked at as closely as what they get wrong;
-2. goes into `corrections.csv`: site, point, old and new kind, the reason, what was checked, that the sample was reviewed, and whether it raised or lowered the score under the default and core views. A test fails if a correction logged after the backfill doesn't record the sample as reviewed.
+2. goes into `corrections.csv` before it's committed: `rake "benchmark:log_corrections[REASON,CHECKED,yes]"` compares the edited label files with the last commit and logs each changed point with the reason, what was checked, that the sample was reviewed (the `yes`), and whether it raised or lowered the score under the default and core views. It refuses held-out sites. A test fails if a correction logged after the backfill doesn't record the sample as reviewed.
 
 Held-out labels are never corrected (see above).
 
