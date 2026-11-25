@@ -114,6 +114,7 @@
           "enum": [
             "grow_trim",
             "building",
+            "manual",
             null
           ]
         },
@@ -220,7 +221,8 @@
                   "enum": [
                     "overture",
                     "geofabrik",
-                    "parquet"
+                    "parquet",
+                    "manual"
                   ]
                 },
                 "release": {

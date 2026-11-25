@@ -49,13 +49,14 @@ class NdjsonTest < Minitest::Test
 
   def results
     error = Curtilage.send(:generate_safely, PIN, :not_features, { grow_m: -1 })
-    [Curtilage.generate(PIN, scene), Curtilage.generate([-80.01, 35.01], scene), error]
+    made = Curtilage.generate(PIN, scene)
+    [made, Curtilage.generate([-80.01, 35.01], scene), error, Curtilage::Corrections.result(PIN, made.ring)]
   end
 
   def test_one_feature_per_line_matching_the_schema
-    lines = F.write(results, :ndjson, ids: %w[a b c]).lines
+    lines = F.write(results, :ndjson, ids: %w[a b c d]).lines
 
-    assert_equal 3, lines.size
+    assert_equal 4, lines.size
     lines.each do |line|
       assert_empty problems(JSON.parse(line), SCHEMA), line[0, 200]
     end
