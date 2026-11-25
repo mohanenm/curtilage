@@ -5,15 +5,17 @@
 # default-view points that are wrong, beside the result's flags and
 # confidence; then per role, the mean error with and without each flag and
 # the rank correlation between confidence and error (Spearman; honest
-# confidence is strongly negative). Held-out sites are never looked at.
+# confidence is strongly negative). Held-out sites come in only with the
+# release check, and then only as totals.
 module CurtilageBenchmark
   HONESTY_FLAGS = %i[large_building store_may_be_unit shared_lot].freeze
 
   module_function
 
   # [{ "id", "role", "error", "confidence", "flags" }] for labelled sites.
+  # Held-out sites come in only with the release check (scored_sites).
   def flag_rows(sites, data, config, view)
-    sites.reject { |s| role(s) == "holdout" }.filter_map do |site|
+    sites.filter_map do |site|
       labels = labels(site["id"], paths[:labels]) or next
       opts = config.fetch("options", {}).merge(site.fetch("options", {})).merge(view["options"])
       result = Curtilage.generate(site["pin"], data.fetch(site["id"]), **symbolised(opts))
@@ -34,7 +36,7 @@ module CurtilageBenchmark
       ["", "#{role} (#{rs.size} sites): mean error with / without each flag",
        *HONESTY_FLAGS.map { |flag| flag_line(rs, flag.to_s) },
        "  confidence vs error (Spearman): #{spearman(rs.map { |r| r["confidence"] }, rs.map { |r| r["error"] })}",
-       "  worst sites: #{worst(rs)}"]
+       *(role == "holdout" ? [] : ["  worst sites: #{worst(rs)}"])] # held-out: totals only
     end
   end
 

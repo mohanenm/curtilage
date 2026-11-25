@@ -149,10 +149,9 @@ namespace :benchmark do
 end
 
 namespace :benchmark do
-  desc "Do flags and confidence mark the poor results? Error by flag, confidence vs error (tuning and validation)"
+  desc "Do flags and confidence mark the poor results? Error by flag, confidence vs error, per role"
   task :flags do
-    abort "benchmark:flags never looks at held-out sites" if benchmark.holdout_run?
-    sites = benchmark.sites.reject { |s| benchmark.role(s) == "holdout" }
+    sites = benchmark.scored_sites # held-out ones only with the release check
     config = benchmark.config
     data = benchmark.features(sites, config.fetch("overture_release"))
     view = benchmark.views(*benchmark.paths[:views]).fetch("default")

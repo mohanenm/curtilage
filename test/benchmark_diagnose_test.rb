@@ -51,6 +51,18 @@ class BenchmarkDiagnoseTest < Minitest::Test
     assert_nil B.spearman([1, 2], [2, 1])
   end
 
+  def test_flag_report_keeps_held_out_sites_to_totals
+    rows = %w[tuning holdout].flat_map do |role|
+      [0.1, 0.4, 0.2].each_with_index.map do |e, i|
+        { "id" => "#{role}-#{i}", "role" => role, "error" => e, "confidence" => 1 - e, "flags" => [] }
+      end
+    end
+    text = B.flag_report(rows).join("\n")
+
+    assert_includes text, "worst sites: tuning-1"
+    refute_includes text, "holdout-"
+  end
+
   def test_held_out_sites_are_never_diagnosed
     assert_empty B.diagnose([{ "id" => "x", "role" => "holdout", "pin" => [0, 0] }], {}, {}, {})
   end
