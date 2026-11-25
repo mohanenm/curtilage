@@ -16,3 +16,6 @@ Gemfile.lock
 
 # Launch drafts and plans: private until posted.
 /docs/launch/
+
+# Working notes (progress, decisions, open questions): private.
+/notes/

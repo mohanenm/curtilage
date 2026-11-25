@@ -59,6 +59,7 @@ namespace :benchmark do
   task :gallery do
     paths = benchmark.paths
     abort "benchmark:gallery is for the public benchmark only (CURTILAGE_BENCHMARK_DIR is set)" if paths[:private]
+    abort "benchmark:gallery never shows held-out sites: unset CURTILAGE_BENCHMARK_HOLDOUT" if benchmark.holdout_run?
     config = benchmark.config
     sites = benchmark.scored_sites
     out = File.expand_path("../docs/gallery/index.html", __dir__)
@@ -156,5 +157,13 @@ namespace :benchmark do
     data = benchmark.features(sites, config.fetch("overture_release"))
     view = benchmark.views(*benchmark.paths[:views]).fetch("default")
     puts benchmark.flag_report(benchmark.flag_rows(sites, data, config, view))
+  end
+end
+
+namespace :benchmark do
+  desc "Circle baselines (50 m, 75 m) per role and held-out set, default and core views, totals only"
+  task :circles do
+    views = benchmark.views(*benchmark.paths[:views]).slice("default", "core")
+    puts benchmark.circle_report(benchmark.scored_sites, views)
   end
 end

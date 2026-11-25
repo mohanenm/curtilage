@@ -19,11 +19,11 @@ class ProvenanceTest < Minitest::Test
 
   def test_the_fingerprint_ignores_feature_order_and_key_style
     symbols = scene.map { |f| JSON.parse(JSON.generate(f), symbolize_names: true) }
-    sha = Curtilage::Features.fingerprint(scene)
+    sha = ->(features) { Curtilage::Features.new(PIN, features).sha256 }
 
-    assert_equal sha, Curtilage::Features.fingerprint(scene.reverse)
-    assert_equal sha, Curtilage::Features.fingerprint(symbols)
-    refute_equal sha, Curtilage::Features.fingerprint(scene.first(3))
+    assert_equal sha.call(scene), sha.call(scene.reverse)
+    assert_equal sha.call(scene), sha.call(symbols)
+    refute_equal sha.call(scene), sha.call(scene.first(3))
   end
 
   def test_the_same_inputs_give_byte_identical_output

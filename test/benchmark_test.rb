@@ -92,6 +92,44 @@ class BenchmarkTest < Minitest::Test
     end
   end
 
+  # Each held-out set is reported beside the combined held-out group.
+  # Each held-out set is reported beside the combined group, but only when
+  # every set is big enough that its totals can't show one site's result.
+  def test_role_groups_split_held_out_sets_of_five_or_more
+    held = ->(set, n) { (1..n).map { |i| site("#{set}-#{i}").merge("role" => "holdout", "holdout_set" => set) } }
+    names = ->(sites) { B.role_groups(sites).keys }
+
+    assert_equal ["tuning", "holdout", "holdout set 2", "holdout set 3"],
+                 names.call([site("t")] + held.call(2, 5) + held.call(3, 5))
+    assert_equal %w[tuning holdout], names.call([site("t")] + held.call(2, 5) + held.call(3, 2))
+  end
+
+  def test_every_held_out_site_has_its_set
+    held = B.sites.select { |s| B.role(s) == "holdout" }
+    assert(held.all? { |s| [2, 3].include?(s["holdout_set"]) })
+  end
+
+  # A held-out release-check run keeps no per-kind counts for held-out groups.
+  def test_summary_only_drops_held_out_kinds
+    view = { "in_caught" => 0.5, "kinds" => { "own_parking" => { "n" => 1 } } }
+    group = { "views" => { "default" => view } }
+    roles = { "tuning" => group, "holdout set 3" => group }
+    run = { "sites" => [{ "id" => "h" }], "summary" => { "all" => {}, "views" => {}, "roles" => roles } }
+    kept = B.summary_only(run)["summary"]["roles"]
+
+    assert kept["tuning"]["views"]["default"].key?("kinds")
+    refute kept["holdout set 3"]["views"]["default"].key?("kinds")
+  end
+
+  def test_circle_ring_is_closed_and_the_right_size
+    ring = B.circle_ring(PIN, 50)
+    g = Curtilage::Geometry
+    xy = g.open_ring(g.project(ring, PIN))
+
+    assert_equal ring.first, ring.last
+    assert(xy.all? { |p| (g.distance(p, [0, 0]) - 50).abs < 0.5 })
+  end
+
   # Every role side by side; held-out sites outside a release check are
   # only counted.
   def test_role_table_shows_every_role_and_the_held_out_count

@@ -48,8 +48,10 @@ class GridTest < Minitest::Test
     g = grid(pad: 3).paint([[0, 0], [20, 0], [20, 10], [0, 10]]).paint([[24, 0], [40, 0], [40, 10], [24, 10]])
     g.close(3)
 
-    assert g.on?([22, 5])
-    refute g.on?([22, 0.2]) # the gap's corners round off
+    assert g.keep_part?([5, 5])
+    outline = g.outline
+    assert G.contains?(outline, [22, 5]) # the gap is bridged: one part
+    refute G.contains?(outline, [22, 0.2]) # the gap's corners round off
     assert_raises(ArgumentError) { grid.close(5) }
   end
 

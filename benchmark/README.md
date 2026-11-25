@@ -2,9 +2,9 @@
 
 A small set of public sites that anyone can run curtilage against, so changes to the rules can be judged on numbers anyone can reproduce. It lives in the repository only; none of it ships in the gem.
 
-**What it is:** 66 public sites in 32 states: ten picked one per category in Delaware, 28 seeded random picks from Overture places across 13 place types in eight states (DE, MA, MD, NC, FL, WI, TX, UT), 2 sites whose building is missing from OSM, 2 tuning sites whose map point is off the business (for choosing the right building from an imprecise pin), and 24 held-out sites drawn at random from Overture places in 24 further states, one each (all labelled blind and sealed: 16 in the second set, 8 in the third, drawn 2026-11-25). Sites have a role: tuning (rules may be tuned on them), validation (the first held-out set, labelled blind, now scored with every run) and held-out (never scored with the rest, never used for tuning, kept for a final check before each release; see [Roles and the held-out rules](#roles-and-the-held-out-rules)). Every tuning and validation site has its tax parcel as an independent baseline (`benchmark:parcels`); the ten Delaware sites also have a hand-drawn reference polygon, an IoU guide only (median 0.41 at 0.8.0), since one polygon measures agreement with whoever drew it.
+**What it is:** 66 public sites in 32 states: ten picked one per category in Delaware, 28 seeded random picks from Overture places across 13 place types in eight states (DE, MA, MD, NC, FL, WI, TX, UT), 2 sites whose building is missing from OSM, 2 tuning sites whose map point is off the business (for choosing the right building from an imprecise pin), and 24 held-out sites drawn at random from Overture places in 24 further states, one each (Michigan and Missouri have since gained tuning sites; all labelled blind and sealed: 16 in the second set, 8 in the third, drawn 2026-11-25). Sites have a role: tuning (rules may be tuned on them), validation (the first held-out set, labelled blind, now scored with every run) and held-out (never scored with the rest, never used for tuning, kept for a final check before each release; see [Roles and the held-out rules](#roles-and-the-held-out-rules)). Every tuning and validation site has its tax parcel as an independent baseline (`benchmark:parcels`); the ten Delaware sites also have a hand-drawn reference polygon, an IoU guide only (median 0.41 at 0.9.0), since one polygon measures agreement with whoever drew it.
 
-**Labelled points.** Each site gets points labelled with what is physically there (a parking stall, the drive-through lane, the road past the kerb, a neighbour's lot). **Views** decide which kinds count as in or out for a use: one table per use case, so the same labels score any of them, and the **core** view counts only what every use case agrees on. See [LABELS.md](LABELS.md) for the kinds, the views and how to label. 52 sites are labelled (by one person; some tuning-site labels were corrected after reviewing results, which is why the held-out sites are the unbiased check). On the 23 labelled tuning sites at 0.8.0, the default settings catch 71% of the "in" points and take in 6.5% of the "out" points (the core view 89% and 1.5%); on the 7 validation sites (labelled blind, before they were scored), 47% and 14.5% (core 60% and 8.9%), so the tuning numbers are optimistic. The 16 held-out sites are labelled (blind) and sealed and scored only in a release check: at the check of 2026-11-25, 77% and 7.8% (core 83% and 4.4%), against 76% and 29% for a 50 m circle around the pin. A site can be marked `"placeholder": true` (made-up, kept out of the totals) while trying things out.
+**Labelled points.** Each site gets points labelled with what is physically there (a parking stall, the drive-through lane, the road past the kerb, a neighbour's lot). **Views** decide which kinds count as in or out for a use: one table per use case, so the same labels score any of them, and the **core** view counts only what every use case agrees on. See [LABELS.md](LABELS.md) for the kinds, the views and how to label. 56 sites are labelled (by one person; some tuning-site labels were corrected after reviewing results, which is why the held-out sites are the unbiased check). On the 25 labelled tuning sites at 0.9.0, the default settings catch 73% of the "in" points and take in 6.0% of the "out" points (the core view 90% and 1.3%); on the 7 validation sites (labelled blind, before they were scored), 47% and 14.5% (core 60% and 8.9%), so the tuning numbers are optimistic. The 24 held-out sites are labelled (blind) and sealed and scored only in a release check: at the check for 0.9.0, 80% and 6.8% (core 85% and 3.6%), against 80% and 23% for a 50 m circle around the pin; the set of 16 scored 77% and 7.8%, the set of 8 87% and 4.6%. A site can be marked `"placeholder": true` (made-up, kept out of the totals) while trying things out.
 
 ## Running it
 
@@ -20,6 +20,7 @@ bundle exec rake "benchmark:review_sample[ID]"              # the four-outcome r
 bundle exec rake benchmark:parcels                          # fetch each site's tax parcel and those around it (data/benchmark/parcels)
 bundle exec rake benchmark:parcel_modes                     # the rules alone and with parcels (clip, grow, start), side by side
 bundle exec rake benchmark:flags                            # do flags and confidence mark the poor results? (error by flag, Spearman)
+bundle exec rake benchmark:circles                          # 50 m and 75 m circles round the pin, scored the same way (baseline)
 bundle exec rake benchmark:diagnose                         # why points are wrong: causes ranked per view, scores by pin quality
 ```
 
@@ -66,12 +67,25 @@ Every site has a role (`"role"` in `sites.geojson`):
 The held-out rules:
 
 1. **Labelled before anyone sees results**, on the labelling page, which never shows curtilage's output. Labels are frozen once committed: `rake benchmark:seal` records each file's SHA256 in `holdout_labels.sha256`, and a test fails if a held-out label file differs from its seal or is labelled but unsealed.
-2. **Never used for tuning.** `rake benchmark` leaves held-out sites out and only counts them (how many, how many labelled). Scoring them needs both `CURTILAGE_BENCHMARK_HOLDOUT=1` and `CURTILAGE_RELEASE_CHECK=1` and every held-out label sealed; that run scores tuning, validation and held-out sites side by side for every view, and prints and saves totals only: nothing per site, per point or per category. The gallery, review pages, diagnosis and parcel tooling skip them.
+2. **Never used for tuning.** `rake benchmark` leaves held-out sites out and only counts them (how many, how many labelled). Scoring them needs both `CURTILAGE_BENCHMARK_HOLDOUT=1` and `CURTILAGE_RELEASE_CHECK=1` and every held-out label sealed; that run scores tuning, validation and held-out sites side by side for every view (each held-out set, `holdout_set` in `sites.geojson`, and all of them together), and prints and saves totals only: nothing per site, per point or per category. The gallery, review pages, diagnosis and parcel tooling skip them.
 3. **Replaced only for data problems visible without running the gem**, decided from the site data alone (the Overture place and the map data around it), such as no matching business at the Overture point or a pin far from any building. Every replacement is logged in `holdout_replacements.md` with its reason. From the third set on, a pin that is off the business is kept, as real input often is: the business is labelled where it really is, and the site is replaced only if the business can't be found near the pin at all.
+
+## How the labels were made
+
+Every label in the public benchmark was placed by one person, the project's maintainer, on the labelling page (`rake benchmark:label_page`), over public-domain USGS aerial imagery (NAIP photos, with USGS cached tiles underneath where the photos load slowly), following [LABELS.md](LABELS.md): each point says what is physically there, and the views decide what counts.
+
+| Set | Sites | Labelled | Seen results first? |
+|---|---|---|---|
+| Tuning | 35 (25 labelled) | over several rounds; some labels corrected after reviewing results (`corrections.csv`) | yes |
+| Validation (the first held-out set) | 7 | blind, before any result | no, results seen since |
+| Held-out set 2 | 16 | blind; parking re-checked before any result was seen (`holdout_replacements.md`) | no |
+| Held-out set 3 | 8 | blind; pins off the business kept and the business labelled where it is | no |
+
+The held-out sets were labelled by the same person who reviews tuning results and directs rule changes, so they share that person's judgement of what counts as the lot. To check that, a random sample of points from each held-out set is to be checked on imagery by a second labeller who has never seen the rules' output, with the agreement rate recorded here and disagreements logged, not fixed (sealed labels never change). No sample has been checked yet.
 
 ## Correcting a label
 
-Labels change only to record what's physically there more accurately, never to improve a score. Corrections made while looking at results drift toward them: the corrections log's backfill (127 changes since the 30-site expansion) found that, under the core view, 108 raised the score and 10 lowered it.
+Labels change only to record what's physically there more accurately, never to improve a score. Corrections made while looking at results drift toward them: the corrections log, backfilled from git history (127 changes since the 30-site expansion), shows that, under the core view, 108 raised the score and 10 lowered it.
 
 So every correction to a tuning or validation site:
 
@@ -82,14 +96,14 @@ Held-out labels are never corrected (see above).
 
 ## Files
 
-- `sites.geojson`: one Point per site, `[lng, lat]`. Properties: `id` (lower-case letters, digits and hyphens), `category`, `notes`, `placeholder` (true for the made-up ones) and optionally `options`, e.g. `{ "buildings": "osm_filled" }` or `{ "preset": "tight" }`.
+- `sites.geojson`: one Point per site, `[lng, lat]`. Properties: `id` (lower-case letters, digits and hyphens), `category`, `notes`, `role` (`tuning`, `validation` or `holdout`), `holdout_set` (held-out sites only), `placeholder` (true for the made-up ones) and optionally `options`, e.g. `{ "buildings": "osm_filled" }` or `{ "preset": "tight" }`.
 - `reference/<id>.geojson`: the hand-drawn premises for that site, a GeoJSON Polygon (a Feature or a FeatureCollection whose first feature is it). Any shape; it doesn't have to be convex.
 - `labels/<id>.geojson`: the site's labelled points, a FeatureCollection of Points with `kind` and `source` (`hand` or `random`). Made with the labelling page.
 - `views/<name>.json`: a view: `name`, `description`, `options` (curtilage options it scores, e.g. `{ "scope": "centre" }`), and the kinds it counts `in` and `out` (the rest are ignored).
 - `config.json`: the pinned Overture release and the options every run uses.
 - `LABELS.md`: the labelling guide.
 - `vendor/leaflet-1.9.4/`: Leaflet (BSD 2-Clause), inlined into the labelling page.
-- `runner.rb`, `labels.rb`, `label_page.rb`, `gallery.rb`, `parcels.rb`, `parcel_modes.rb`, `flags_check.rb`, `diagnose.rb`, `corrections.rb`, `review_sample.rb`, `check_sites.rb` and `../rakelib/benchmark.rake`: the code.
+- `runner.rb`, `labels.rb`, `label_page.rb`, `gallery.rb`, `parcels.rb`, `parcel_modes.rb`, `flags_check.rb`, `circles.rb`, `diagnose.rb`, `corrections.rb`, `review_sample.rb`, `check_sites.rb` and `../rakelib/benchmark.rake`: the code.
 
 ## Your own sites and views
 
