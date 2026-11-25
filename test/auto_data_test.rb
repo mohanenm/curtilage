@@ -159,10 +159,15 @@ class AutoDataTest < Minitest::Test
   # One failed build lets the others finish (the temporary folder is
   # deleted right after), starts no new one, and raises its own error.
   def test_failed_build_waits_for_the_others
+    started = Queue.new
     finished = Queue.new
     builder = lambda do |region, *|
-      raise Curtilage::Build::Error, "no extract" if region.path == "test/big/east"
+      if region.path == "test/big/east"
+        started.pop # fail only once the other build is running, whichever worker took which region
+        raise Curtilage::Build::Error, "no extract"
+      end
 
+      started << true
       sleep 0.2
       finished << region.path
     end
