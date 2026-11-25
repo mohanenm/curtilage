@@ -92,6 +92,19 @@ class BenchmarkTest < Minitest::Test
     end
   end
 
+  # Every role side by side; held-out sites outside a release check are
+  # only counted.
+  def test_role_table_shows_every_role_and_the_held_out_count
+    stats = { "in_caught" => 0.7, "out_included" => 0.1 }
+    roles = { "tuning" => { "sites" => 23, "labelled" => 23, "views" => { "default" => stats } },
+              "validation" => { "sites" => 7, "labelled" => 7, "views" => { "default" => stats } } }
+    lines = B.role_table({ "summary" => { "roles" => roles } }, holdout: [16, 0])
+
+    assert_match(/tuning 23 labelled of 23, validation 7 labelled of 7/, lines[1])
+    assert_match(%r{tuning 0.7 / 0.1   validation 0.7 / 0.1}, lines[2])
+    assert_match(/holdout: 16 sites, 0 labelled; scored only by the release check/, lines[3])
+  end
+
   # Held-out labels are frozen: every held-out label file in the repository
   # matches the hash it was sealed with.
   def test_held_out_labels_match_their_seals
@@ -128,7 +141,7 @@ class BenchmarkTest < Minitest::Test
     ENV["CURTILAGE_BENCHMARK_HOLDOUT"] = "1"
     assert_raises(ArgumentError) { B.scored_sites(sites) }
     ENV["CURTILAGE_RELEASE_CHECK"] = "1"
-    assert_equal(%w[h o], B.scored_sites(sites).map { |s| s["id"] })
+    assert_equal(%w[a v h o], B.scored_sites(sites).map { |s| s["id"] }) # every role, side by side
     run = { "sites" => [{ "id" => "h" }], "summary" => { "all" => {}, "views" => {}, "categories" => { "x" => {} } } }
     assert_empty B.summary_only(run)["sites"]
     refute B.summary_only(run)["summary"].key?("categories")

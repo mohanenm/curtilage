@@ -162,21 +162,32 @@ module CurtilageBenchmark
            "#{r["errors"]} (#{r["errors_beyond_tolerance"]} > #{TOLERANCE_M} m)"),
        "  #{s["kinds"].map { |k, t| "#{k} #{t["right"]}/#{t["n"]}" }.join(", ")}"]
     end
-    ["", head, *lines.flatten, *role_table(run)]
+    ["", head, *lines.flatten, *role_table(run, holdout: holdout_counts)]
   end
 
   # Each view per role, side by side: in caught / out taken, with labelled
   # site counts.
-  def role_table(run)
+  # Every view per role side by side, with labelled site counts. Held-out
+  # sites are only in a release-check run; otherwise their line says how
+  # many there are and how many are labelled (holdout: [sites, labelled]).
+  def role_table(run, holdout: nil)
     roles = (run.dig("summary", "roles") || {}).select { |_, r| r["labelled"].to_i.positive? }
-    return [] if roles.size < 2
+    return [] if roles.empty?
 
     views = roles.values.flat_map { |r| r["views"].keys }.uniq
-    ["", "per role (in caught / out taken): #{roles.map { |name, r| "#{name} #{r["labelled"]} sites" }.join(", ")}",
+    counts = roles.map { |name, r| "#{name} #{r["labelled"]} labelled of #{r["sites"]}" }
+    ["", "per role (in caught / out taken): #{counts.join(", ")}",
      *views.map do |v|
        cells = roles.map { |name, r| (s = r["views"][v]) ? "#{name} #{s["in_caught"]} / #{s["out_included"]}" : nil }
        "  #{v.ljust(10)} #{cells.compact.join("   ")}"
-     end]
+     end, *holdout_note(roles, holdout)]
+  end
+
+  def holdout_note(roles, holdout)
+    return [] if roles.key?("holdout") || holdout.nil? || holdout[0].zero?
+
+    ["  holdout: #{holdout[0]} sites, #{holdout[1]} labelled; scored only by the release check " \
+     "(CURTILAGE_BENCHMARK_HOLDOUT=1 CURTILAGE_RELEASE_CHECK=1, totals only)"]
   end
 
   # Per view, per site labelled in both runs: fewer errors, more, or the

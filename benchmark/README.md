@@ -66,7 +66,7 @@ Every site has a role (`"role"` in `sites.geojson`):
 The held-out rules:
 
 1. **Labelled before anyone sees results**, on the labelling page, which never shows curtilage's output. Labels are frozen once committed: `rake benchmark:seal` records each file's SHA256 in `holdout_labels.sha256`, and a test fails if a held-out label file differs from its seal or is labelled but unsealed.
-2. **Never used for tuning.** `rake benchmark` leaves held-out sites out. Scoring them needs both `CURTILAGE_BENCHMARK_HOLDOUT=1` and `CURTILAGE_RELEASE_CHECK=1`, and even then prints and saves totals only: nothing per site, per point or per category. The gallery, review pages and parcel tooling skip them.
+2. **Never used for tuning.** `rake benchmark` leaves held-out sites out and only counts them (how many, how many labelled). Scoring them needs both `CURTILAGE_BENCHMARK_HOLDOUT=1` and `CURTILAGE_RELEASE_CHECK=1` and every held-out label sealed; that run scores tuning, validation and held-out sites side by side for every view, and prints and saves totals only: nothing per site, per point or per category. The gallery, review pages, diagnosis and parcel tooling skip them.
 3. **Replaced only for data problems visible without running the gem**, decided from the site data alone (the Overture place and the map data around it), such as no matching business at the Overture point or a pin far from any building. Every replacement is logged in `holdout_replacements.md` with its reason.
 
 ## Correcting a label

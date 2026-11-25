@@ -117,13 +117,26 @@ module CurtilageBenchmark
   # Tuning and validation sites. Held-out sites only with
   # CURTILAGE_BENCHMARK_HOLDOUT=1 and CURTILAGE_RELEASE_CHECK=1, and then
   # only them.
+  # Tuning and validation sites; with the release check (both flags), every
+  # site, held-out ones included, once their labels are all sealed. A
+  # release-check run keeps totals only (summary_only).
   def scored_sites(all = sites)
     return all.reject { |s| role(s) == "holdout" } unless holdout_run?
     unless release_check?
       raise ArgumentError, "held-out sites are scored only for a release check: set CURTILAGE_RELEASE_CHECK=1 as well"
     end
 
-    all.select { |s| role(s) == "holdout" }
+    problems = unsealed(all)
+    raise ArgumentError, "held-out labels aren't all sealed (rake benchmark:seal): #{problems.first(3).inspect}" \
+      if problems.any?
+
+    all
+  end
+
+  # [held-out sites, how many have labels]: counted, never run.
+  def holdout_counts(all = sites)
+    held = all.select { |s| role(s) == "holdout" }
+    [held.size, held.count { |s| File.file?(File.join(paths[:labels], "#{s["id"]}.geojson")) }]
   end
 
   SEAL_FILE = File.join(DIR, "holdout_labels.sha256")
