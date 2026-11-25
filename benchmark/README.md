@@ -83,7 +83,7 @@ Every label in the public benchmark was placed by one person, the project's main
 | Held-out set 2 | 16 | blind; parking re-checked before any result was seen (`holdout_replacements.md`) | no |
 | Held-out set 3 | 8 | blind; pins off the business kept and the business labelled where it is | no |
 
-The held-out sets were labelled by the same person who reviews tuning results and directs rule changes, so they share that person's judgement of what counts as the lot. To check that, a random sample of points from each held-out set is to be checked on imagery by a second labeller who has never seen the rules' output, with the agreement rate recorded here and disagreements logged in [spot_checks.md](spot_checks.md), not fixed (sealed labels never change). Set 3 has been checked by a separate AI process given only imagery and the kinds table (weaker than a second person): of 40 points it gave the same kind for 31 (78%) and `unclear` for 7; where it gave a kind, 31 of 33 matched (94%) and all 33 fell on the same side of the default view. Set 2 hasn't been checked.
+The held-out sets were labelled by the same person who reviews tuning results and directs rule changes, so they share that person's judgement of what counts as the lot. To check that, a random sample of points from each held-out set is to be checked on imagery by a second labeller who has never seen the rules' output, with the agreement rate recorded here and disagreements logged in [spot_checks.md](spot_checks.md), not fixed (sealed labels never change). Set 3 has been checked by a separate AI process given only imagery and the kinds table, weaker than a second person; the result is in [spot_checks.md](spot_checks.md). Set 2 hasn't been checked.
 
 ## Correcting a label
 

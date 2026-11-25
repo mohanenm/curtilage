@@ -2,6 +2,10 @@
 
 ## [Unreleased]
 
+### Added
+
+- Public benchmark: a spot-check of held-out labels. `benchmark:spot_check_sample` draws a seeded sample of 5 hand-placed points per site from a sealed held-out set, handed out under shuffled numbers without their kinds, with USGS imagery; `benchmark:spot_check_score` gives a second labeller's agreement with the sealed labels. Set 3, checked by a separate AI process from imagery: the same kind for 78% of 40 points, and the same side of the default view for 92% of those it answered (`benchmark/spot_checks.md`).
+
 ## [0.9.0] - 2026-11-25
 
 Default results are unchanged from 0.8.0.
