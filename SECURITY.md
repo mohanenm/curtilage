@@ -12,6 +12,10 @@ You should get an acknowledgement within 7 days. Confirmed issues are fixed in a
 
 curtilage is pre-1.0: fixes go into the latest release only. Upgrade to get them.
 
+## Verifying a release
+
+Releases from 0.10 on are published by this repository's release workflow with a signed provenance attestation: `gh attestation verify curtilage-X.Y.Z.gem --repo mohanenm/curtilage` checks that the gem was built by this repository from the tagged commit ([how releases are made](docs/design/release-plan.md)).
+
 ## Threat model
 
 [docs/security.md](docs/security.md) says what the gem trusts and doesn't, who might attack it, and the defences.

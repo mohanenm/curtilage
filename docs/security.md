@@ -70,7 +70,7 @@ DuckDB's extensions come from its own repository, signed, and their versions fol
 
 ## Known gaps
 
-None open from this review. Planned: release signing and provenance (see the release plan). The HTTP server has no rate limit per client beyond its concurrency cap: put it behind a proxy that limits rates if it faces untrusted clients.
+None open from this review. Releases are published by a workflow with trusted publishing and a signed provenance attestation for the gem ([releases](design/release-plan.md)); the Docker image isn't published. The HTTP server has no rate limit per client beyond its concurrency cap: put it behind a proxy that limits rates if it faces untrusted clients.
 
 
 ## Out of scope
