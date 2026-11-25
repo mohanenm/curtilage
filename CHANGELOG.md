@@ -18,11 +18,13 @@ Default results are unchanged from 0.8.0.
 ### Changed
 
 - README: release check results on all 24 held-out sites. Default view: 80% of "in" points caught and 6.8% of "out" points taken in, against 80% and 23% for a 50 m circle; the set of 16 scored 77% and 7.8%, the set of 8 87% and 4.6%. The Known limitations section opens with where results are usually good and what to check first.
+- Docs: what confidence is good for, measured on the benchmark. The least confident third of results had about twice the errors of the most confident third (26% against 14% of points wrong), but the score doesn't single out individual bad results (rank correlation -0.14); check flagged results whatever their score. The reference says how to review lowest confidence first.
 
 ### Fixed
 
 - `docs/schema/site-v1.json` allows corrections: `method` and `provenance.data.source` can be `manual` (a corrected site used to fail validation against the schema).
 - The gallery covers every tuning and validation site; it had left out the 7 validation sites.
+- Public benchmark: `benchmark:gallery` refuses to run with the held-out variable set, so held-out sites can't reach the public gallery; a held-out release check reports a held-out set on its own only when every set has at least 5 sites, and keeps no per-kind counts for held-out groups.
 
 ## [0.8.0] - 2026-11-25
 

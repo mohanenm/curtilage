@@ -160,7 +160,7 @@ end
 | `ring` / `store_ring` | The premises and the store zone, `[[lng, lat], ...]` closed. |
 | `flags` | Reasons a person should look first ([below](#flags)). |
 | `pin_quality` | Where the pin was given: `on_building`, `on_road`, `near_building` or `far`, and how far from the nearest building. With `snap_m: 30`, a pin off any building is moved onto the nearest one (flag `pin_moved`). |
-| `confidence` | 0 to 1, from documented rules (fallback used, pin off the building, no mapped parking, ...), to decide which sites to review first ([reference](docs/reference.md#confidence)). |
+| `confidence` | 0 to 1, from documented rules (fallback used, pin off the building, no mapped parking, ...): a rough order for review, not a reason to skip checking a result. On the benchmark, the least confident third of results had about twice the errors of the most confident third, but the score doesn't single out individual bad results ([reference](docs/reference.md#confidence)). |
 | `explanation` | Each step, in plain words. |
 | `details` | The building (id, name, type, area, outline), mapped parking inside the premises and an estimate of spaces, street frontage, and where driveways meet the street. Rough, like the map data. |
 | `candidates` | With `candidates: 3`, other premises an ambiguous site could have (another building near the pin, the whole shopping centre, a tighter shape), each with its own confidence and flags. |
@@ -257,7 +257,7 @@ The current folder is mounted at `/work`, so file names are relative to it. The 
 
 **Where results are usually good:** a pin on or within about 30 m of the business's own building, with its own lot. On 24 held-out sites in states that had no tuning sites when they were labelled, the default caught 80% of what should be in and took in 6.8% of what should stay out.
 
-**What to check by hand first:** results flagged `store_may_be_unit`, `large_building`, `shared_lot`, `building_not_under_pin`, `fallback` or `ml_footprint`, and the lowest-confidence results. Large shared buildings and lots shared with other stores are where results are weakest.
+**What to check by hand first:** results flagged `store_may_be_unit`, `large_building`, `shared_lot`, `building_not_under_pin`, `fallback` or `ml_footprint`, and the lowest-confidence results (confidence is a rough order: check flagged results whatever their score). Large shared buildings and lots shared with other stores are where results are weakest.
 
 | What goes wrong | Flag | What helps |
 |---|---|---|

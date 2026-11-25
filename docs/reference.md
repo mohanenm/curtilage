@@ -296,7 +296,9 @@ New step names may be added in minor versions; treat an unknown one as a plain n
 | `own_lot` | 0.10 (0.20 with `shared_checks`) | The lot isn't split with other buildings (no `shared_lot`). |
 | `no_warnings` | 0.05 | Validation raised no warnings. |
 
-The weights are judgement for now, to be calibrated on the public benchmark once its reference polygons are drawn; treat the score as an order, not a probability. Data age isn't a factor, so the same inputs always score the same.
+The weights are judgement, not fitted; treat the score as a rough order, not a probability. On the benchmark's 31 scored tuning and validation sites at 0.9.0 (default view), the third of results with the highest confidence had 14% of their labelled points wrong, the middle third 21% and the lowest third 26%, but the rank correlation between confidence and error is weak (-0.14): it sorts the worst results towards the end of a review list, and doesn't pick out individual bad results. Use it with the flags, and check flagged results whatever their score. Two factors went the other way on those sites (results with the pin beside its building, or without mapped parking, had fewer errors); the weights stay until more sites say how to change them. Data age isn't a factor, so the same inputs always score the same.
+
+To review lowest confidence first: the preview's "Lowest confidence first" sort, or sort any output by its `confidence` field (a column in CSV).
 
 ### Flags
 
