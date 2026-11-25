@@ -158,3 +158,11 @@ namespace :benchmark do
     puts benchmark.flag_report(benchmark.flag_rows(sites, data, config, view))
   end
 end
+
+namespace :benchmark do
+  desc "Circle baselines (50 m, 75 m) per role and held-out set, default and core views, totals only"
+  task :circles do
+    views = benchmark.views(*benchmark.paths[:views]).slice("default", "core")
+    puts benchmark.circle_report(benchmark.scored_sites, views)
+  end
+end

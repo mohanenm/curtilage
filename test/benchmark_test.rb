@@ -92,6 +92,26 @@ class BenchmarkTest < Minitest::Test
     end
   end
 
+  # Each held-out set is reported beside the combined held-out group.
+  def test_role_groups_split_held_out_sets
+    sites = [site("t"), site("a").merge("role" => "holdout", "holdout_set" => 2),
+             site("b").merge("role" => "holdout", "holdout_set" => 3), site("v").merge("role" => "validation")]
+    groups = B.role_groups(sites).transform_values { |g| g.map { |s| s["id"] } }
+
+    assert_equal ["tuning", "validation", "holdout", "holdout set 2", "holdout set 3"], groups.keys
+    assert_equal %w[a b], groups["holdout"]
+    assert_equal({ "tuning" => ["t"] }, B.role_groups([site("t")]).transform_values { |g| g.map { |s| s["id"] } })
+  end
+
+  def test_circle_ring_is_closed_and_the_right_size
+    ring = B.circle_ring(PIN, 50)
+    g = Curtilage::Geometry
+    xy = g.open_ring(g.project(ring, PIN))
+
+    assert_equal ring.first, ring.last
+    assert(xy.all? { |p| (g.distance(p, [0, 0]) - 50).abs < 0.5 })
+  end
+
   # Every role side by side; held-out sites outside a release check are
   # only counted.
   def test_role_table_shows_every_role_and_the_held_out_count

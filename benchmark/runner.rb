@@ -15,6 +15,7 @@ require_relative "review_sample"
 require_relative "diagnose"
 require_relative "parcel_modes"
 require_relative "flags_check"
+require_relative "circles"
 
 # The public benchmark (not part of the gem): runs curtilage on the sites in
 # benchmark/sites.geojson against a pinned Overture release, scores each
@@ -111,6 +112,14 @@ module CurtilageBenchmark
   # tuning) or "holdout" (sealed: labelled blind, scored only for a release
   # check). Older files mark held-out sites "holdout": true.
   ROLES = %w[tuning validation holdout].freeze
+
+  # { name => sites or rows } by role, with each held-out set beside the
+  # combined held-out group when there's more than one ("holdout set 3").
+  def role_groups(items)
+    groups = items.group_by { |i| role(i) }.sort_by { |name, _| ROLES.index(name) || ROLES.size }.to_h
+    sets = groups.fetch("holdout", []).group_by { |i| i["holdout_set"] }
+    sets.size > 1 ? groups.merge(sets.sort_by { |s, _| s.to_i }.to_h { |s, g| ["holdout set #{s}", g] }) : groups
+  end
 
   def role(site) = site["role"] || (site["holdout"] == true ? "holdout" : "tuning")
 
@@ -253,7 +262,7 @@ module CurtilageBenchmark
   # with no polygon scores IoU 0 against it.
   def score(site, result, reference)
     row = { "id" => site["id"], "category" => site["category"], "role" => role(site),
-            "placeholder" => site["placeholder"] == true,
+            "holdout_set" => site["holdout_set"], "placeholder" => site["placeholder"] == true,
             "ok" => result.ok?, "method" => result.method_name.to_s,
             "fallback" => result.flags.include?(:fallback), "flags" => result.flags.map(&:to_s),
             "area_m2" => result.validation.metrics[:area_m2] }
@@ -296,8 +305,7 @@ module CurtilageBenchmark
   end
 
   def role_stats(rows, views)
-    groups = rows.group_by { |r| r["role"] }.sort_by { |role, _| ROLES.index(role) || ROLES.size }
-    groups.to_h do |role, group|
+    role_groups(rows).to_h do |role, group|
       labelled = group.count { |r| r["views"] }
       [role, { "sites" => group.size, "labelled" => labelled, "views" => view_stats(group, views) }]
     end
