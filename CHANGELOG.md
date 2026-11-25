@@ -2,12 +2,25 @@
 
 ## [Unreleased]
 
+## [0.8.0] - 2026-11-25
+
+Default results are unchanged from 0.7.0; the new options are experimental and off by default.
+
+### Added
+
+- `parcel_mode:` (`--parcel-mode`), with parcels you supply: `:clip` (the default, as before) clips to the building's parcel; `:grow` adds the mapped parking and service roads inside the site's parcels to the premises; `:start` begins from the site's parcels and trims them with the usual rules. The site's parcels cover buildings on several parcels and lots split over parcels; a parcel that also holds two or more other businesses' buildings is only a limit (flag `shared_parcel`). On the benchmark's tuning and validation sites, `:grow` caught 73% and 63% of "in" points (71% and 47% without parcels) and took in 6.8% and 16.7% of "out" points (6.5% and 14.5%).
+- `shared_checks: true` (`--shared-checks`): large and shared buildings flagged, scored and explained as estimates. `store_may_be_unit` skips building types that normally have one occupant and covers buildings joined to others; `shared_lot` also covers a claimed lot touching two other buildings; those count for more in the confidence score; the explanation starts with an "Estimate: ..." line. The premises don't change. Confidence's rank correlation with error went from -0.06 to -0.40 on the tuning sites and from -0.36 to -0.41 on the held-out sites.
+- Public benchmark: site roles (tuning, validation, held-out) and 16 new held-out sites in 16 more states, labelled blind and sealed (a SHA256 manifest checked by a test). A release check (`CURTILAGE_BENCHMARK_HOLDOUT=1 CURTILAGE_RELEASE_CHECK=1`) scores every role side by side, totals only. New tasks: `benchmark:diagnose` (causes of wrong points), `benchmark:parcel_modes`, `benchmark:flags` (do flags and confidence track errors), `benchmark:review_sample` (the four outcomes on imagery); a corrections log (`benchmark/corrections.csv`); `benchmark:parcels` also fetches the parcels within 120 m of each site. The parcel services' published terms are listed in `benchmark/README.md`.
+
 ### Changed
 
-- README: the comparison table shows the held-out sites beside the tuning sites. On the held-out sites a 50 m circle scores about the same as curtilage and a published tax parcel does better; the README says why.
+- README: the comparison table shows the 16 held-out sites beside the 7 validation and 23 tuning sites. At the release check (0.7.0 rules, default view) the held-out sites score 77% of "in" points caught and 7.8% of "out" points taken in, against 76% and 29% for a 50 m circle around the pin; the Status says where curtilage still loses.
+- Public benchmark: the seven sites held out until 0.7.0 are validation sites. Two of the new held-out sites were replaced before labelling, as their Overture points were off the business (logged in `benchmark/holdout_replacements.md`), and some held-out parking labels were corrected before any result was seen (logged there too).
+- Labelling page: quick USGS cached tiles are drawn under the sharper NAIP photos, so every site shows imagery while the photos load.
 
 ### Fixed
 
+- Parcels are cut to a 1 km square round the pin when loaded. A parcel kilometres across with thousands of corners had made a site take 17 s with parcels supplied; it now takes about 0.1 s, with the same result.
 - Docs: `curtilage serve --port` in the reference, the download retry in the security notes, the gallery's imagery on the Pages landing page.
 
 ## [0.7.0] - 2026-11-24
