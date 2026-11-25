@@ -991,15 +991,15 @@
       "geometry": {
         "type": "Point",
         "coordinates": [
-          -111.21671558,
-          47.49223502
+          -110.57134317,
+          45.65152084
         ]
       },
       "properties": {
-        "id": "mt-fast-food-restaurant",
+        "id": "mt-hardware-store",
         "category": "random",
         "role": "holdout",
-        "notes": "Held-out set 3, random pick (seed 20261128): Taco Bell, fast food restaurant in Montana. Overture place 8bf22858-ec70-41e7-bdf5-316ed308d047."
+        "notes": "Held-out set 3, random pick (seed 20261129): True Value Superstore, hardware store in Montana. Overture place bf55672b-fa50-435e-ba99-196a8395a089."
       }
     },
     {

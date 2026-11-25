@@ -8,6 +8,7 @@ Held-out sites are replaced only for data problems visible without running the g
 | 2026-11-24 | nc-pharmacy | nc-pharmacy-2 (now a validation site) | The only supermarket-sized building near the Overture point (the store's likely building) was 160 m away; nothing within 80 m matched. | Map data round the point (building sizes and names). |
 | 2026-11-24 | mi-pharmacy | mi-bank | The Overture point was off the business: it couldn't be found near the point on the labelling page. | Labelling page (imagery and map data only), before any result for the site was seen. Redrawn with seed 20261127, same procedure. |
 | 2026-11-24 | mo-library | mo-pharmacy | The Overture point was off the business: it couldn't be found near the point on the labelling page. | Labelling page (imagery and map data only), before any result for the site was seen. Redrawn with seed 20261127, same procedure. |
+| 2026-11-25 | mt-fast-food-restaurant | mt-hardware-store | The business couldn't be found: the imagery at the Overture point showed an open field (likely built after the photo). | Labelling page (imagery and map data only), before any result for the site was seen. Redrawn with seed 20261129, same procedure; the first labels, placed on the empty field, were not used. |
 
 The second held-out set (16 sites, drawn 2026-11-24) needed no redraws at draw time: every pick had a building within 40 m of its point. Two were replaced while labelling (above).
 
