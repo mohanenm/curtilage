@@ -21,6 +21,8 @@ bundle exec rake benchmark:parcels                          # fetch each site's 
 bundle exec rake benchmark:parcel_modes                     # the rules alone and with parcels (clip, grow, start), side by side
 bundle exec rake benchmark:flags                            # do flags and confidence mark the poor results? (error by flag, Spearman)
 bundle exec rake benchmark:circles                          # 50 m and 75 m circles round the pin, scored the same way (baseline)
+bundle exec rake "benchmark:spot_check_sample[3]"           # a seeded sample of a held-out set's points, without their kinds
+bundle exec rake "benchmark:spot_check_score[ANSWERS.json]" # a second labeller's agreement with the sealed labels
 bundle exec rake benchmark:diagnose                         # why points are wrong: causes ranked per view, scores by pin quality
 ```
 
@@ -103,7 +105,7 @@ Held-out labels are never corrected (see above).
 - `config.json`: the pinned Overture release and the options every run uses.
 - `LABELS.md`: the labelling guide.
 - `vendor/leaflet-1.9.4/`: Leaflet (BSD 2-Clause), inlined into the labelling page.
-- `runner.rb`, `labels.rb`, `label_page.rb`, `gallery.rb`, `parcels.rb`, `parcel_modes.rb`, `flags_check.rb`, `circles.rb`, `diagnose.rb`, `corrections.rb`, `review_sample.rb`, `check_sites.rb` and `../rakelib/benchmark.rake`: the code.
+- `runner.rb`, `labels.rb`, `label_page.rb`, `gallery.rb`, `parcels.rb`, `parcel_modes.rb`, `flags_check.rb`, `circles.rb`, `spot_check.rb`, `diagnose.rb`, `corrections.rb`, `review_sample.rb`, `check_sites.rb` and `../rakelib/benchmark.rake`: the code.
 
 ## Your own sites and views
 

@@ -167,3 +167,22 @@ namespace :benchmark do
     puts benchmark.circle_report(benchmark.scored_sites, views)
   end
 end
+
+namespace :benchmark do
+  desc "Spot-check sample of a held-out set's labels, without kinds: rake \"benchmark:spot_check_sample[3]\""
+  task :spot_check_sample, %i[set] do |_, args|
+    set = Integer(args[:set] || abort("give the held-out set"))
+    out = File.join(File.dirname(benchmark.paths[:runs]), "spot_check", "set#{set}.json")
+    FileUtils.mkdir_p(File.dirname(out))
+    sample = benchmark.spot_check_sample(set)
+    File.write(out, "#{JSON.pretty_generate(sample)}\n")
+    puts "wrote #{out}: #{sample.size} points"
+  end
+
+  desc "Agreement of a second labeller's kinds ({ point_id => kind } JSON) with the sealed labels"
+  task :spot_check_score, %i[answers] do |_, args|
+    answers = JSON.parse(File.read(args[:answers] || abort("give the answers file"), encoding: "utf-8"))
+    result = benchmark.spot_check_score(answers, benchmark.views(*benchmark.paths[:views]).fetch("default"))
+    puts JSON.pretty_generate(result)
+  end
+end
