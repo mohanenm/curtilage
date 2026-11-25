@@ -1,3 +1,19 @@
 # SHA256 of each held-out site's label file, recorded once when it's sealed
 # (rake benchmark:seal). Entries are only ever added: a held-out label never
 # changes after it's committed (test/benchmark_test.rb checks).
+1e357a5bea466e8bd852623da0f1a1782b110476cbca3fa8b6d29e61695e2c93  labels/va-grocery-store.geojson
+72e996b5d243d9a9c5c689cd736fda63f471656edea6333e59b7dfa27561b1e2  labels/nj-convenience-store.geojson
+986ba221c3e95585ed18c128a2ef01c4a6b3177dac3b548079c17bf1fc58ca9d  labels/ny-coffee-shop.geojson
+cc8a4e76703f4654e6af7070830858e4242d9a870b36404c826683340810c39a  labels/il-hotel.geojson
+b2a43f94154ae10cf1245d7b740d1faf4b847841bf586e48de9669e3fe4ac529  labels/mi-bank.geojson
+87783bb62a9f74a784bba5f4e0531bba841c556c4cf331232a558ad980dc6b68  labels/mo-pharmacy.geojson
+e55b363ec0a2554ba2b65963d375c7b84990bec94df566163085224bb9115a8b  labels/ky-post-office.geojson
+8907dd88d55e55b7c079f7e876a0ee45e8a6ca5a6712e93c3919fd897d0a0bf4  labels/sc-library.geojson
+e8de1c283ca7f645371c3e9694d56c7deab17a3a707f73245a6821077e3be7e3  labels/al-fast-food-restaurant.geojson
+09e37aba739146b16f11e739114c10cf2a5724a0b03aafef191df25563317bd8  labels/la-grocery-store.geojson
+372fa3b878c62747cd79f98b8d15692e56aa938e2b87a55babcd952601fa8824  labels/ok-department-store.geojson
+fa87c681a894b0ca016b03f7720804cf53a4a2ff189491694e1f5188baf15a0a  labels/ks-hotel.geojson
+5acba405dad1ac1b019c31c6d70b05177cb56d7ac74dc55d3501b208ed917d95  labels/ne-post-office.geojson
+4703e83500eaeccfebcd4c605afad5f91c88f2f4a6c090226e067d7275196c35  labels/nm-gas-station.geojson
+7d163530fdad6b406fb047b3873dde866a187cf6a1b2882f2dffb871cbadee70  labels/or-library.geojson
+4b99e6242e532d5f008e1a5c80066ef33f760e4dfd8d98542e5866a7b39a3fcf  labels/nv-hardware-store.geojson
