@@ -233,6 +233,49 @@ module CurtilageBenchmark
     [row["group"], own ? run["label"] : row["kind"], row["sites"].to_s, *cells, own ? run["seconds"].to_s : ""]
   end
 
+  # The default run (with baselines) for every region with sites chosen,
+  # and all of them pooled; saves the pooled run in data/regional/.
+  def regional_all
+    regions = REGIONAL_LAYERS.keys.select { |r| File.exist?(File.join(regional_dir(r), "selection.json")) }
+    runs = regions.map { |r| regional_run(r) }
+    pooled = { "region" => "all", "label" => "default (#{regions.join(", ")})", "seconds" => runs.sum do |r|
+      r["seconds"]
+    end,
+               "sites" => runs.flat_map { |r| r["sites"].map { |s| s.merge("id" => "#{r["region"]}:#{s["id"]}") } } }
+    [runs, save_regional_run(File.join(ROOT, "data", "regional"), pooled)]
+  end
+
+  # Per kind and group, each column in two runs; then the sites that passed
+  # a test in one run and failed it in the other ("all in", "nothing out").
+  def regional_compare(old, new)
+    before = regional_summary(old).to_h { |r| [[r["kind"], r["group"]], r] }
+    lines = regional_summary(new).filter_map do |row|
+      was = before[[row["kind"], row["group"]]] or next
+      cells = REGIONAL_COLUMNS.map { |k, name| "#{name} #{regional_cell(was[k])} -> #{regional_cell(row[k])}" }
+      "#{row["group"]} #{row["kind"]}: #{cells.join(", ")}"
+    end
+    lines + regional_flips(old, new)
+  end
+
+  def regional_cell(value) = value.nil? ? "-" : format("%.2f", value)
+
+  def regional_flips(old, new)
+    a = regional_own(old)
+    b = regional_own(new)
+    common = a.keys & b.keys
+    { "all in" => :regional_all_in?, "nothing out" => :regional_nothing_out? }.map do |name, test|
+      better = common.count { |id| !send(test, a[id]) && send(test, b[id]) }
+      worse = common.count { |id| send(test, a[id]) && !send(test, b[id]) }
+      "#{name}: #{better} sites better, #{worse} worse, of #{common.size}"
+    end
+  end
+
+  # curtilage's own rows by site id, vintage sites left out (as in the summary).
+  def regional_own(run)
+    rows = run["sites"].select { |s| s["kind"] == "curtilage" && !(s["osm_iou"] && s["osm_iou"] < 0.5) }
+    rows.to_h { |s| [s["id"], s] }
+  end
+
   def save_regional_run(dir, run)
     runs = File.join(dir, "runs")
     FileUtils.mkdir_p(runs)

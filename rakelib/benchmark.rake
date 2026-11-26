@@ -234,6 +234,17 @@ namespace :benchmark do
       benchmark.regional_summary(run).each { |row| puts JSON.generate(row) }
       puts "", "saved #{run["path"]} (#{run["seconds"]} s)"
     end
+  end
+end
+
+namespace :benchmark do
+  namespace :regional do
+    desc "Compare two regional runs: rake \"benchmark:regional:compare[OLD.json,NEW.json]\""
+    task :compare, %i[old new] do |_, args|
+      abort "give two run files" unless args[:old] && args[:new]
+      load = ->(f) { JSON.parse(File.read(f, encoding: "utf-8")) }
+      puts benchmark.regional_compare(load.call(args[:old]), load.call(args[:new]))
+    end
 
     desc "Side by side: the latest run of each label in a region: rake \"benchmark:regional:table[dc]\""
     task :table, %i[region] do |_, args|
@@ -261,4 +272,11 @@ namespace :benchmark do
     found = args[:new] ? b.paired_intervals(old, load.call(args[:new])) : b.run_intervals(old)
     puts b.interval_lines(found)
   end
+end
+
+desc "The regional check: the default run in every region with sites chosen, per region and pooled"
+task "benchmark:regional" do
+  runs, pooled = benchmark.regional_all
+  (runs + [pooled]).each { |run| puts "", "== #{run["region"]}", benchmark.regional_table([run]) }
+  puts "", "saved #{pooled["path"]}"
 end
