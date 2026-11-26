@@ -142,7 +142,7 @@ DC, 105 clear sites (19 vintage left out), share of sites:
 What it shows, as findings, not decisions:
 
 - With parcels, `:grow` with a 9 m road offset and pin snapping is better than the default on every measure here: more caught (everything in 70% to 83%) and less leak (road 33% to 21%, nothing out 21% to 27%). `:clip` leaks least (nothing out 41%) but loses whole buildings (94% to 85%).
-- Without parcels, a 9 m road offset cuts road leak (33% to 24%) at little cost: DC's roads are wider than the typical widths by road class measured on the benchmark's labels.
+- Without parcels, a 9 m road offset cuts road leak (33% to 24%) at little cost. Not because DC's roads are wider than the half-widths by road class: measured from OpenStreetMap centrelines to the edge of DC's road polygons, they're narrower (median half-width primary 5.7 m against curtilage's 7.5 m, secondary 5.4 against 7, tertiary 4.9 against 6, residential 4.2 against 4.5). A larger fixed offset trims harder where the usual trim is held back (near the building or pin, at corners, where the OSM line is off-centre); which of these causes the leak isn't established yet.
 - `touching_neighbours: :cut` lowers neighbour leak (64% to 58%) but loses whole buildings at 40 sites, often where OpenStreetMap draws one building as several parts.
 - `method: :partition` leaks more road here than the default, records no entrances and is far slower in a dense city.
 - `shared_checks` changes flags only (its scores match the default's). Its `takes_in_building` flag marks the sites that leak onto neighbours: 78% of flagged sites against 51% of the rest. In DC it fires on half the sites, so it orders a review rather than singling out a few. The other flags separate leaking sites little.
