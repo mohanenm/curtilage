@@ -8,10 +8,12 @@ module Curtilage
                504 => "Gateway Timeout" }.freeze
     # One HTTP request, read with caps: the head (request line and headers)
     # at most MAX_HEADER_BYTES, the body only with a Content-Length up to
-    # the limit, and every read within READ_TIMEOUT_S.
+    # the limit, and the whole request within READ_TIMEOUT_S (one deadline,
+    # so a client sending a byte at a time can't hold a slot for hours).
     Request = Struct.new(:verb, :path, :headers, :body) do
-      def self.read(socket, max_body)
-        head, rest = read_head(socket)
+      def self.read(socket, max_body, timeout_s = READ_TIMEOUT_S)
+        deadline = Process.clock_gettime(Process::CLOCK_MONOTONIC) + timeout_s
+        head, rest = read_head(socket, deadline)
         line, *fields = head.split("\r\n")
         method, target, = line.to_s.split(" ", 3)
         raise Refused.new(400, "bad request line") unless method&.match?(/\A[A-Z]{3,7}\z/) && target&.start_with?("/")
@@ -20,23 +22,23 @@ module Curtilage
           name, value = f.split(":", 2)
           [name.to_s.strip.downcase, value.to_s.strip]
         end
-        body = method == "POST" ? read_body(socket, rest, headers, max_body) : ""
+        body = method == "POST" ? read_body(socket, rest, headers, max_body, deadline) : ""
         new(method, target.split("?", 2).first, headers, body)
       end
 
       # [head, the bytes read past it (the body's start)].
-      def self.read_head(socket)
+      def self.read_head(socket, deadline)
         data = +""
         until data.include?("\r\n\r\n")
           raise Refused.new(413, "request headers too large") if data.bytesize > MAX_HEADER_BYTES
 
-          data << chunk(socket, 4096)
+          data << chunk(socket, 4096, deadline)
         end
         head, rest = data.split("\r\n\r\n", 2)
         [head, rest.to_s]
       end
 
-      def self.read_body(socket, rest, headers, max_body)
+      def self.read_body(socket, rest, headers, max_body, deadline)
         raise Refused.new(411, "chunked bodies aren't accepted: send Content-Length") if headers["transfer-encoding"]
 
         length = headers["content-length"]
@@ -44,12 +46,13 @@ module Curtilage
         raise Refused.new(413, "body over #{max_body} bytes") if length.to_i > max_body
 
         body = rest.byteslice(0, length.to_i)
-        body << chunk(socket, length.to_i - body.bytesize) while body.bytesize < length.to_i
+        body << chunk(socket, length.to_i - body.bytesize, deadline) while body.bytesize < length.to_i
         body.force_encoding(Encoding::UTF_8)
       end
 
-      def self.chunk(socket, max)
-        raise Refused.new(408, "timed out reading the request") unless socket.wait_readable(READ_TIMEOUT_S)
+      def self.chunk(socket, max, deadline)
+        left = deadline - Process.clock_gettime(Process::CLOCK_MONOTONIC)
+        raise Refused.new(408, "timed out reading the request") unless left.positive? && socket.wait_readable(left)
 
         data = socket.readpartial([max, 65_536].min)
         data.force_encoding(Encoding::BINARY)
