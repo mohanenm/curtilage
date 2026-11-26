@@ -17,6 +17,9 @@ module Curtilage
     class Error < Curtilage::Error; end
 
     STAC_HOST = "stac.overturemaps.org"
+    # The only bucket data files are read from: a catalogue pointing anywhere
+    # else (another bucket named overturemaps-...) is ignored.
+    BUCKET = "s3://overturemaps-us-west-2/"
     CATALOG = "/catalog.json"
     MAX_INDEX_BYTES = 20_000_000
     MAX_OUTPUT_BYTES = 200_000_000
@@ -123,7 +126,7 @@ module Curtilage
       sql = "SELECT assets.aws.alternate.s3.href AS href FROM read_parquet(#{quote(index)}) " \
             "WHERE collection = 'place' AND #{box_filter("bbox", bbox)};"
       hrefs = run([setup(options, remote: false), sql].join("\n"), options).map { |r| r["href"] }
-      hrefs.select { |h| h.to_s.start_with?("s3://overturemaps-") }
+      hrefs.select { |h| h.to_s.start_with?(BUCKET) }
     end
 
     PLACE_COLUMNS = "id, names.\"primary\" AS name, brand.names.\"primary\" AS brand, " \
@@ -181,7 +184,7 @@ module Curtilage
       end
       rows = run([setup(options, remote: false), "#{selects.join(" UNION ALL ")};"].join("\n"), options)
       rows.group_by { |r| [r["pin_index"], r["collection"]] }.transform_values do |list|
-        list.map { |r| r["href"] }.select { |h| h.to_s.start_with?("s3://overturemaps-") }
+        list.map { |r| r["href"] }.select { |h| h.to_s.start_with?(BUCKET) }
       end
     end
 

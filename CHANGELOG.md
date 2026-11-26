@@ -24,6 +24,8 @@
 - Lookups in built files no longer stop in dense cities: a batch of pins whose DuckDB output passed the 200 MB cap stopped the whole run (seen with 500 pins in Washington DC). It is now read again in halves, down to one pin; only a single pin over the cap still fails, as `Curtilage::OutputTooLarge`.
 - Profiles and the HTTP API accept every option whose value is a name (`entrances`, `neighbour_cut`, `touching_neighbours`, `parcel_mode`), not only the first few: given as text, they failed the option check.
 - `benchmark:parcel_modes` no longer runs the removed `parcel_mode: :start`.
+- `curtilage serve` gives a request 10 s in all to arrive, not 10 s between reads: a client sending a byte every few seconds could hold one of the four slots for hours.
+- Overture data files are read only from the `overturemaps-us-west-2` bucket the catalogue names, not any bucket whose name starts `overturemaps-`.
 
 ## [0.9.1] - 2026-11-25
 

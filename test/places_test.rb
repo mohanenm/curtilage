@@ -49,7 +49,10 @@ class PlacesTest < Minitest::Test
   def with_fake_overture(rows)
     with_stub(O, :release, ->(_) { "2026-11-18.0" }) do
       with_stub(Curtilage::Download, :read, ->(*, **) { "" }) do
-        answers = [[{ "href" => "s3://overturemaps-us-west-2/x.parquet" }, { "href" => "https://elsewhere" }], rows]
+        answers = [
+          [{ "href" => "s3://overturemaps-us-west-2/x.parquet" }, { "href" => "https://elsewhere" },
+           { "href" => "s3://overturemaps-elsewhere/x.parquet" }], rows
+        ]
         seen = []
         with_stub(O, :run, lambda { |sql, _|
           seen << sql
