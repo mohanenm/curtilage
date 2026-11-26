@@ -12,6 +12,47 @@ module CurtilageBenchmark
 
   module_function
 
+  # Phase 4b: each option that might change results on this data, alone,
+  # then the combinations chosen from them (benchmark/regional/README.md,
+  # "Options"). parcels: true means the region's official parcels.
+  REGIONAL_OPTION_RUNS = {
+    "partition" => { method: :partition }, "touching_cut" => { touching_neighbours: :cut },
+    "notch" => { neighbour_cut: :notch }, "entrances_all" => { entrances: :all },
+    "parcels_clip" => { parcels: true, parcel_mode: :clip }, "parcels_grow" => { parcels: true, parcel_mode: :grow },
+    "snap_20" => { snap_m: 20 }, "grow_20" => { grow_m: 20 }, "parking_90" => { parking_max_extent_m: 90 },
+    "road_offset_9" => { road_offset_m: 9 }, "tight" => { preset: :tight }, "centre" => { scope: :centre },
+    "shared_checks" => { shared_checks: true },
+    # The combinations the single runs point to (README, "Options").
+    "grow_offset_snap" => { parcels: true, parcel_mode: :grow, road_offset_m: 9, snap_m: 20 },
+    "clip_snap" => { parcels: true, parcel_mode: :clip, snap_m: 20 }
+  }.freeze
+
+  # The region's parcels as GeoParquet (WKB geometry), for parcels: true.
+  def regional_parcels(region)
+    dir = regional_dir(region)
+    out = File.join(dir, "parcels.parquet")
+    return out if File.exist?(out)
+
+    source = Curtilage::DuckDB.quote(File.join(dir, "parcels.ndjson"))
+    sql = "#{extension_setup} #{Curtilage::DuckDB.load_sql("spatial")} " \
+          "COPY (SELECT ST_AsWKB(ST_GeomFromGeoJSON(geometry)) AS geometry FROM read_json(#{source}, " \
+          "format = 'newline_delimited', columns = {class: 'VARCHAR', geometry: 'JSON'})) " \
+          "TO #{Curtilage::DuckDB.quote(out)} (FORMAT parquet);"
+    _, err, status = Curtilage::DuckDB.capture(Curtilage.config.duckdb, sql)
+    raise "DuckDB: #{err}" unless status.success?
+
+    out
+  end
+
+  # Runs every option in REGIONAL_OPTION_RUNS (or those named); returns the runs.
+  def regional_options(region, names = REGIONAL_OPTION_RUNS.keys)
+    names.map do |name|
+      options = REGIONAL_OPTION_RUNS.fetch(name)
+      options = options.merge(parcels: regional_parcels(region)) if options[:parcels] == true
+      regional_run(region, label: name, options: options, baselines: false)
+    end
+  end
+
   # Every clear site and a seeded sample of the unclear ones.
   def regional_sample(selection)
     clear, unclear = selection.partition { |s| s["group"] == "clear" }

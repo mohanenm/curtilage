@@ -11,6 +11,7 @@
 - Public benchmark: spot-check of held-out set 2 (80 points): the second labeller gave the same kind for 65% of points, and put 85% of those it answered on the same side of the default view (`benchmark/spot_checks.md`).
 - Public benchmark: a regional check against official planimetric data (`benchmark/regional/`, sources and terms in its README). `benchmark:regional:fetch` downloads whole layers from DC GIS (CC BY 4.0), keeping each feature's class and geometry only; `benchmark:regional:sites` sorts Overture places into clear sites (one official building, a parcel with no other business, parking or driveway on it) and unclear ones. DC: 124 clear, 3,966 unclear.
 - Regional check: `benchmark:regional:run` scores curtilage and baselines (50 m and 75 m circles, the building alone, the parcel alone) against the official polygons (building, own pavement, road, sidewalk and neighbour leak, structures, entrances), with a 2 m alignment tolerance; `benchmark:regional:table` puts runs side by side.
+- Regional check: `benchmark:regional:options` runs each option that might change results on this data, alone. Denver (DRCOG planimetrics and Denver parcels, CC BY 3.0) and six Connecticut towns (2023 impervious surface, aggregate results only) added as sources.
 
 ### Fixed
 

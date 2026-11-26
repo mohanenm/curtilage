@@ -41,7 +41,7 @@ For coding agents working on curtilage. Read [CONTRIBUTING.md](CONTRIBUTING.md) 
 - `data/`, OSM files, Parquet output, `notes/`, `CLAUDE.local.md`, personal settings (`.claude/settings.local.json`).
 - Network: public map-data hosts (Geofabrik, Overture Maps, Microsoft footprints when opted in) and DuckDB's extension repositories (core; community only for the opt-in `h3` extension). Never send site locations anywhere else.
 - Benchmark tooling only, never the gem or its commands, and for the public benchmark sites only: USGS imagery (`imagery.nationalmap.gov`, `basemap.nationalmap.gov`) for the labelling page, the gallery's snapshots and the spot-check (`LABEL_IMAGERY=off` loads none; off by default for a private benchmark folder), and the state parcel services listed in `benchmark/parcels.rb`.
-- Benchmark tooling only, for the regional check: DC GIS (`maps2.dcgis.dc.gov`), whole layers only, never per-site queries (`benchmark/regional.rb`).
+- Benchmark tooling only, for the regional check, whole layers (a jurisdiction, a box or a list of towns), never per-site queries (`benchmark/regional.rb`): DC GIS (`maps2.dcgis.dc.gov`), DRCOG (`gis.drcog.org`), Denver's open data parcels and Connecticut's GIS Office (`services1.arcgis.com`, `services3.arcgis.com`, the layers listed there).
 
 ## Git
 

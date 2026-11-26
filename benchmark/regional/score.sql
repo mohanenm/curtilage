@@ -21,10 +21,10 @@ CREATE TABLE walk AS SELECT r.id, r.kind, ST_Buffer(ST_Union_Agg(f.g), -{{tol}})
   FROM r JOIN f ON f.class = 'sidewalk' AND ST_Intersects(r.p, f.g) GROUP BY r.id, r.kind;
 -- The parcel's own parking and driveways.
 CREATE TABLE pav AS SELECT r.id, r.kind, ST_Union_Agg(ST_Intersection(f.g, r.parcel)) AS u
-  FROM r JOIN f ON f.class IN ('parking', 'driveway') AND ST_Intersects(r.parcel, f.g) GROUP BY r.id, r.kind;
+  FROM r JOIN f ON f.class IN ('parking', 'driveway', 'paved') AND ST_Intersects(r.parcel, f.g) GROUP BY r.id, r.kind;
 -- Other buildings (not mostly on the site's parcel) and pavement off the parcel, under the premises.
 CREATE TABLE nb AS SELECT r.id, r.kind, sum(ST_Area(ST_Intersection(r.p, ST_Buffer(f.g, -{{tol}})))) AS m2
-  FROM r JOIN f ON ST_Intersects(r.p, f.g) AND f.class IN ('building', 'parking_garage', 'structure', 'canopy')
+  FROM r JOIN f ON ST_Intersects(r.p, f.g) AND f.class IN ('building', 'parking_garage', 'structure', 'canopy', 'shed')
    AND ST_Area(ST_Intersection(f.g, coalesce(r.parcel, r.b))) < 0.5 * ST_Area(f.g)
   GROUP BY r.id, r.kind;
 -- Pavement on other parcels (the right of way is in no parcel: a driveway apron there isn't a neighbour's).
@@ -33,18 +33,18 @@ CREATE TABLE other_lots AS SELECT r.id, r.kind, ST_Buffer(ST_Union_Agg(f.g), -{{
    AND (r.parcel IS NULL OR ST_Area(ST_Intersection(f.g, r.parcel)) < 0.5 * ST_Area(f.g))
   GROUP BY r.id, r.kind;
 CREATE TABLE np AS SELECT r.id, r.kind, ST_Area(ST_Intersection(ST_Intersection(r.p, ST_Union_Agg(f.g)), any_value(o.u))) AS m2
-  FROM r JOIN other_lots o USING (id, kind) JOIN f ON f.class IN ('parking', 'driveway') AND ST_Intersects(r.p, f.g)
+  FROM r JOIN other_lots o USING (id, kind) JOIN f ON f.class IN ('parking', 'driveway', 'paved') AND ST_Intersects(r.p, f.g)
   GROUP BY r.id, r.kind, r.p;
 -- Structures near the site: on its parcel (should be in) or off it (should be out); in = its interior point is.
 CREATE TABLE st AS SELECT r.id, r.kind, list({'class': f.class,
     'own': r.parcel IS NOT NULL AND ST_Area(ST_Intersection(f.g, r.parcel)) >= 0.5 * ST_Area(f.g),
     'inside': r.p IS NOT NULL AND ST_Contains(r.p, ST_PointOnSurface(f.g))}) AS structures
-  FROM r JOIN f ON f.class IN ('building', 'parking_garage', 'structure', 'canopy') AND ST_DWithin(f.g, r.b, 60)
+  FROM r JOIN f ON f.class IN ('building', 'parking_garage', 'structure', 'canopy', 'shed') AND ST_DWithin(f.g, r.b, 60)
    AND ST_Area(ST_Intersection(f.g, r.b)) < 0.5 * ST_Area(f.g)
   GROUP BY r.id, r.kind;
 -- Vehicle entrances: where paving that reaches the parcel meets official road or alley (within 1 m), as points.
 CREATE TABLE paving AS SELECT r.id, r.kind, ST_Union_Agg(f.g) AS u
-  FROM r JOIN f ON f.class IN ('parking', 'driveway') AND ST_Intersects(r.parcel, f.g) GROUP BY r.id, r.kind;
+  FROM r JOIN f ON f.class IN ('parking', 'driveway', 'paved') AND ST_Intersects(r.parcel, f.g) GROUP BY r.id, r.kind;
 CREATE TABLE ent AS SELECT id, kind, list(ST_Centroid(e.geom)) AS pts FROM (
   SELECT pv.id, pv.kind, UNNEST(ST_Dump(ST_Intersection(ST_Buffer(pv.u, 1), ST_Union_Agg(f.g)))) AS e
   FROM paving pv JOIN f ON f.class IN ('road', 'alley') AND ST_DWithin(f.g, pv.u, 1)
