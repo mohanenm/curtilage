@@ -11,16 +11,20 @@ module CurtilageBenchmark
   DC_ROAD_CLASSES = { 1050 => "road", 1055 => "road", 1056 => "road", 1057 => "road", 1058 => "road",
                       1060 => "alley", 1065 => "driveway", 1070 => "parking", 1090 => "road", 1091 => "road",
                       1092 => "road", 1093 => "road" }.freeze
+  # DC Planimetrics 2023 buildings, FEATURECODE => class: memorials,
+  # bleachers and fountains are other structures.
+  DC_BUILDING_CLASSES = { 2000 => "building", 2010 => "structure", 2020 => "structure", 2030 => "parking_garage",
+                          2040 => "structure", 2050 => "canopy" }.freeze
   REGIONAL_LAYERS = {
     "dc" => [
       { name: "roads", url: "#{DC_GIS}/Planimetrics_2023/MapServer/10", field: "FEATURECODE",
         classes: DC_ROAD_CLASSES, page: 500 },
       { name: "sidewalks", url: "#{DC_GIS}/Planimetrics_2023/MapServer/11", class: "sidewalk", page: 250 },
-      { name: "buildings", url: "#{DC_GIS}/Planimetrics_2023/MapServer/1", class: "building" },
+      { name: "buildings", url: "#{DC_GIS}/Planimetrics_2023/MapServer/1", field: "FEATURECODE",
+        classes: DC_BUILDING_CLASSES },
       { name: "parcels", url: "#{DC_GIS}/Property_and_Land/MapServer/40", class: "parcel" },
     ],
   }.freeze
-  REGIONAL_CLASSES = %w[building parking driveway road sidewalk alley parcel].freeze
   REGIONAL_PAGE = 1000
   REGIONAL_MAX_VERTICES = 20_000
 
@@ -37,31 +41,40 @@ module CurtilageBenchmark
     manifest = File.exist?(path) ? JSON.parse(File.read(path)) : {}
     layers.reject { |l| manifest.key?(l[:name]) }.each do |layer|
       file = File.join(dir, "#{layer[:name]}.ndjson")
-      count = File.open("#{file}.part", "w") { |out| fetch_layer(layer, out) }
+      kept, dropped = File.open("#{file}.part", "w") { |out| fetch_layer(layer, out) }
       File.rename("#{file}.part", file)
-      manifest[layer[:name]] = { "source" => layer[:url], "fetched_at" => Time.now.utc.iso8601, "features" => count,
-                                 "sha256" => Digest::SHA256.file(file).hexdigest }
+      manifest[layer[:name]] = { "source" => layer[:url], "fetched_at" => Time.now.utc.iso8601, "features" => kept,
+                                 "dropped" => dropped, "sha256" => Digest::SHA256.file(file).hexdigest }
       File.write(path, "#{JSON.pretty_generate(manifest)}\n")
     end
     manifest
   end
 
   # Writes the layer's features to out, one JSON object per line; returns
-  # how many were kept.
+  # [kept, dropped]. Pages are in OBJECTID order: a page that doesn't move
+  # past the last one (a server ignoring the offset) stops the fetch.
   def fetch_layer(layer, out)
     offset = kept = 0
+    last = -1
     loop do
       doc = regional_page(layer, offset)
       features = Array(doc["features"])
-      features.each do |f|
-        row = regional_row(layer, f) or next
-        out.puts(JSON.generate(row))
-        kept += 1
-      end
+      last = moved_on(layer, offset, features, last)
+      rows = features.filter_map { |f| regional_row(layer, f) }
+      rows.each { |row| out.puts(JSON.generate(row)) }
+      kept += rows.size
       offset += features.size
       break if features.empty? || !doc["exceededTransferLimit"]
     end
-    kept
+    [kept, offset - kept]
+  end
+
+  # The page's highest OBJECTID, after checking it starts past last.
+  def moved_on(layer, offset, features, last)
+    ids = features.map { |f| f.dig("properties", "OBJECTID").to_i }
+    raise "#{URI(layer[:url]).host}: page at #{offset} repeats earlier features" if ids.any? && ids.min <= last
+
+    ids.max || last
   end
 
   def regional_page(layer, offset)
@@ -79,7 +92,8 @@ module CurtilageBenchmark
   def regional_row(layer, feature)
     geometry = feature["geometry"]
     klass = layer[:class] || layer[:classes][feature.dig("properties", layer[:field]).to_i]
-    return nil unless klass && geometry.is_a?(Hash) && %w[Polygon MultiPolygon].include?(geometry["type"])
+    return nil unless klass && geometry.is_a?(Hash) && %w[Polygon MultiPolygon].include?(geometry["type"]) &&
+                      geometry["coordinates"].is_a?(Array)
 
     vertices = geometry["coordinates"].flatten.size / 2
     vertices <= REGIONAL_MAX_VERTICES ? { "class" => klass, "geometry" => geometry } : nil

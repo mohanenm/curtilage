@@ -13,7 +13,7 @@ Checked 2026-11-25 from each publisher's own pages. Check again before any other
 | Washington DC | DC Office of the Chief Technology Officer (DC GIS), opendata.dc.gov | Planimetrics 2023: Roads (`FEATURECODE`: road, alley, paved drive, parking lot, medians, intersections), Sidewalks, Building Footprints; Common Ownership Lots (parcels, Department of Buildings) | 2023 planimetrics (published 2026-02-20); lots regenerated weekly | CC BY 4.0 | Results with attribution ("DC GIS, CC BY 4.0"), including illustrated sites |
 | Fairfax County | Fairfax County DIT GIS Division | Driveways and Parking Lots (`TYPE`: paved/unpaved parking lot, paved/unpaved private road, driveways), buildings, roads, parcels | Driveways and parking: updated 2024 from 2022-2023 orthophotos | "Copyright by Fairfax County. Except as provided herein, all rights are reserved." Reproduction granted "for internal or personal use"; redistribution and derived works not addressed | Not clear: aggregate numbers at most, after asking |
 | Arlington County | Arlington County GIS | Planimetric layers and parcels on the county's ArcGIS hub (list not readable without a browser) | Not confirmed | No open licence found. The county website's terms bar distributing or creating derivative works "without the written permission" of the county; the hub's per-dataset licence field couldn't be read | Nothing until the terms are confirmed |
-| City of Alexandria | City of Alexandria GIS Division | Buildings, parcels, roads named; parking lots not confirmed | Updated twice a year | Disclaimer only ("provided as is"), no licence; a 2009 email from city GIS staff: "You can not profit from redistribution" | Nothing until the terms are confirmed |
+| City of Alexandria | City of Alexandria GIS Division | Buildings, parcels, roads named; parking lots not confirmed | Updated twice a year | Disclaimer only ("provided as is"); no licence found | Nothing until the terms are confirmed |
 
 ## Capture rules that affect scoring
 
@@ -30,14 +30,14 @@ Where OSM data was imported from the same source, agreement with it isn't indepe
 ## Fetching
 
 ```sh
-bundle exec rake "benchmark:regional:fetch[dc]"   # into data/regional/dc/, about 400 requests
+bundle exec rake "benchmark:regional:fetch[dc]"   # into data/regional/dc/, about 620 requests
 ```
 
-Each layer is fetched whole, page by page, so no site locations are sent. Every feature is reduced to its class and geometry (owner names on parcel layers never reach the cache), outlines over 20,000 vertices are dropped, and `manifest.json` records each layer's source, fetch time, feature count and SHA256. A layer already in the manifest isn't fetched again.
+Each layer is fetched whole, page by page, so no site locations are sent. Every feature is reduced to its class and geometry (owner names on parcel layers never reach the cache), outlines over 20,000 vertices or of an unknown class are dropped, and `manifest.json` records each layer's source, fetch time, features kept and dropped, and SHA256. Pages come in ID order; a page that repeats earlier features stops the fetch. A layer already in the manifest isn't fetched again.
 
 ## Classes
 
-Every source is mapped to `building`, `parking`, `driveway`, `road`, `sidewalk`, `alley` and `parcel`.
+Every source is mapped to `building`, `canopy`, `parking_garage`, `structure`, `parking`, `driveway`, `road`, `sidewalk`, `alley` and `parcel`.
 
 | Source layer | Class |
 |---|---|
@@ -46,7 +46,10 @@ Every source is mapped to `building`, `parking`, `driveway`, `road`, `sidewalk`,
 | DC Roads 2023, 1060 Alley | `alley` |
 | DC Roads 2023, 1050 Road, 1090 Intersection, 1091 Hidden Road, 1093 Hidden Intersection, 1055-1058 and 1092 medians and islands | `road` |
 | DC Sidewalks 2023 | `sidewalk` |
-| DC Building Footprints 2023 | `building` |
+| DC Building Footprints 2023, `FEATURECODE` 2000 Building | `building` |
+| DC Building Footprints 2023, 2050 Canopy Structure | `canopy` |
+| DC Building Footprints 2023, 2030 Parking Garage | `parking_garage` |
+| DC Building Footprints 2023, 2010 Memorial, 2020 Bleacher, 2040 Fountain | `structure` |
 | DC Owner Polygons (Common Ownership Lots) | `parcel` |
 
 ## Choosing sites
@@ -57,10 +60,10 @@ bundle exec rake "benchmark:regional:sites[dc]"   # Overture places in the regio
 
 Places of the 13 types the benchmark's random picks use (pharmacy, gas station, fast food, grocery, bank, hotel, hardware, restaurant, coffee shop, post office, library, department store, convenience store), confidence 0.9 or more, inside the region's Geofabrik outline, from the Overture release pinned in `../config.json`. A site is **clear** when pavement on its parcel can be put down to the business:
 
-- one official building is under the pin, or exactly one within 5 m;
-- an official parcel holds that building, and no other Overture business (any category, confidence 0.7 or more) is on it;
+- one official building is under the pin, or exactly one within 5 m (15 m from a pin on a fuel canopy, which means the shop beside it, as the gem reads it);
+- the official parcel holding most of that building holds at least 75% of it, and no other Overture business is on it (any place in nine top-level categories: food and drink, shopping, health care, lodging, services and business, lifestyle services, travel and transportation, arts and entertainment, sports and recreation; confidence 0.7 or more);
 - the parcel holds at least 50 m2 of official parking or driveway.
 
-Everything else is **unclear** (shared lots, multi-tenant buildings, pins away from a building), with the reasons recorded, and scored for the "out" measures only. Places within 500 m of a held-out benchmark site are left out (`benchmark/README.md`, held-out rules). The selection runs in DuckDB (`select.sql`).
+Everything else is **unclear** (shared lots, multi-tenant buildings, pins away from a building), with the reasons recorded; it is to be scored for the "out" measures only. Official polygons are repaired where invalid before any area is measured. Places within 500 m of a held-out benchmark site are left out (`benchmark/README.md`, held-out rules). The selection runs in DuckDB (`select.sql`).
 
-DC, Overture 2026-11-18.0: 4,090 places, 146 clear, 3,944 unclear (2,748 share their parcel with other businesses, 2,267 have no parking or driveway on their parcel, 667 have no single building at the pin, 88 no parcel; a site can have several reasons).
+DC, Overture 2026-11-18.0: 4,090 places, 124 clear, 3,966 unclear (2,755 share their parcel with other businesses, 2,241 have no parking or driveway on their parcel, 735 have no single building at the pin, 404 have a building spanning parcels, 38 no parcel; a site can have several reasons).
