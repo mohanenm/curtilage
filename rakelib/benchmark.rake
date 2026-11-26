@@ -204,3 +204,24 @@ namespace :benchmark do
     puts "logged #{rows.size} change(s) in benchmark/corrections.csv"
   end
 end
+
+namespace :benchmark do
+  namespace :regional do
+    desc "Fetch a region's official layers for the regional check (data/regional/REGION): " \
+         "rake \"benchmark:regional:fetch[dc]\""
+    task :fetch, %i[region] do |_, args|
+      manifest = benchmark.fetch_regional(args[:region] || "dc")
+      manifest.each { |name, m| puts "#{name}: #{m["features"]} features, #{m["fetched_at"]}" }
+    end
+
+    desc "Choose a region's sites from Overture places (clear and unclear): rake \"benchmark:regional:sites[dc]\""
+    task :sites, %i[region] do |_, args|
+      region = args[:region] || "dc"
+      benchmark.regional_places(region)
+      groups = benchmark.select_regional_sites(region).group_by { |s| s["group"] }
+      groups.each { |g, rows| puts "#{g}: #{rows.size}" }
+      reasons = groups.fetch("unclear", []).flat_map { |s| s["reasons"] }.tally
+      reasons.each { |reason, n| puts "  #{n} #{reason}" }
+    end
+  end
+end

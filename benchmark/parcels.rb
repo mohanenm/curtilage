@@ -34,6 +34,8 @@ module CurtilageBenchmark
       "https://services1.arcgis.com/hGdibHYSPO59RG1h/ArcGIS/rest/services/Massachusetts_Property_Tax_Parcels/FeatureServer/0",
   }.freeze
   MAX_PARCEL_BYTES = 5_000_000
+  # An ArcGIS answer over MAX_PARCEL_BYTES.
+  class AnswerTooBig < StandardError; end
 
   module_function
 
@@ -159,7 +161,7 @@ module CurtilageBenchmark
     end
     body = response.body.to_s
     raise "#{uri.host}: HTTP #{response.code}" unless response.is_a?(Net::HTTPSuccess)
-    raise "#{uri.host}: answer over #{MAX_PARCEL_BYTES} bytes" if body.bytesize > MAX_PARCEL_BYTES
+    raise AnswerTooBig, "#{uri.host}: answer over #{MAX_PARCEL_BYTES} bytes" if body.bytesize > MAX_PARCEL_BYTES
 
     JSON.parse(body)
   end
