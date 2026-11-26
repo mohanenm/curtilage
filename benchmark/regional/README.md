@@ -98,7 +98,7 @@ Every clear site and a seeded sample of 400 unclear ones (seed 20261126) are gen
 - **Building:** the share of the official building inside the premises (whole when 98% or more), and the store zone's IoU with it.
 - **Own pavement:** the share of the parcel's official parking and driveway inside the premises.
 - **Road and sidewalk leak:** premises area on official road or alley, and on sidewalk, measured on those polygons shrunk by the alignment tolerance; a site leaks when either is over 10 m2. Curtilage keeps the sidewalk in front of a building on the street by design, so the two are reported apart.
-- **Neighbour leak:** premises area on other buildings (not mostly on the site's parcel) or on parking and driveways on other parcels. The right of way is in no parcel, so a driveway apron there doesn't count.
+- **Neighbour leak:** premises area on other buildings (not mostly on the site's parcel) or on parking and driveways on other parcels. The right of way is in no parcel, so a driveway apron there doesn't count. Saved as both parts too (`neighbour_building_m2`, `neighbour_paving_m2`).
 - **Structures:** official buildings, canopies, parking garages and other structures within 60 m: on the site's parcel (should be in) or off it (should be out), counted in when their interior point is inside the premises.
 - **Entrances:** where paving that reaches the parcel meets official road or alley; an access point within 15 m of one matches it (recall over official entrances, precision over access points).
 - **All in / nothing out:** a site has everything in when the whole building, 90% of its pavement and every structure on its parcel are inside; nothing out when no road, sidewalk or neighbour leak passes 10 m2 and no structure off its parcel is inside.

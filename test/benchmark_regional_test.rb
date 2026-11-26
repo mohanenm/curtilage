@@ -83,7 +83,8 @@ class BenchmarkRegionalTest < Minitest::Test
 
       assert_equal [1.0, 1.0, 1.0], scores["wide"].values_at("building_share", "store_iou", "pavement_share")
       assert_in_delta 100 * 8, scores["wide"]["road_m2"], 20 # 100 m of the strip, the road shrunk 2 m
-      assert_equal [0, 0], scores["wide"].values_at("sidewalk_m2", "neighbour_m2")
+      assert_equal [0, 0, 0, 0], scores["wide"].values_at("sidewalk_m2", "neighbour_m2", "neighbour_building_m2",
+                                                          "neighbour_paving_m2")
       assert_equal [1.0, 0.0, 0], scores["building"].values_at("building_share", "pavement_share", "road_m2")
     end
   end
