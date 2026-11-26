@@ -164,6 +164,34 @@ module CurtilageBenchmark
       site["structures"].reject { |x| x["own"] }.none? { |x| x["inside"] }
   end
 
+  REGIONAL_COLUMNS = { "whole_building" => "bldg", "pavement_share" => "pave", "any_road_leak" => "road>10",
+                       "any_sidewalk_leak" => "walk>10", "any_neighbour_leak" => "nbr>10", "all_in" => "all in",
+                       "nothing_out" => "none out", "entrance_recall" => "ent rec",
+                       "entrance_precision" => "ent prec" }.freeze
+
+  # The latest saved run for each label in the region (or the files given).
+  def regional_runs(region, files = nil)
+    files ||= Dir[File.join(regional_dir(region), "runs", "*.json")].group_by { |f| File.basename(f)[16..] }
+    files = files.map { |_, fs| fs.max } if files.is_a?(Hash)
+    files.map { |f| JSON.parse(File.read(f, encoding: "utf-8")) }
+  end
+
+  # One line per run and kind (curtilage, then the baselines of the
+  # default run), per group: sites, then each column as a share.
+  def regional_table(runs)
+    lines = runs.flat_map { |run| regional_summary(run).map { |row| regional_line(run, row) } }.uniq
+    header = ["group", "run", "sites", *REGIONAL_COLUMNS.values, "s"]
+    rows = [header] + lines.sort_by { |l| [l[0], l[1]] }
+    widths = header.each_index.map { |i| rows.map { |l| l[i].size }.max }
+    rows.map { |l| l.each_with_index.map { |c, i| c.ljust(widths[i]) }.join("  ").rstrip }
+  end
+
+  def regional_line(run, row)
+    own = row["kind"] == "curtilage"
+    cells = REGIONAL_COLUMNS.keys.map { |k| row[k].nil? ? "-" : format("%.2f", row[k]) }
+    [row["group"], own ? run["label"] : row["kind"], row["sites"].to_s, *cells, own ? run["seconds"].to_s : ""]
+  end
+
   def save_regional_run(dir, run)
     runs = File.join(dir, "runs")
     FileUtils.mkdir_p(runs)
