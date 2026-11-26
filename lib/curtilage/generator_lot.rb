@@ -147,10 +147,21 @@ module Curtilage
     def add_parking(poly, lots, site)
       far = fence(site, site.opts[:parking_max_extent_m])
       parts = lots.map { |lot| share_lot(Geometry.clip_convex(lot.xy, far), lot, site) }
-      grown = lot_box(poly + parts.select { |p| p.size >= 3 }.flatten(1), far, site.target)
+      grown = keep_claimed(poly, lot_box(poly + parts.select { |p| p.size >= 3 }.flatten(1), far, site.target))
       grown = add_entrances(grown, far, site) unless only_aisles?(lots)
       note_lot_taken(poly, grown, lots, site)
       keep_off_neighbours(grown, site.features, site.target, site.opts, site.log)
+    end
+
+    # Taking in the lot never gives up ground the premises already held. The
+    # fence reaches further than the first trim, so a road beyond it can cut
+    # the fence along a line that runs back through the premises (which line
+    # depends on the pin, so a pin moved 3 m could lose half the lot): then
+    # the outline round both is kept.
+    def keep_claimed(poly, grown)
+      return grown if grown.size >= 3 && Geometry.overlap_area(poly, grown) >= Geometry.area(poly) - 1
+
+      Geometry.counter_clockwise(Geometry.convex_hull(poly + grown))
     end
 
     def note_lot_taken(poly, grown, lots, site)

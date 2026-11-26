@@ -131,6 +131,21 @@ class GeneratorTest < Minitest::Test
     refute_includes near.flags, :crosses_road
   end
 
+  # Taking in the lot never gives up ground already held: a lot box that
+  # lost part of the premises is replaced by the outline round both.
+  def test_lot_step_never_shrinks_the_premises
+    held = [[0.0, 0.0], [40.0, 0.0], [40.0, 30.0], [0.0, 30.0]]
+    bigger = [[0.0, 0.0], [60.0, 0.0], [60.0, 30.0], [0.0, 30.0]]
+    cut = [[0.0, 0.0], [20.0, 0.0], [20.0, 50.0], [0.0, 50.0]]
+    geo = Curtilage::Geometry
+
+    assert_equal bigger, Curtilage::Generator.keep_claimed(held, bigger)
+    kept = Curtilage::Generator.keep_claimed(held, cut)
+
+    assert_in_delta geo.area(held), geo.overlap_area(held, kept), 1e-6
+    assert_operator geo.area(kept), :>=, geo.area(cut)
+  end
+
   def test_kerb_offset_keeps_room_in_front_of_the_building
     tight = scene.first(3) + [road(4, "secondary", [[-200, -11], [200, -11]])]
     ys = xy(Curtilage.generate(PIN, tight, method: :grow_trim)).map(&:last)
