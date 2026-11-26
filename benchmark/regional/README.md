@@ -85,7 +85,7 @@ Places of the 13 types the benchmark's random picks use (pharmacy, gas station, 
 
 Everything else is **unclear** (shared lots, multi-tenant buildings, pins away from a building), with the reasons recorded; it is to be scored for the "out" measures only. Official polygons are repaired where invalid before any area is measured. Places within 500 m of a held-out benchmark site are left out (`benchmark/README.md`, held-out rules). The selection runs in DuckDB (`select.sql`).
 
-DC, Overture 2026-11-18.0: 4,090 places, 124 clear, 3,966 unclear (2,755 share their parcel with other businesses, 2,241 have no parking or driveway on their parcel, 735 have no single building at the pin, 404 have a building spanning parcels, 38 no parcel; a site can have several reasons).
+DC, Overture 2026-11-18.0: 4,090 places, 10 of them with no official parcel within 50 m (outside the data), leaving 124 clear and 3,956 unclear (2,755 share their parcel with other businesses, 2,241 have no parking or driveway on their parcel, 731 have no single building at the pin, 404 have a building spanning parcels, 32 no parcel under the building; a site can have several reasons). Clear sites are 3% of DC's places: the standalone cases, where curtilage does best, so DC's clear-site figures flatter dense urban use; the unclear sample's figures sit beside them.
 
 ## Metrics
 

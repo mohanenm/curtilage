@@ -19,7 +19,6 @@ module CurtilageBenchmark
   BUSINESS_CATEGORIES = %w[food_and_drink shopping health_care lodging services_and_business lifestyle_services
                            travel_and_transportation arts_and_entertainment sports_and_recreation].freeze
   REGIONAL_PIN_M = 5            # one official building at the pin, or within this
-  REGIONAL_CANOPY_M = 15        # ... or this, from a pin on a fuel canopy (the gem's CANOPY_SHOP_M)
   REGIONAL_PARCEL_SHARE = 0.75  # the parcel holds at least this share of the building
   REGIONAL_MIN_PAVEMENT_M2 = 50 # the parcel's own parking and driveways
   HOLDOUT_CLEAR_M = 500         # nothing near a held-out site
@@ -63,17 +62,22 @@ module CurtilageBenchmark
 
   def regional_select_sql(region, dir, held)
     q = ->(name) { Curtilage::DuckDB.quote(File.join(dir, name)) }
-    values = {
-      setup: "#{extension_setup} #{Curtilage::DuckDB.load_sql("spatial")}",
-      crs: "'EPSG:#{Integer(REGIONAL_AREAS.fetch(region)[:epsg])}'",
-      layers: REGIONAL_LAYERS.fetch(region).map { |l| q.call("#{l[:name]}.ndjson") }.join(", "),
-      sites: q.call("sites.ndjson"), businesses: q.call("businesses.ndjson"), out: q.call("selection.json"),
-      held: held.empty? ? "(0.0, 0.0)" : held.map { |lng, lat| "(#{Float(lng)}, #{Float(lat)})" }.join(", "),
-      pin_m: REGIONAL_PIN_M, canopy_m: REGIONAL_CANOPY_M, parcel_share: REGIONAL_PARCEL_SHARE,
-      pavement_m2: REGIONAL_MIN_PAVEMENT_M2, holdout_m: HOLDOUT_CLEAR_M, coverage_m: REGIONAL_COVERAGE_M
-    }
-    sql = File.read(File.join(DIR, "regional", "select.sql"))
-    sql.gsub(/\{\{(\w+)\}\}/) { values.fetch(Regexp.last_match(1).to_sym).to_s }
+    regional_sql("select.sql", region, dir,
+                 sites: q.call("sites.ndjson"), businesses: q.call("businesses.ndjson"), out: q.call("selection.json"),
+                 held: held.empty? ? "(0.0, 0.0)" : held.map { |lng, lat| "(#{Float(lng)}, #{Float(lat)})" }.join(", "),
+                 pin_m: REGIONAL_PIN_M, canopy_m: Curtilage::Generator::CANOPY_SHOP_M,
+                 parcel_share: REGIONAL_PARCEL_SHARE, pavement_m2: REGIONAL_MIN_PAVEMENT_M2,
+                 holdout_m: HOLDOUT_CLEAR_M, coverage_m: REGIONAL_COVERAGE_M)
+  end
+
+  # A regional SQL template filled in: the DuckDB setup, the region's metric
+  # projection and official layers, and the values given.
+  def regional_sql(file, region, dir, values)
+    q = ->(path) { Curtilage::DuckDB.quote(path) }
+    layers = REGIONAL_LAYERS.fetch(region).map { |l| q.call(File.join(dir, "#{l[:name]}.ndjson")) }
+    values = values.merge(setup: "#{extension_setup} #{Curtilage::DuckDB.load_sql("spatial")}",
+                          layers: layers.join(", "), crs: "'EPSG:#{Integer(REGIONAL_AREAS.fetch(region)[:epsg])}'")
+    File.read(File.join(DIR, "regional", file)).gsub(/\{\{(\w+)\}\}/) { values.fetch(Regexp.last_match(1).to_sym).to_s }
   end
 
   def extension_setup
