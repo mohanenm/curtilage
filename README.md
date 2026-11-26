@@ -255,6 +255,7 @@ The current folder is mounted at `/work`, so file names are relative to it. The 
 | `large_building` | Building over 5,000 m2: may be shared by several tenants |
 | `small_building` | Building under 50 m2: may be a kiosk or canopy rather than the store |
 | `building_not_under_pin` | No building under the pin; the nearest one within 30 m was used |
+| `crosses_road` | The premises hold part of a public road: usually the pin is on or across the road from the building; check it |
 | `pin_moved` | The pin wasn't on a building and was moved onto the nearest one (`snap_m:`): check it's the right one |
 | `store_may_be_unit` | Store zone is a building over 1,500 m2: the store may be one unit of it |
 | `shopping_centre` | `scope: :centre` mapped the whole centre |

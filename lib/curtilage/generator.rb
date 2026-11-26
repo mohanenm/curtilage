@@ -265,6 +265,7 @@ module Curtilage
       result.validation = Validation.check(pin, result.ring, **opts[:validation])
       result.details = details(target, premises, features, pin, log, precision: opts[:precision])
       add_zones(result, [premises, target, features], opts, log)
+      flag_crosses_road(premises, features, log)
       check_shared(result, [premises, target, features], opts, log) if opts[:shared_checks]
       result
     end
@@ -475,12 +476,9 @@ module Curtilage
       road_stretches(features, target, opts).each do |road, run, offset|
         next unless run.any? { |p| Geometry.contains?(poly, p) || Geometry.distance_to_edges(poly, p) < offset }
 
-        trimmed, used = trim_along(poly, fit_direction(run, target), target, offset,
-                                   [opts[:building_clearance_m], opts[:pin_clearance_m]])
-        unless trimmed
-          next log.note("kept the part beyond #{road_label(road)}: it would cut the building",
-                        step: "keep_road_side", features: [road.id])
-        end
+        line = fit_direction(run, target)
+        trimmed, used = trim_along(poly, line, target, offset, [opts[:building_clearance_m], opts[:pin_clearance_m]])
+        next note_kept_road(log, road, line, target, trimmed) if trimmed.nil? || trimmed.equal?(poly)
         next if trimmed.size < 3
 
         note_trim(log, road, [used, offset], [poly, trimmed], opts)

@@ -312,6 +312,7 @@ The same list is `Curtilage::FLAGS` (flag => what it asks a person to check).
 | `large_building` | Building over 5,000 m2: may be shared by several tenants. |
 | `small_building` | Building under 50 m2: may be a kiosk or canopy rather than the store. |
 | `building_not_under_pin` | No building under the pin; the nearest one within 30 m was used. |
+| `crosses_road` | The premises hold 5 m or more of a public road's centreline (counted 1 m in from their edge). Roads always trim the premises, except when the pin is on the road or across it from the building: then both sides stay and this flag says so. Check the pin. |
 | `pin_moved` | The pin wasn't on a building and was moved onto the nearest one (`snap_m:`): check it's the right one. |
 | `store_may_be_unit` | The store zone is a building over 1,500 m2 (with `shared_checks`: unless its type normally has one occupant, or joined to another building): the store may be one unit of it. |
 | `shopping_centre` | `scope: :centre` mapped the whole centre. |

@@ -117,6 +117,20 @@ class GeneratorTest < Minitest::Test
     assert Curtilage::Geometry.contains?(xy(result), [0.0, 0.0])
   end
 
+  # A pin on the road, or across it from its building, keeps both sides
+  # (the trim follows the pin's side): the note says why and the result is
+  # flagged. A pin on the building's side is trimmed and not flagged.
+  def test_a_pin_on_or_across_the_road_is_flagged
+    rows = [polygon("building", 1, -10, 10, 10, 25), road(4, "secondary", [[-200, 0], [200, 0]])]
+    on_road, across, near = [0, -3, 3].map { |y| Curtilage.generate(lnglat(0, y), rows, method: :grow_trim) }
+
+    assert_includes on_road.flags, :crosses_road
+    assert(on_road.explanation.any? { |t| t.include?("the pin is on its centreline") })
+    assert_includes across.flags, :crosses_road
+    assert(across.explanation.any? { |t| t.include?("the pin is across it from the building") })
+    refute_includes near.flags, :crosses_road
+  end
+
   def test_kerb_offset_keeps_room_in_front_of_the_building
     tight = scene.first(3) + [road(4, "secondary", [[-200, -11], [200, -11]])]
     ys = xy(Curtilage.generate(PIN, tight, method: :grow_trim)).map(&:last)
