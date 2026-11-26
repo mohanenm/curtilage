@@ -20,7 +20,11 @@ module CurtilageBenchmark
     "notch" => { neighbour_cut: :notch }, "entrances_all" => { entrances: :all },
     "parcels_clip" => { parcels: true, parcel_mode: :clip }, "parcels_grow" => { parcels: true, parcel_mode: :grow },
     "snap_20" => { snap_m: 20 }, "grow_20" => { grow_m: 20 }, "parking_90" => { parking_max_extent_m: 90 },
-    "road_offset_9" => { road_offset_m: 9 }, "tight" => { preset: :tight }, "centre" => { scope: :centre }
+    "road_offset_9" => { road_offset_m: 9 }, "tight" => { preset: :tight }, "centre" => { scope: :centre },
+    "shared_checks" => { shared_checks: true },
+    # The combinations the single runs point to (README, "Options").
+    "grow_offset_snap" => { parcels: true, parcel_mode: :grow, road_offset_m: 9, snap_m: 20 },
+    "clip_snap" => { parcels: true, parcel_mode: :clip, snap_m: 20 }
   }.freeze
 
   # The region's parcels as GeoParquet (WKB geometry), for parcels: true.
