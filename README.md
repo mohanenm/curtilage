@@ -237,6 +237,7 @@ The current folder is mounted at `/work`, so file names are relative to it. The 
 | `shopping_centre` | `scope: :centre` mapped the whole centre |
 | `large_centre` | `scope: :centre`, but the centre is over `centre_max_m2`: the premises are the site's own share |
 | `shared_lot` | The lot is shared with other buildings and was split by nearest building: where it really divides isn't in the map |
+| `takes_in_building` | `shared_checks`: the premises take in another building (not a canopy or car park); if it's another business's, trim the premises off it |
 | `fallback` | The main method failed validation; the building rectangle was used |
 | `partial_data` | Part of the area around the pin is in a region that isn't built |
 | `ml_footprint` | Built on a machine-learned footprint, not an OSM building |
@@ -274,6 +275,7 @@ The current folder is mounted at `/work`, so file names are relative to it. The 
 | **Road widths are typical figures by road class**, measured on the benchmark's labels: no free source maps each road's width (Overture gives one for about 0.1-0.2% of roads), so a wide road can still take a strip of kerbside lot, or a narrow one leave a strip out. | | `road_offset_m` for a fixed offset. |
 | **Default premises are convex.** An L-shaped site gets a diagonal edge that can cross a neighbour's corner. | | `neighbour_cut: :notch`, `entrances: :all` and `parcels:` can give non-convex premises. |
 | **Dense rowhouse blocks:** cuts toward many close neighbours can leave a thin sliver; `near_houses` fires almost everywhere in dense areas. | `near_houses` | |
+| **A neighbour sharing a wall** (attached shops, dense blocks) can't be cut off with a line, so it stays in the premises. In one dense county (Arlington, Virginia: 1,628 buildings with a business on them), 21% of premises took in another business's building. | `takes_in_building` (with `shared_checks`) | `touching_neighbours: :cut` cuts the neighbour's footprint out (experimental); it fixed about half of those, and changed only 2 of 32 benchmark sites, both for the better. |
 | **Sites within about 100 m of the antimeridian** (180° longitude: parts of Fiji, Chukotka, the Aleutians) get no polygon: premises can't cross that line. | (no premises) | |
 
 ## Building footprints: OSM, or OSM plus machine-learned

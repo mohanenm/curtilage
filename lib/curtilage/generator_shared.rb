@@ -9,6 +9,7 @@ module Curtilage
   #   school), or for one joined to other buildings (a row of shops);
   # - shared_lot also for a claimed lot that touches two other buildings
   #   (below shared_lot_buildings, so it is claimed whole);
+  # - takes_in_building for premises holding another building's centre;
   # - confidence counts those two more (Confidence::SHARED_WEIGHTS);
   # - the explanation starts by saying the result is an estimate, and why.
   module Generator
@@ -49,12 +50,38 @@ module Curtilage
                step: "check_store", rule: "shared_checks", features: [target.id])
     end
 
+    # After the premises are drawn: the buildings they take in, then the
+    # estimate note.
+    def check_shared(result, shape, opts, log)
+      premises, target, features = shape
+      flag_taken_buildings(premises, target, features, opts, log)
+      note_estimate(result)
+    end
+
+    # Other buildings the premises take in (their centre inside them), not
+    # canopies or car parks: often another business's. A whole centre takes
+    # them in on purpose.
+    def flag_taken_buildings(premises, target, features, opts, log)
+      return if target.nil? || log.steps.any? { |s| s[:step] == "whole_centre" }
+
+      taken = neighbours(features, target, opts).select do |b|
+        !LOT_TYPES.include?(b.category) && Geometry.contains?(premises, Geometry.centroid(b.hull))
+      end
+      return if taken.empty?
+
+      log.flag(:takes_in_building, "the premises take in #{taken.size} other building(s) " \
+                                   "(#{taken.map { |b| "#{b.id}, #{b.area.round} m2" }.join("; ")}): if one is " \
+                                   "another business's, trim the premises off it",
+               step: "check_premises", rule: "shared_checks", features: taken.map(&:id))
+    end
+
     # The first line of the explanation, when the result is an estimate.
     def note_estimate(result)
       why = []
       why << "the store may be one unit of a bigger building" if result.flags.include?(:store_may_be_unit)
       why << "the lot is shared with other buildings, and where it divides isn't in the map" \
         if result.flags.include?(:shared_lot)
+      why << "the premises take in another building" if result.flags.include?(:takes_in_building)
       return if why.empty?
 
       text = "Estimate: #{why.join(", and ")}. The premises are the whole building and its share of the lot " \
