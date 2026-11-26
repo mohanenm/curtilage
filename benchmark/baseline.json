@@ -1,11 +1,11 @@
 {
-  "gem_version": "0.9.0",
-  "commit": "64bda59",
+  "gem_version": "0.9.1",
+  "commit": "4597971",
   "overture_release": "2026-11-18.0",
   "options": {
     "buildings": "osm_or_ml"
   },
-  "run_at": "2026-11-25T21:35:12Z",
+  "run_at": "2026-11-26T00:05:59Z",
   "summary": {
     "all": {
       "sites": 42,
@@ -25,7 +25,7 @@
         "shared_lot": 4,
         "store_may_be_unit": 12
       },
-      "total_ms": 2260
+      "total_ms": 2202
     },
     "categories": {
       "backs_onto_houses": {
@@ -38,7 +38,7 @@
         "median_area_ratio": 0.27,
         "fallbacks": 0,
         "flags": {},
-        "total_ms": 51
+        "total_ms": 52
       },
       "big_box": {
         "sites": 1,
@@ -66,7 +66,7 @@
         "median_area_ratio": 1.38,
         "fallbacks": 0,
         "flags": {},
-        "total_ms": 29
+        "total_ms": 25
       },
       "deep_lot": {
         "sites": 1,
@@ -80,7 +80,7 @@
         "flags": {
           "store_may_be_unit": 1
         },
-        "total_ms": 7
+        "total_ms": 8
       },
       "fuel_station": {
         "sites": 1,
@@ -92,7 +92,7 @@
         "median_area_ratio": 0.53,
         "fallbacks": 0,
         "flags": {},
-        "total_ms": 80
+        "total_ms": 77
       },
       "missing_building": {
         "sites": 2,
@@ -106,7 +106,7 @@
         "flags": {
           "ml_footprint": 2
         },
-        "total_ms": 13
+        "total_ms": 14
       },
       "next_to_railway": {
         "sites": 1,
@@ -138,7 +138,7 @@
           "shared_lot": 2,
           "store_may_be_unit": 9
         },
-        "total_ms": 1912
+        "total_ms": 1869
       },
       "shared_lot": {
         "sites": 1,
@@ -153,7 +153,7 @@
           "near_houses": 1,
           "shared_lot": 1
         },
-        "total_ms": 34
+        "total_ms": 25
       },
       "shopping_centre_unit": {
         "sites": 1,
@@ -165,7 +165,7 @@
         "median_area_ratio": 0.11,
         "fallbacks": 0,
         "flags": {},
-        "total_ms": 41
+        "total_ms": 43
       },
       "standalone": {
         "sites": 1,
@@ -179,7 +179,7 @@
         "flags": {
           "store_may_be_unit": 1
         },
-        "total_ms": 14
+        "total_ms": 13
       },
       "urban_storefront": {
         "sites": 1,
@@ -191,7 +191,7 @@
         "median_area_ratio": 0.18,
         "fallbacks": 0,
         "flags": {},
-        "total_ms": 19
+        "total_ms": 17
       }
     },
     "placeholders": {
@@ -1519,7 +1519,7 @@
       "reference_area_m2": 9987,
       "iou": 0.729,
       "area_ratio": 1.14,
-      "ms": 13.7,
+      "ms": 12.6,
       "views": {
         "arrival": {
           "in": 56,
@@ -2748,7 +2748,7 @@
       "reference_area_m2": 3176,
       "iou": 0.435,
       "area_ratio": 1.38,
-      "ms": 28.6,
+      "ms": 25.1,
       "views": {
         "arrival": {
           "in": 30,
@@ -3771,7 +3771,7 @@
       "reference_area_m2": 20550,
       "iou": 0.172,
       "area_ratio": 0.38,
-      "ms": 7.2,
+      "ms": 8.0,
       "views": {
         "arrival": {
           "in": 13,
@@ -4362,7 +4362,7 @@
       "reference_area_m2": 16050,
       "iou": 0.385,
       "area_ratio": 0.45,
-      "ms": 34.1,
+      "ms": 33.6,
       "views": {
         "arrival": {
           "in": 12,
@@ -5119,7 +5119,7 @@
       "reference_area_m2": 20785,
       "iou": 0.172,
       "area_ratio": 0.27,
-      "ms": 51.1,
+      "ms": 52.1,
       "parcel": {
         "reference_area_m2": 20936,
         "iou": 0.261,
@@ -5144,7 +5144,7 @@
       "reference_area_m2": 42883,
       "iou": 0.504,
       "area_ratio": 0.76,
-      "ms": 26.4,
+      "ms": 25.9,
       "views": {
         "arrival": {
           "in": 25,
@@ -5678,7 +5678,7 @@
       "reference_area_m2": 5608,
       "iou": 0.489,
       "area_ratio": 0.71,
-      "ms": 34.1,
+      "ms": 25.1,
       "views": {
         "arrival": {
           "in": 27,
@@ -6933,7 +6933,7 @@
       "reference_area_m2": 55412,
       "iou": 0.109,
       "area_ratio": 0.11,
-      "ms": 41.4,
+      "ms": 42.6,
       "views": {
         "arrival": {
           "in": 54,
@@ -8092,7 +8092,7 @@
       "reference_area_m2": 5450,
       "iou": 0.182,
       "area_ratio": 0.18,
-      "ms": 18.5,
+      "ms": 16.6,
       "views": {
         "arrival": {
           "in": 9,
@@ -8824,7 +8824,7 @@
       "reference_area_m2": 7898,
       "iou": 0.476,
       "area_ratio": 0.53,
-      "ms": 80.3,
+      "ms": 77.1,
       "views": {
         "arrival": {
           "in": 58,
@@ -10910,7 +10910,7 @@
         "near_houses"
       ],
       "area_m2": 2197,
-      "ms": 185.9,
+      "ms": 164.5,
       "views": {
         "arrival": {
           "in": 19,
@@ -11730,7 +11730,7 @@
         "store_may_be_unit"
       ],
       "area_m2": 14545,
-      "ms": 37.6,
+      "ms": 38.3,
       "views": {
         "arrival": {
           "in": 83,
@@ -12497,7 +12497,7 @@
         "store_may_be_unit"
       ],
       "area_m2": 23666,
-      "ms": 28.9,
+      "ms": 28.4,
       "views": {
         "arrival": {
           "in": 47,
@@ -13445,7 +13445,7 @@
       "fallback": false,
       "flags": [],
       "area_m2": 8830,
-      "ms": 16.5,
+      "ms": 17.2,
       "views": {
         "arrival": {
           "in": 34,
@@ -14184,7 +14184,7 @@
         "building_not_under_pin"
       ],
       "area_m2": 10920,
-      "ms": 22.4,
+      "ms": 21.2,
       "parcel": {
         "reference_area_m2": 17237,
         "iou": 0.033,
@@ -14202,7 +14202,7 @@
       "fallback": false,
       "flags": [],
       "area_m2": 8227,
-      "ms": 6.2,
+      "ms": 6.3,
       "views": {
         "arrival": {
           "in": 15,
@@ -14724,7 +14724,7 @@
         "building_not_under_pin"
       ],
       "area_m2": 9119,
-      "ms": 59.3,
+      "ms": 58.7,
       "views": {
         "arrival": {
           "in": 33,
@@ -15713,7 +15713,7 @@
         "store_may_be_unit"
       ],
       "area_m2": 23030,
-      "ms": 42.9,
+      "ms": 41.8,
       "views": {
         "arrival": {
           "in": 50,
@@ -16587,7 +16587,7 @@
       "fallback": false,
       "flags": [],
       "area_m2": 6562,
-      "ms": 11.7,
+      "ms": 10.5,
       "views": {
         "arrival": {
           "in": 42,
@@ -17192,7 +17192,7 @@
         "store_may_be_unit"
       ],
       "area_m2": 174158,
-      "ms": 806.7,
+      "ms": 793.7,
       "views": {
         "arrival": {
           "in": 23,
@@ -18453,7 +18453,7 @@
         "ml_footprint"
       ],
       "area_m2": 5411,
-      "ms": 15.1,
+      "ms": 16.0,
       "views": {
         "arrival": {
           "in": 30,
@@ -18929,7 +18929,7 @@
         "store_may_be_unit"
       ],
       "area_m2": 12125,
-      "ms": 55.8,
+      "ms": 52.9,
       "views": {
         "arrival": {
           "in": 36,
@@ -19552,7 +19552,7 @@
         "store_may_be_unit"
       ],
       "area_m2": 30338,
-      "ms": 53.8,
+      "ms": 52.6,
       "views": {
         "arrival": {
           "in": 0,
@@ -19971,7 +19971,7 @@
         "building_not_under_pin"
       ],
       "area_m2": 3656,
-      "ms": 39.4,
+      "ms": 38.4,
       "views": {
         "arrival": {
           "in": 21,
@@ -20496,7 +20496,7 @@
         "ml_footprint"
       ],
       "area_m2": 3126,
-      "ms": 20.3
+      "ms": 18.6
     },
     {
       "id": "nc-convenience-store",
@@ -20510,7 +20510,7 @@
         "ml_footprint"
       ],
       "area_m2": 2468,
-      "ms": 10.9,
+      "ms": 10.4,
       "views": {
         "arrival": {
           "in": 22,
@@ -21016,7 +21016,7 @@
       "fallback": false,
       "flags": [],
       "area_m2": 5654,
-      "ms": 28.6,
+      "ms": 28.3,
       "views": {
         "arrival": {
           "in": 31,
@@ -21666,7 +21666,7 @@
       "fallback": false,
       "flags": [],
       "area_m2": 4442,
-      "ms": 46.3,
+      "ms": 43.4,
       "views": {
         "arrival": {
           "in": 27,
@@ -22518,7 +22518,7 @@
         "building_not_under_pin"
       ],
       "area_m2": 7527,
-      "ms": 19.7,
+      "ms": 21.3,
       "views": {
         "arrival": {
           "in": 30,
@@ -22729,7 +22729,7 @@
         "building_not_under_pin"
       ],
       "area_m2": 2851,
-      "ms": 10.6,
+      "ms": 7.8,
       "views": {
         "arrival": {
           "in": 13,
@@ -23507,7 +23507,7 @@
       "fallback": false,
       "flags": [],
       "area_m2": 6587,
-      "ms": 15.6,
+      "ms": 15.2,
       "parcel": {
         "reference_area_m2": 6872,
         "iou": 0.637,
@@ -23525,7 +23525,7 @@
       "fallback": false,
       "flags": [],
       "area_m2": 9437,
-      "ms": 31.5,
+      "ms": 34.8,
       "parcel": {
         "reference_area_m2": 10684,
         "iou": 0.563,
@@ -23546,7 +23546,7 @@
         "store_may_be_unit"
       ],
       "area_m2": 8950,
-      "ms": 33.3,
+      "ms": 34.7,
       "parcel": {
         "reference_area_m2": 4448,
         "iou": 0.497,
@@ -23564,7 +23564,7 @@
       "fallback": false,
       "flags": [],
       "area_m2": 2301,
-      "ms": 13.6,
+      "ms": 12.8,
       "parcel": {
         "reference_area_m2": 1771,
         "iou": 0.725,
@@ -23584,7 +23584,7 @@
         "building_not_under_pin"
       ],
       "area_m2": 4766,
-      "ms": 25.9,
+      "ms": 24.4,
       "parcel": {
         "reference_area_m2": 3079,
         "iou": 0.6,
@@ -23605,7 +23605,7 @@
         "store_may_be_unit"
       ],
       "area_m2": 20644,
-      "ms": 60.3,
+      "ms": 63.2,
       "views": {
         "arrival": {
           "in": 35,
@@ -25001,7 +25001,7 @@
         "ml_footprint"
       ],
       "area_m2": 2939,
-      "ms": 8.8,
+      "ms": 10.6,
       "parcel": {
         "reference_area_m2": 3042,
         "iou": 0.328,
@@ -25021,7 +25021,7 @@
         "ml_footprint"
       ],
       "area_m2": 6577,
-      "ms": 3.7,
+      "ms": 3.6,
       "parcel": {
         "reference_area_m2": 4173,
         "iou": 0.48,
@@ -25041,7 +25041,7 @@
         "building_not_under_pin"
       ],
       "area_m2": 3163,
-      "ms": 4.7,
+      "ms": 4.6,
       "views": {
         "arrival": {
           "in": 22,
@@ -25483,7 +25483,7 @@
         "store_may_be_unit"
       ],
       "area_m2": 80077,
-      "ms": 110.1,
+      "ms": 108.3,
       "views": {
         "arrival": {
           "in": 33,
@@ -26353,7 +26353,7 @@
         "near_houses"
       ],
       "area_m2": 4088,
-      "ms": 86.6,
+      "ms": 87.8,
       "views": {
         "arrival": {
           "in": 16,
@@ -26525,7 +26525,7 @@
         "building_not_under_pin"
       ],
       "area_m2": 3283,
-      "ms": 12.1,
+      "ms": 12.9,
       "views": {
         "arrival": {
           "in": 7,
