@@ -120,8 +120,8 @@ module CurtilageBenchmark
 
   # [answer, page size]: an answer over the size cap is asked for again
   # with half as many features, down to REGIONAL_MIN_PAGE.
-  # A server error or timeout (big layers hit passing ones) is tried again,
-  # REGIONAL_TRIES times in all, a little later each time.
+  # A server error, timeout or dropped connection (big layers hit passing
+  # ones) is tried again, REGIONAL_TRIES times in all, a little later each time.
   def regional_page(layer, offset, page, tries: REGIONAL_TRIES)
     doc = arcgis_get(URI("#{layer[:url]}/query?#{URI.encode_www_form(regional_query(layer, offset, page))}"))
     raise "#{URI(layer[:url]).host}: #{doc.dig("error", "message")} (#{doc.dig("error", "code")})" if doc["error"]
@@ -131,7 +131,8 @@ module CurtilageBenchmark
     raise if page <= REGIONAL_MIN_PAGE
 
     regional_page(layer, offset, page / 2, tries: tries)
-  rescue RuntimeError, Net::OpenTimeout, Net::ReadTimeout, SocketError, JSON::ParserError
+  rescue RuntimeError, Net::OpenTimeout, Net::ReadTimeout, SocketError, JSON::ParserError, OpenSSL::SSL::SSLError,
+         EOFError, Errno::ECONNRESET
     raise if tries <= 1
 
     sleep(REGIONAL_RETRY_S * (REGIONAL_TRIES - tries + 1))
