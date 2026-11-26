@@ -241,3 +241,15 @@ namespace :benchmark do
     end
   end
 end
+
+namespace :benchmark do
+  desc "95% intervals by resampling sites: rake \"benchmark:intervals[RUN.json]\" " \
+       "(or [OLD.json,NEW.json] for the difference)"
+  task :intervals, %i[old new] do |_, args|
+    load = ->(f) { JSON.parse(File.read(f || abort("give a run file"), encoding: "utf-8")) }
+    b = benchmark
+    old = load.call(args[:old])
+    found = args[:new] ? b.paired_intervals(old, load.call(args[:new])) : b.run_intervals(old)
+    puts b.interval_lines(found)
+  end
+end
