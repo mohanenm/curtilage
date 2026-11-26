@@ -2,6 +2,10 @@
 
 ## [Unreleased]
 
+### Added
+
+- Public benchmark: spot-check of held-out set 2 (80 points): the second labeller gave the same kind for 65% of points, and put 85% of those it answered on the same side of the default view (`benchmark/spot_checks.md`).
+
 ## [0.9.1] - 2026-11-25
 
 Default results are unchanged from 0.9.0.
