@@ -86,9 +86,13 @@ Every label in the public benchmark was placed by one person, the project's main
 
 So far set 2 has been scored in two release checks (2026-11-25, which also compared `shared_checks` off and on under a rule written down first, and 0.9.0) and set 3 in one (0.9.0), with the rules frozen each time; 50 m and 75 m circles round the pins were scored on them after the checks (circles, not the gem). A release check's `benchmark:flags` prints mean error with and without each flag for the held-out group, so a flag only one site carries shows that site's score.
 
+The held-out labels are in this repository as plain files. Their hashes (`holdout_labels.sha256`) show any change made after sealing; they don't hide the labels. `run` refuses a held-out site outside a release check however it's called, and a release check's `benchmark:flags` doesn't show a held-out flag group's mean when the group has under three sites, since that would be one site's score. Anyone with the files can still score them by hand.
+
 The held-out sets were labelled by the same person who reviews tuning results and directs rule changes, so they share that person's judgement of what counts as the lot. To check that, a random sample of points from each held-out set is to be checked on imagery by a second labeller who has never seen the rules' output, with the agreement rate recorded here and disagreements logged in [spot_checks.md](spot_checks.md), not fixed (sealed labels never change). Both held-out sets have been checked by a separate AI process given only imagery and the kinds table, weaker than a second person: on the default view's in/out it agreed with the sealed labels for 85% of the points it answered in set 2 and 92% in set 3 ([spot_checks.md](spot_checks.md)).
 
 ## How sure the numbers are
+
+**What the shares measure.** Hand-placed points sit where the labeller judged the lot to end: on the road past the kerb, on the next building, in a neighbour's lot. So "taken in" is a share of those points, not of the ground round the site, and a circle's figure depends on how far out they were placed. The random points meant to check that are few: 13 on the 35 tuning sites and none on the validation sites. In the default view a stall on a shared lot is in when it's nearer this business's door than another's, which is close to how the rules split a shared lot (by nearest building); the core view leaves shared stalls out. The [regional check](regional/README.md) measures area, against data nobody on the project labelled.
 
 Two things limit what the numbers can show: the labels and the number of sites.
 
