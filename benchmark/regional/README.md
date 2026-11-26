@@ -11,6 +11,8 @@ Checked 2026-11-25 from each publisher's own pages. Check again before any other
 | Jurisdiction | Publisher | Layers | Capture | Terms as published | What may be published |
 |---|---|---|---|---|---|
 | Washington DC | DC Office of the Chief Technology Officer (DC GIS), opendata.dc.gov | Planimetrics 2023: Roads (`FEATURECODE`: road, alley, paved drive, parking lot, medians, intersections), Sidewalks, Building Footprints; Common Ownership Lots (parcels, Department of Buildings) | 2023 planimetrics (published 2026-02-20); lots regenerated weekly | CC BY 4.0 | Results with attribution ("DC GIS, CC BY 4.0"), including illustrated sites |
+| Denver, CO | DRCOG Regional Planimetric Data Project (Denver Regional Council of Governments); City and County of Denver open data (parcels) | 2024 planimetrics: Paved Parking, Polygon Driveways, Edge of Pavement Polygons (corridors and medians), Polygon Sidewalks, Building Roofprints (`Bldg_Type`, including Garage/Shed and Parking Structure); Denver parcels (`ODC_PROP_PARCELS_A`) | 2024 DRAPP imagery (updated every two years since 2014) | DRCOG: CC BY 3.0 ("credit the DRCOG Regional Data Catalog"); Denver's open data catalog: CC BY 3.0 | Results with attribution |
+| Connecticut (six towns: Hartford, Waterbury, Norwalk, Danbury, Milford, Manchester) | State of Connecticut, Office of Policy and Management, CT GIS Office (impervious data by Ecopia AI, checked by Dewberry) | 2023 Impervious Surface (`CateTitle`: building, driveway, parking, road, sidewalk, pavement, bridge, ...); State Parcel Layer 2023 | 2023 imagery (impervious published 2026-02-01); parcels from 2022-2023 data | No licence named; the impervious metadata says "Use limitations: None", "Terms and fees: None"; parcels: no terms found | Aggregate numbers only |
 | Fairfax County | Fairfax County DIT GIS Division | Driveways and Parking Lots (`TYPE`: paved/unpaved parking lot, paved/unpaved private road, driveways), buildings, roads, parcels | Driveways and parking: updated 2024 from 2022-2023 orthophotos | "Copyright by Fairfax County. Except as provided herein, all rights are reserved." Reproduction granted "for internal or personal use"; redistribution and derived works not addressed | Not clear: aggregate numbers at most, after asking |
 | Arlington County | Arlington County GIS | Planimetric layers and parcels on the county's ArcGIS hub (list not readable without a browser) | Not confirmed | No open licence found. The county website's terms bar distributing or creating derivative works "without the written permission" of the county; the hub's per-dataset licence field couldn't be read | Nothing until the terms are confirmed |
 | City of Alexandria | City of Alexandria GIS Division | Buildings, parcels, roads named; parking lots not confirmed | Updated twice a year | Disclaimer only ("provided as is"); no licence found | Nothing until the terms are confirmed |
@@ -19,12 +21,16 @@ Checked 2026-11-25 from each publisher's own pages. Check again before any other
 
 - **DC:** "If a driveway is less than 200 feet and leads to a parking lot, the entire paved area is captured as Parking Lot"; longer drives are Paved Drive. Small parking areas off a public alley in the middle of a block aren't captured as parking. Roads don't overlap sidewalks. No minimum feature size is stated.
 - **Fairfax:** driveways and parking lots outside the right of way, up to the edge of pavement, paved and unpaved.
+- **Denver (DRCOG):** parking lots of 400 sq ft or more, "the entrance into the lot is included"; driveways are paved public and private polygons, and a sidewalk meeting a driveway apron takes precedence; paved road polygons take precedence over sidewalks; roofprints of 48 sq ft or more and over 5 ft high.
+- **Connecticut:** machine-extracted from 2023 imagery with quality control, not hand-traced. Parking is a paved surface with visible parking lanes over 500 sq ft; a driveway runs from the edge of the curb to the structure (a sidewalk over it takes priority); roads include curbs; "pavement" is any other paved surface (mapped to `paved`, counted with parking and driveways).
 
 ## OpenStreetMap imports from the same sources
 
 Where OSM data was imported from the same source, agreement with it isn't independent.
 
 - **DC:** building footprints and addresses were imported from DC GIS (import plan reviewed 2013-2014; completion not recorded on the OSM wiki). Building metrics in DC are reported separately and treated as not independent. No parking or driveway import is recorded.
+- **Denver:** an import of DRCOG roofprints into OSM was planned from 2016 (the OSM wiki records no completion), so building agreement there may not be independent.
+- **Connecticut:** no import of the 2023 impervious data is recorded.
 - **Fairfax, Arlington, Alexandria:** no import of county or city buildings, roads or parking is recorded on the OSM wiki. A statewide Virginia buildings import (VGIN footprints, public domain, planned 2023) adds only buildings not already in OSM; which localities it reached isn't recorded.
 
 ## Fetching
@@ -37,7 +43,7 @@ Each layer is fetched whole, page by page, so no site locations are sent. Every 
 
 ## Classes
 
-Every source is mapped to `building`, `canopy`, `parking_garage`, `structure`, `parking`, `driveway`, `road`, `sidewalk`, `alley` and `parcel`.
+Every source is mapped to `building`, `canopy`, `parking_garage`, `shed`, `structure`, `parking`, `driveway`, `paved`, `road`, `sidewalk`, `alley` and `parcel`.
 
 | Source layer | Class |
 |---|---|
@@ -51,6 +57,19 @@ Every source is mapped to `building`, `canopy`, `parking_garage`, `structure`, `
 | DC Building Footprints 2023, 2030 Parking Garage | `parking_garage` |
 | DC Building Footprints 2023, 2010 Memorial, 2020 Bleacher, 2040 Fountain | `structure` |
 | DC Owner Polygons (Common Ownership Lots) | `parcel` |
+| Denver Paved Parking 2024 | `parking` |
+| Denver Polygon Driveways 2024 | `driveway` |
+| Denver Edge of Pavement Polygons 2024 (corridors and medians) | `road` |
+| Denver Polygon Sidewalks 2024 | `sidewalk` |
+| Denver Building Roofprints 2024, `Bldg_Type` Garage/Shed | `shed` |
+| Denver Building Roofprints 2024, Parking Structure | `parking_garage` |
+| Denver Building Roofprints 2024, Tank, Foundation/Ruin | `structure` |
+| Denver Building Roofprints 2024, other types | `building` |
+| Denver parcels | `parcel` |
+| Connecticut impervious 2023, `CateTitle` building, driveway, parking, road, sidewalk | the same |
+| Connecticut impervious 2023, bridge | `road` |
+| Connecticut impervious 2023, pavement | `paved` |
+| Connecticut State Parcel Layer 2023 | `parcel` |
 
 ## Choosing sites
 

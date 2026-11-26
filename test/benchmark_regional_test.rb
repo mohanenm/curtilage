@@ -35,7 +35,8 @@ class BenchmarkRegionalTest < Minitest::Test
   end
 
   # A made-up region round [-80, 35]: A is clear; B shares its parcel with
-  # another business; C is 100 m from a held-out site; D is on no building.
+  # another business; C is 100 m from a held-out site; D is on a parcel but
+  # no building; F is far from any parcel (outside the data).
   def test_selection_sorts_clear_and_unclear_sites
     skip "no DuckDB CLI" unless Curtilage::DuckDB.version(Curtilage.config.duckdb)
 
@@ -89,14 +90,15 @@ class BenchmarkRegionalTest < Minitest::Test
 
   def write_region(dir)
     layers = { "buildings" => [square(0, 0, 10), square(400, 0, 10), square(0, 2000, 10)].map { ["building", _1] },
-               "parcels" => [square(0, 0, 40), square(400, 0, 40), square(0, 2000, 40)].map { ["parcel", _1] },
+               "parcels" => [square(0, 0, 40), square(400, 0, 40), square(0, 2000, 40),
+                             square(1000, 1000, 40)].map { ["parcel", _1] },
                "roads" => [square(0, -25, 10), square(400, -25, 10), square(0, 1975, 10)].map { ["parking", _1] } +
                           [["road", rectangle(-200, -60, 600, -45)]],
                "sidewalks" => [] }
     layers.each do |name, rows|
       File.write(File.join(dir, "#{name}.ndjson"), rows.map { |c, g| "#{JSON.generate(class: c, geometry: g)}\n" }.join)
     end
-    pins = { "A" => [0, 0], "B" => [400, 0], "C" => [0, 2000], "D" => [1000, 1000] }
+    pins = { "A" => [0, 0], "B" => [400, 0], "C" => [0, 2000], "D" => [1000, 1000], "F" => [3000, 3000] }
     place = lambda do |id, (x, y)|
       JSON.generate(id: id, name: id, category: "pharmacy", lng: lnglat(x, y)[0], lat: lnglat(x, y)[1])
     end

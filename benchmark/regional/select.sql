@@ -7,8 +7,11 @@ CREATE TABLE f AS SELECT class, g FROM (
   FROM read_json([{{layers}}], format = 'newline_delimited', maximum_object_size = 50000000,
                  columns = {class: 'VARCHAR', geometry: 'JSON'})
 ) WHERE NOT ST_IsEmpty(g);
-CREATE TABLE pins AS SELECT id, name, category, lng, lat, ST_Transform(ST_Point(lng, lat), 'EPSG:4326', {{crs}}, always_xy := true) AS g
+CREATE TABLE all_pins AS SELECT id, name, category, lng, lat, ST_Transform(ST_Point(lng, lat), 'EPSG:4326', {{crs}}, always_xy := true) AS g
   FROM read_json({{sites}}, format = 'newline_delimited');
+-- Only places the official data covers: an official parcel within {{coverage_m}} m.
+CREATE TABLE pins AS SELECT * FROM all_pins p
+  WHERE EXISTS (SELECT 1 FROM f WHERE f.class = 'parcel' AND ST_DWithin(p.g, f.g, {{coverage_m}}));
 CREATE TABLE biz AS SELECT id, ST_Transform(ST_Point(lng, lat), 'EPSG:4326', {{crs}}, always_xy := true) AS g
   FROM read_json({{businesses}}, format = 'newline_delimited');
 CREATE TABLE held AS SELECT ST_Transform(ST_Point(x, y), 'EPSG:4326', {{crs}}, always_xy := true) AS g FROM (VALUES {{held}}) t(x, y);
@@ -29,7 +32,7 @@ CREATE TABLE lot AS SELECT a.id, arg_max(p.g, ST_Area(ST_Intersection(p.g, a.b))
 CREATE TABLE others AS SELECT l.id, count(*) FILTER (WHERE b.id <> l.id) AS n
   FROM lot l JOIN biz b ON ST_Contains(l.parcel, b.g) GROUP BY l.id;
 CREATE TABLE paved AS SELECT l.id, sum(ST_Area(ST_Intersection(l.parcel, f.g))) AS m2
-  FROM lot l JOIN f ON f.class IN ('parking', 'driveway') AND ST_Intersects(l.parcel, f.g) GROUP BY l.id;
+  FROM lot l JOIN f ON f.class IN ('parking', 'driveway', 'paved') AND ST_Intersects(l.parcel, f.g) GROUP BY l.id;
 CREATE TABLE sel AS SELECT p.id, p.name, p.category, p.lng, p.lat, a.b, l.parcel, coalesce(o.n, 0) AS others,
   coalesce(v.m2, 0) AS paved_m2,
   list_filter([CASE WHEN a.b IS NULL THEN 'no single building at the pin' END,
