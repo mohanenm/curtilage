@@ -223,5 +223,12 @@ namespace :benchmark do
       reasons = groups.fetch("unclear", []).flat_map { |s| s["reasons"] }.tally
       reasons.each { |reason, n| puts "  #{n} #{reason}" }
     end
+
+    desc "Run and score the regional check: rake \"benchmark:regional:run[dc]\""
+    task :run, %i[region] do |_, args|
+      run = benchmark.regional_run(args[:region] || "dc")
+      benchmark.regional_summary(run).each { |row| puts JSON.generate(row) }
+      puts "", "saved #{run["path"]} (#{run["seconds"]} s)"
+    end
   end
 end

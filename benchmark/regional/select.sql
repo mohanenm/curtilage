@@ -30,7 +30,7 @@ CREATE TABLE others AS SELECT l.id, count(*) FILTER (WHERE b.id <> l.id) AS n
   FROM lot l JOIN biz b ON ST_Contains(l.parcel, b.g) GROUP BY l.id;
 CREATE TABLE paved AS SELECT l.id, sum(ST_Area(ST_Intersection(l.parcel, f.g))) AS m2
   FROM lot l JOIN f ON f.class IN ('parking', 'driveway') AND ST_Intersects(l.parcel, f.g) GROUP BY l.id;
-CREATE TABLE sel AS SELECT p.id, p.name, p.category, p.lng, p.lat, coalesce(o.n, 0) AS others,
+CREATE TABLE sel AS SELECT p.id, p.name, p.category, p.lng, p.lat, a.b, l.parcel, coalesce(o.n, 0) AS others,
   coalesce(v.m2, 0) AS paved_m2,
   list_filter([CASE WHEN a.b IS NULL THEN 'no single building at the pin' END,
                CASE WHEN a.b IS NOT NULL AND l.parcel IS NULL THEN 'no parcel under the building' END,
@@ -42,5 +42,7 @@ CREATE TABLE sel AS SELECT p.id, p.name, p.category, p.lng, p.lat, coalesce(o.n,
   LEFT JOIN paved v USING (id)
   WHERE NOT EXISTS (SELECT 1 FROM held h WHERE ST_DWithin(p.g, h.g, {{holdout_m}}));
 COPY (SELECT id, name, category, lng, lat, CASE WHEN len(reasons) = 0 THEN 'clear' ELSE 'unclear' END AS "group",
-             reasons, others, round(paved_m2) AS paved_m2
+             reasons, others, round(paved_m2) AS paved_m2,
+             ST_AsGeoJSON(ST_Transform(b, {{crs}}, 'EPSG:4326', always_xy := true)) AS building,
+             ST_AsGeoJSON(ST_Transform(parcel, {{crs}}, 'EPSG:4326', always_xy := true)) AS parcel
       FROM sel ORDER BY id) TO {{out}} (FORMAT json, ARRAY true);

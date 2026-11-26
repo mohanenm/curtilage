@@ -61,10 +61,37 @@ class BenchmarkRegionalTest < Minitest::Test
     { "type" => "Polygon", "coordinates" => [ring] }
   end
 
+  def rectangle(x0, y0, x1, y1)
+    ring = [[x0, y0], [x1, y0], [x1, y1], [x0, y1], [x0, y0]].map { |x, y| lnglat(x, y) }
+    { "type" => "Polygon", "coordinates" => [ring] }
+  end
+
+  # Site A's premises: one taking in its building, its parking and a 10 m
+  # strip of the road to the south; one that is the building alone.
+  def test_scoring_measures_building_pavement_and_road
+    skip "no DuckDB CLI" unless Curtilage::DuckDB.version(Curtilage.config.duckdb)
+
+    Dir.mktmpdir do |dir|
+      write_region(dir)
+      site = { "id" => "A", "group" => "clear", "building" => square(0, 0, 10), "parcel" => square(0, 0, 40) }
+      rows = [site.merge("kind" => "wide", "premises" => rectangle(-50, -55, 50, 40), "store" => square(0, 0, 10),
+                         "osm" => square(0, 0, 10), "access" => []),
+              site.merge("kind" => "building", "premises" => square(0, 0, 10), "store" => nil, "osm" => nil,
+                         "access" => [])]
+      scores = B.regional_score("dc", rows, dir: dir).to_h { |r| [r["kind"], r] }
+
+      assert_equal [1.0, 1.0, 1.0], scores["wide"].values_at("building_share", "store_iou", "pavement_share")
+      assert_in_delta 100 * 8, scores["wide"]["road_m2"], 20 # 100 m of the strip, the road shrunk 2 m
+      assert_equal [0, 0], scores["wide"].values_at("sidewalk_m2", "neighbour_m2")
+      assert_equal [1.0, 0.0, 0], scores["building"].values_at("building_share", "pavement_share", "road_m2")
+    end
+  end
+
   def write_region(dir)
     layers = { "buildings" => [square(0, 0, 10), square(400, 0, 10), square(0, 2000, 10)].map { ["building", _1] },
                "parcels" => [square(0, 0, 40), square(400, 0, 40), square(0, 2000, 40)].map { ["parcel", _1] },
-               "roads" => [square(0, -25, 10), square(400, -25, 10), square(0, 1975, 10)].map { ["parking", _1] },
+               "roads" => [square(0, -25, 10), square(400, -25, 10), square(0, 1975, 10)].map { ["parking", _1] } +
+                          [["road", rectangle(-200, -60, 600, -45)]],
                "sidewalks" => [] }
     layers.each do |name, rows|
       File.write(File.join(dir, "#{name}.ndjson"), rows.map { |c, g| "#{JSON.generate(class: c, geometry: g)}\n" }.join)
@@ -75,6 +102,23 @@ class BenchmarkRegionalTest < Minitest::Test
     end
     File.write(File.join(dir, "sites.ndjson"), pins.map { |id, xy| "#{place.call(id, xy)}\n" }.join)
     File.write(File.join(dir, "businesses.ndjson"), "#{place.call("X", [410, 5])}\n#{place.call("A", [0, 0])}\n")
+  end
+
+  # A site with everything in and nothing out, one leaking road, and one
+  # whose OSM building disagrees with the official one (left out).
+  def test_summary_counts_sites_passing_each_test
+    good = { "kind" => "curtilage", "group" => "clear", "osm_iou" => 0.9, "building_share" => 1.0,
+             "pavement_share" => 1.0, "area_m2" => 1000, "road_m2" => 0, "sidewalk_m2" => 0, "neighbour_m2" => 0,
+             "structures" => [{ "class" => "canopy", "own" => true, "inside" => true }],
+             "entrances" => 2, "entrances_found" => 1, "access_points" => 1, "access_right" => 1 }
+    leaky = good.merge("road_m2" => 50, "structures" => [{ "class" => "building", "own" => false, "inside" => true }])
+    row = B.regional_summary({ "sites" => [good, leaky, good.merge("osm_iou" => 0.2)] }).first
+
+    assert_equal [2, 1], row.values_at("sites", "vintage")
+    assert_equal [1.0, 0.5, 0.5], row.values_at("all_in", "nothing_out", "any_road_leak")
+    assert_equal({ "canopy" => 1.0 }, row["own_structures_in"])
+    assert_equal({ "building" => 1.0 }, row["other_structures_in"])
+    assert_equal [0.5, 1.0], row.values_at("entrance_recall", "entrance_precision")
   end
 
   # Pages until the server stops saying there's more.
