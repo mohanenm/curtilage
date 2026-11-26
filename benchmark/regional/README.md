@@ -26,3 +26,25 @@ Where OSM data was imported from the same source, agreement with it isn't indepe
 
 - **DC:** building footprints and addresses were imported from DC GIS (import plan reviewed 2013-2014; completion not recorded on the OSM wiki). Building metrics in DC are reported separately and treated as not independent. No parking or driveway import is recorded.
 - **Fairfax, Arlington, Alexandria:** no import of county or city buildings, roads or parking is recorded on the OSM wiki. A statewide Virginia buildings import (VGIN footprints, public domain, planned 2023) adds only buildings not already in OSM; which localities it reached isn't recorded.
+
+## Fetching
+
+```sh
+bundle exec rake "benchmark:regional:fetch[dc]"   # into data/regional/dc/, about 400 requests
+```
+
+Each layer is fetched whole, page by page, so no site locations are sent. Every feature is reduced to its class and geometry (owner names on parcel layers never reach the cache), outlines over 20,000 vertices are dropped, and `manifest.json` records each layer's source, fetch time, feature count and SHA256. A layer already in the manifest isn't fetched again.
+
+## Classes
+
+Every source is mapped to `building`, `parking`, `driveway`, `road`, `sidewalk`, `alley` and `parcel`.
+
+| Source layer | Class |
+|---|---|
+| DC Roads 2023, `FEATURECODE` 1070 Parking Lot | `parking` |
+| DC Roads 2023, 1065 Paved Drive | `driveway` |
+| DC Roads 2023, 1060 Alley | `alley` |
+| DC Roads 2023, 1050 Road, 1090 Intersection, 1091 Hidden Road, 1093 Hidden Intersection, 1055-1058 and 1092 medians and islands | `road` |
+| DC Sidewalks 2023 | `sidewalk` |
+| DC Building Footprints 2023 | `building` |
+| DC Owner Polygons (Common Ownership Lots) | `parcel` |
