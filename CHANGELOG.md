@@ -14,6 +14,11 @@
 - Regional check: `benchmark:regional:options` runs each option that might change results on this data, alone. Denver (DRCOG planimetrics and Denver parcels, CC BY 3.0) and six Connecticut towns (2023 impervious surface, aggregate results only) added as sources.
 - Public benchmark: `benchmark:intervals` gives 95% intervals by resampling sites, for a run and for the difference between two runs; `benchmark/README.md` says what label noise and sample size mean for comparisons. Tuning, default view: 73.3% in caught (61.9 to 84.3), 6.0% out taken in (2.0 to 10.9).
 
+### Changed
+
+- Docs: the accuracy claims restated. The README reports the regional check's 105 clear DC sites and a sample of 351 others side by side (road leak 33% and 58%, nothing out 21% and 12%), with the 2 m allowance and the sites left out; held-out sets are described as labelled without results on screen, corrected once (set 2) and scored a few times with the rules frozen, not "blind and scored once"; the benchmark's outside figures are called shares of labelled points; the 164 private sites are said to have judged rule changes.
+- Docs: confidence is described as uncalibrated. On the benchmark it no longer orders sites by error (rank correlation +0.12 on the tuning sites, -0.67 on the 7 validation sites, with or without `shared_checks`), so the "twice the errors" and `shared_checks` claims are withdrawn.
+
 ### Fixed
 
 - Lookups in built files no longer stop in dense cities: a batch of pins whose DuckDB output passed the 200 MB cap stopped the whole run (seen with 500 pins in Washington DC). It is now read again in halves, down to one pin; only a single pin over the cap still fails, as `Curtilage::OutputTooLarge`.

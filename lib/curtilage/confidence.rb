@@ -6,9 +6,9 @@ module Curtilage
   # weight off 1 (never below 0), so the score always comes with the reasons
   # behind it. Flags say what to look at; confidence orders sites for review.
   #
-  # The weights are judgement, set before measuring: to be calibrated on the
-  # public benchmark once its reference polygons exist. Data age isn't a
-  # factor, as it would make the same inputs score differently over time.
+  # The weights are judgement, not fitted, and uncalibrated: on the public
+  # benchmark the score doesn't yet order sites by error (docs/reference.md,
+  # Confidence). Data age isn't a factor, as it would make the same inputs score differently over time.
   module Confidence
     # name => [weight, what it means when met]
     FACTORS = {

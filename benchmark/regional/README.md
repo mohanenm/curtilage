@@ -146,4 +146,12 @@ What it shows, as findings, not decisions:
 - `touching_neighbours: :cut` lowers neighbour leak (64% to 58%) but loses whole buildings at 40 sites, often where OpenStreetMap draws one building as several parts.
 - `method: :partition` leaks more road here than the default, records no entrances and is far slower in a dense city.
 - `shared_checks` changes flags only (its scores match the default's). Its `takes_in_building` flag marks the sites that leak onto neighbours: 78% of flagged sites against 51% of the rest. In DC it fires on half the sites, so it orders a review rather than singling out a few. The other flags separate leaking sites little.
-- Unclear sites (349) move the same way, with smaller gains.
+- Unclear sites move the same way, with smaller gains.
+
+DC, the sample of unclear sites (351 scored, 49 vintage left out of 400), default settings and baselines. Which parcel is the site's is a guess here (the one under the pin), so the building, everything-in and neighbour figures are rougher than road and sidewalk, which don't depend on it:
+
+| Run | Whole building | Everything in | Nothing out | Road leak | Sidewalk leak | Neighbour leak |
+|---|---|---|---|---|---|---|
+| default | 73% | 61% | 12% | 58% | 71% | 65% |
+| 50 m circle | 55% | 50% | 1% | 97% | 92% | 87% |
+| the parcel alone | 24% | 24% | 86% | 11% | 15% | 7% |
