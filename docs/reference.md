@@ -68,7 +68,7 @@ Premises from features you already have (from `Curtilage::Lookup.features` or `C
 | `staging_point` | `[lng, lat]` where a driver might wait, estimated, with a pickup zone ([Zones](#zones)); `nil` otherwise. |
 | `entrances` | Where vehicles enter from the street, with the street's name and class (`details[:entrances]`, below); `[]` when none. |
 | `flags` | Reasons a person should look first (below). |
-| `pin_quality` | `{ quality:, building_m:, moved_from: }`: where the pin was given (`on_building`; `on_road`, within half a public road's width of its centreline; `near_building`, a building within `building_max_distance_m`; or `far`), the distance to the nearest building's edge (0 on one, absent with none), and with `snap_m:` the pin as given when it was moved (`pin` is then the moved pin). `nil` for results that raised an error. |
+| `pin_quality` | `{ quality:, building_m:, moved_from: }`: where the pin was given (`on_building`; `on_road`, within half a public road's width of its centreline; `near_building`, a building within `building_max_distance_m`; or `far`), the distance to the nearest building's edge (0 on one, absent with none), with `snap_m:` the pin as given when it was moved (`pin` is then the moved pin), and `warnings` when a pin moved 3 m could give a different result: `second_building` (another building, not a kiosk, nearly as close as the nearest) or `reach_limit` (the nearest building about `building_max_distance_m` away, either side). Geocoders and GPS are often off by more than that. `nil` for results that raised an error. |
 | `explanation` | Each step, in plain words. |
 | `steps` | The same steps as records, one per line of `explanation` and in the same order, for tools to show or audit (below). |
 | `validation` | `errors`, `warnings` and `metrics` (area, rectangularity, pin inside, distances). |
@@ -287,6 +287,7 @@ New step names may be added in minor versions; treat an unknown one as a plain n
 |---|---|---|
 | `valid` | 1.0 | The premises passed validation. |
 | `main_method` | 0.30 | Made by the main method (no `fallback`). |
+| `steady_pin` | 0.10 | No `pin_quality.warnings`: a pin moved a few metres would pick the same building. |
 | `building_under_pin` | 0.20 | The pin was given on the building used (no `building_not_under_pin` or `pin_moved`). |
 | `full_data` | 0.20 | Map data covers the whole area around the pin (no `partial_data`). |
 | `plausible_building` | 0.15 | The building is big enough to be a store (no `small_building`). |

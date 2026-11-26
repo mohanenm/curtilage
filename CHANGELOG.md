@@ -4,6 +4,7 @@
 
 ### Added
 
+- `pin_quality.warnings`: `second_building` (another building nearly as close as the nearest) or `reach_limit` (the nearest building about `building_max_distance_m` away, either side), where a pin moved 3 m could give a different result. On the 42 tuning and validation sites, the 5 warned are exactly the 5 whose building or validity changes when the pin moves 3 m. A new confidence factor, `steady_pin` (0.10), is met when there's no warning; validation sites, confidence against error (Spearman), -0.67 to -0.82.
 - Flag `crosses_road`: the premises hold 5 m or more of a public road's centreline. It happens when the pin is on the road or across it from its building, which keeps both sides; the step now says which. Benchmark polygons unchanged; one site (a pin on the road) newly flagged.
 - README images: a 50 m circle and curtilage's outline over USGS imagery at the benchmark's median tuning site, and part of Arlington, Virginia, drawn with every business's outline. The website has the whole county as an interactive map (`docs/map/`), over OpenStreetMap or USGS imagery.
 - `touching_neighbours: :cut` (experimental, off by default): a neighbouring building that touches the site's building, which a line cut can't split off, has its footprint cut out of the premises. Tuning sites, default view: out taken 6.0% to 5.6%, in caught unchanged; 2 of 32 sites changed, both better.
