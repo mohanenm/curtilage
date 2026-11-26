@@ -124,6 +124,20 @@ class BenchmarkRegionalTest < Minitest::Test
     assert_equal [0.5, 1.0], row.values_at("entrance_recall", "entrance_precision")
   end
 
+  # The comparison counts sites that pass a test in one run and fail it in the other.
+  def test_compare_counts_sites_better_and_worse
+    site = { "kind" => "curtilage", "group" => "clear", "osm_iou" => 0.9, "building_share" => 1.0,
+             "pavement_share" => 1.0, "area_m2" => 1000, "road_m2" => 0, "sidewalk_m2" => 0, "neighbour_m2" => 0,
+             "structures" => [] }
+    old = { "sites" => [site.merge("id" => "a", "road_m2" => 50), site.merge("id" => "b")] }
+    new = { "sites" => [site.merge("id" => "a"), site.merge("id" => "b", "building_share" => 0.5)] }
+    lines = B.regional_compare(old, new)
+
+    assert_includes lines, "all in: 0 sites better, 1 worse, of 2"
+    assert_includes lines, "nothing out: 1 sites better, 0 worse, of 2"
+    assert(lines.first.start_with?("clear curtilage: bldg 1.00 -> 0.50"))
+  end
+
   # Pages until the server stops saying there's more.
   def test_fetch_layer_pages_until_the_end
     pages = { 0 => [feature(1050, id: 1), feature(1070, id: 2)], 2 => [feature(9999, id: 3)] }
