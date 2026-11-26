@@ -19,6 +19,7 @@ require_relative "circles"
 require_relative "spot_check"
 require_relative "regional"
 require_relative "regional_sites"
+require_relative "regional_run"
 
 # The public benchmark (not part of the gem): runs curtilage on the sites in
 # benchmark/sites.geojson against a pinned Overture release, scores each

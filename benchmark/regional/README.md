@@ -67,3 +67,24 @@ Places of the 13 types the benchmark's random picks use (pharmacy, gas station, 
 Everything else is **unclear** (shared lots, multi-tenant buildings, pins away from a building), with the reasons recorded; it is to be scored for the "out" measures only. Official polygons are repaired where invalid before any area is measured. Places within 500 m of a held-out benchmark site are left out (`benchmark/README.md`, held-out rules). The selection runs in DuckDB (`select.sql`).
 
 DC, Overture 2026-11-18.0: 4,090 places, 124 clear, 3,966 unclear (2,755 share their parcel with other businesses, 2,241 have no parking or driveway on their parcel, 735 have no single building at the pin, 404 have a building spanning parcels, 38 no parcel; a site can have several reasons).
+
+## Metrics
+
+```sh
+bundle exec rake "benchmark:regional:run[dc]"   # curtilage and the baselines on the sites; saves data/regional/dc/runs/
+```
+
+Every clear site and a seeded sample of 400 unclear ones (seed 20261126) are generated from the region's own OpenStreetMap build (Geofabrik), then scored in DuckDB (`score.sql`) against the official polygons:
+
+- **Building:** the share of the official building inside the premises (whole when 98% or more), and the store zone's IoU with it.
+- **Own pavement:** the share of the parcel's official parking and driveway inside the premises.
+- **Road and sidewalk leak:** premises area on official road or alley, and on sidewalk, measured on those polygons shrunk by the alignment tolerance; a site leaks when either is over 10 m2. Curtilage keeps the sidewalk in front of a building on the street by design, so the two are reported apart.
+- **Neighbour leak:** premises area on other buildings (not mostly on the site's parcel) or on parking and driveways on other parcels. The right of way is in no parcel, so a driveway apron there doesn't count.
+- **Structures:** official buildings, canopies, parking garages and other structures within 60 m: on the site's parcel (should be in) or off it (should be out), counted in when their interior point is inside the premises.
+- **Entrances:** where paving that reaches the parcel meets official road or alley; an access point within 15 m of one matches it (recall over official entrances, precision over access points).
+- **All in / nothing out:** a site has everything in when the whole building, 90% of its pavement and every structure on its parcel are inside; nothing out when no road, sidewalk or neighbour leak passes 10 m2 and no structure off its parcel is inside.
+- **Vintage:** sites where the official building and the OSM building curtilage used disagree (IoU under 0.5: built, demolished or drawn differently since capture) are counted and left out of the figures.
+
+Baselines, scored the same way: 50 m and 75 m circles round the pin, the OSM building alone, and the official parcel alone.
+
+**Alignment tolerance: 2 m.** Where the OSM building matches the official one (IoU 0.5 or more, 366 DC sites), their centres are a median 1.1 m apart (75th percentile 1.6 m, 90th 3.7 m, partly from different shapes), so 2 m covers the usual offset without hiding real leaks.

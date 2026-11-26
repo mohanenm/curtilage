@@ -225,3 +225,19 @@ namespace :benchmark do
     end
   end
 end
+
+namespace :benchmark do
+  namespace :regional do
+    desc "Run and score the regional check: rake \"benchmark:regional:run[dc]\""
+    task :run, %i[region] do |_, args|
+      run = benchmark.regional_run(args[:region] || "dc")
+      benchmark.regional_summary(run).each { |row| puts JSON.generate(row) }
+      puts "", "saved #{run["path"]} (#{run["seconds"]} s)"
+    end
+
+    desc "Side by side: the latest run of each label in a region: rake \"benchmark:regional:table[dc]\""
+    task :table, %i[region] do |_, args|
+      puts benchmark.regional_table(benchmark.regional_runs(args[:region] || "dc"))
+    end
+  end
+end
