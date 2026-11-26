@@ -63,6 +63,19 @@ class BenchmarkDiagnoseTest < Minitest::Test
     refute_includes text, "holdout-"
   end
 
+  # One held-out site carrying a flag would show its own score: only the
+  # group sizes are printed then.
+  def test_small_held_out_flag_groups_hide_their_means
+    rows = [0.1, 0.4, 0.2].each_with_index.map do |e, i|
+      { "id" => "h-#{i}", "role" => "holdout", "error" => e, "confidence" => 1 - e,
+        "flags" => i.zero? ? ["shared_lot"] : [] }
+    end
+    line = B.flag_line(rows, "shared_lot")
+
+    assert_includes line, "means not shown"
+    refute_includes line, "0.1"
+  end
+
   def test_held_out_sites_are_never_diagnosed
     assert_empty B.diagnose([{ "id" => "x", "role" => "holdout", "pin" => [0, 0] }], {}, {}, {})
   end

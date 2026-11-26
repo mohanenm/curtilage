@@ -188,6 +188,15 @@ module CurtilageBenchmark
     new
   end
 
+  # Any list of sites passed to run is checked, not only the default one, so
+  # a held-out site can't be scored by calling run directly.
+  def check_holdout(sites)
+    return if sites.none? { |s| role(s) == "holdout" } || (holdout_run? && release_check?)
+
+    raise ArgumentError, "held-out sites are scored only in a release check " \
+                         "(CURTILAGE_BENCHMARK_HOLDOUT=1 and CURTILAGE_RELEASE_CHECK=1)"
+  end
+
   def holdout_run? = ENV["CURTILAGE_BENCHMARK_HOLDOUT"] == "1"
   def release_check? = ENV["CURTILAGE_RELEASE_CHECK"] == "1"
 
@@ -207,6 +216,7 @@ module CurtilageBenchmark
 
   def run(sites: scored_sites, features: nil, references: paths[:references], config: self.config,
           labels: paths[:labels], views: self.views(*paths[:views]))
+    check_holdout(sites)
     release = config.fetch("overture_release")
     data = features || self.features(sites, release, **(paths[:private] ? { fetch: method(:refuse_fetch) } : {}))
     rows = sites.map do |site|

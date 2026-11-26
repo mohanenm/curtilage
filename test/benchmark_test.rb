@@ -104,6 +104,15 @@ class BenchmarkTest < Minitest::Test
     assert_equal %w[tuning holdout], names.call([site("t")] + held.call(2, 5) + held.call(3, 2))
   end
 
+  # Calling run with a held-out site in the list is refused too, not only
+  # the default site list.
+  def test_run_refuses_held_out_sites_outside_a_release_check
+    held = site("h").merge("role" => "holdout")
+
+    error = assert_raises(ArgumentError) { B.run(sites: [held], features: { "h" => [] }) }
+    assert_match(/release check/, error.message)
+  end
+
   def test_every_held_out_site_has_its_set
     held = B.sites.select { |s| B.role(s) == "holdout" }
     assert(held.all? { |s| [2, 3].include?(s["holdout_set"]) })
