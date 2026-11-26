@@ -107,3 +107,43 @@ Every clear site and a seeded sample of 400 unclear ones (seed 20261126) are gen
 Baselines, scored the same way: 50 m and 75 m circles round the pin, the OSM building alone, and the official parcel alone.
 
 **Alignment tolerance: 2 m.** Where the OSM building matches the official one (IoU 0.5 or more, 366 DC sites), their centres are a median 1.1 m apart (75th percentile 1.6 m, 90th 3.7 m, partly from different shapes), so 2 m covers the usual offset without hiding real leaks.
+
+## Options
+
+```sh
+bundle exec rake "benchmark:regional:options[dc]"   # each option alone, then the combinations (REGIONAL_RUNS=a,b for some)
+bundle exec rake "benchmark:regional:table[dc]"     # the latest run of each, side by side
+```
+
+Every option that might change results on this data, run alone on the same sites, then two combinations the single runs pointed to. ML footprints (none in the region's build), `candidates` (the main result doesn't change) and `unit_m` (the store zone only) aren't run. The parcel options use the official parcels, which the neighbour measure also uses, so their neighbour figures aren't independent; their road and sidewalk figures are.
+
+DC, 105 clear sites (19 vintage left out), share of sites:
+
+| Run | Whole building | Everything in | Nothing out | Road leak | Sidewalk leak | Neighbour leak | Entrances found / right | Seconds |
+|---|---|---|---|---|---|---|---|---|
+| default | 94% | 70% | 21% | 33% | 43% | 64% | 47% / 70% | 63 |
+| `parcels:`, `parcel_mode: :grow`, `road_offset_m: 9`, `snap_m: 20` | 96% | 83% | 27% | 21% | 32% | 65% | 45% / 71% | 300 |
+| `parcels:`, `parcel_mode: :clip`, `snap_m: 20` | 85% | 58% | 41% | 18% | 19% | 48% | 47% / 70% | 116 |
+| `parcels:`, `parcel_mode: :grow` | 96% | 83% | 21% | 34% | 41% | 66% | 47% / 70% | 370 |
+| `parcels:`, `parcel_mode: :clip` | 86% | 59% | 40% | 21% | 20% | 48% | 47% / 70% | 197 |
+| `road_offset_m: 9` | 94% | 68% | 25% | 24% | 36% | 64% | 45% / 71% | 51 |
+| `snap_m: 20` | 94% | 70% | 21% | 31% | 43% | 64% | 47% / 70% | 53 |
+| `grow_m: 20` | 94% | 70% | 22% | 34% | 38% | 63% | 47% / 70% | 51 |
+| `parking_max_extent_m: 90` | 94% | 70% | 21% | 33% | 43% | 64% | 47% / 69% | 51 |
+| `touching_neighbours: :cut` | 90% | 66% | 24% | 34% | 43% | 58% | 47% / 70% | 84 |
+| `neighbour_cut: :notch` | 95% | 73% | 18% | 40% | 46% | 70% | 47% / 70% | 71 |
+| `entrances: :all` | 96% | 72% | 18% | 41% | 44% | 68% | 61% / 56% | 124 |
+| `method: :partition` | 96% | 59% | 18% | 44% | 41% | 64% | none recorded | 976 |
+| `scope: :centre` | 91% | 73% | 18% | 43% | 47% | 70% | 34% / 73% | 119 |
+| `preset: :tight` | 97% | 17% | 31% | 20% | 30% | 64% | none recorded | 33 |
+| 50 m circle | 92% | 79% | 0% | 99% | 80% | 97% | | |
+| the parcel alone | 62% | 61% | 96% | 2% | 12% | 2% | | |
+
+What it shows, as findings, not decisions:
+
+- With parcels, `:grow` with a 9 m road offset and pin snapping is better than the default on every measure here: more caught (everything in 70% to 83%) and less leak (road 33% to 21%, nothing out 21% to 27%). `:clip` leaks least (nothing out 41%) but loses whole buildings (94% to 85%).
+- Without parcels, a 9 m road offset cuts road leak (33% to 24%) at little cost: DC's roads are wider than the typical widths by road class measured on the benchmark's labels.
+- `touching_neighbours: :cut` lowers neighbour leak (64% to 58%) but loses whole buildings at 40 sites, often where OpenStreetMap draws one building as several parts.
+- `method: :partition` leaks more road here than the default, records no entrances and is far slower in a dense city.
+- `shared_checks` changes flags only (its scores match the default's). Its `takes_in_building` flag marks the sites that leak onto neighbours: 78% of flagged sites against 51% of the rest. In DC it fires on half the sites, so it orders a review rather than singling out a few. The other flags separate leaking sites little.
+- Unclear sites (349) move the same way, with smaller gains.
