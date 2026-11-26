@@ -167,6 +167,32 @@ class BenchmarkRegionalTest < Minitest::Test
     B.singleton_class.send(:alias_method, :arcgis_get, :real_arcgis_get)
   end
 
+  # A passing server error is tried again; one that persists is raised.
+  def test_server_errors_are_tried_again
+    calls = 0
+    B.singleton_class.send(:alias_method, :real_arcgis_get, :arcgis_get)
+    B.define_singleton_method(:arcgis_get) do |_uri|
+      calls += 1
+      calls < 3 ? { "error" => { "code" => 504, "message" => "" } } : { "features" => [] }
+    end
+    with_retry_wait(0) { assert_equal [{ "features" => [] }, 1000], B.regional_page(ROADS, 0, 1000) }
+    assert_equal 3, calls
+    calls = -10
+    with_retry_wait(0) { assert_raises(RuntimeError) { B.regional_page(ROADS, 0, 1000) } }
+  ensure
+    B.singleton_class.send(:alias_method, :arcgis_get, :real_arcgis_get)
+  end
+
+  def with_retry_wait(seconds)
+    old = B::REGIONAL_RETRY_S
+    B.send(:remove_const, :REGIONAL_RETRY_S)
+    B.const_set(:REGIONAL_RETRY_S, seconds)
+    yield
+  ensure
+    B.send(:remove_const, :REGIONAL_RETRY_S)
+    B.const_set(:REGIONAL_RETRY_S, old)
+  end
+
   # Runs the block with regional_page answering from pages (offset =>
   # features, more to come after offset 0); returns the offsets asked for.
   def with_pages(pages)

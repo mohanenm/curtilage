@@ -56,6 +56,8 @@ module CurtilageBenchmark
   }.freeze
   REGIONAL_PAGE = 1000
   REGIONAL_MIN_PAGE = 50
+  REGIONAL_TRIES = 4
+  REGIONAL_RETRY_S = 10
   REGIONAL_MAX_VERTICES = 20_000
 
   module_function
@@ -118,15 +120,22 @@ module CurtilageBenchmark
 
   # [answer, page size]: an answer over the size cap is asked for again
   # with half as many features, down to REGIONAL_MIN_PAGE.
-  def regional_page(layer, offset, page)
+  # A server error or timeout (big layers hit passing ones) is tried again,
+  # REGIONAL_TRIES times in all, a little later each time.
+  def regional_page(layer, offset, page, tries: REGIONAL_TRIES)
     doc = arcgis_get(URI("#{layer[:url]}/query?#{URI.encode_www_form(regional_query(layer, offset, page))}"))
-    raise "#{URI(layer[:url]).host}: #{doc.dig("error", "message")}" if doc["error"]
+    raise "#{URI(layer[:url]).host}: #{doc.dig("error", "message")} (#{doc.dig("error", "code")})" if doc["error"]
 
     [doc, page]
   rescue AnswerTooBig
     raise if page <= REGIONAL_MIN_PAGE
 
-    regional_page(layer, offset, page / 2)
+    regional_page(layer, offset, page / 2, tries: tries)
+  rescue RuntimeError, Net::OpenTimeout, Net::ReadTimeout, SocketError, JSON::ParserError
+    raise if tries <= 1
+
+    sleep(REGIONAL_RETRY_S * (REGIONAL_TRIES - tries + 1))
+    regional_page(layer, offset, page, tries: tries - 1)
   end
 
   def regional_query(layer, offset, page)
