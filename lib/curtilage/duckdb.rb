@@ -39,7 +39,7 @@ module Curtilage
         stop(wait) unless finished
         output = [feed, out, err].map(&:value)[1..]
         raise Error, "DuckDB took over #{timeout} s and was stopped" unless finished
-        raise Error, "DuckDB's output passed #{max_output} bytes and it was stopped" if output[0] == :too_large
+        raise OutputTooLarge, "DuckDB's output passed #{max_output} bytes and it was stopped" if output[0] == :too_large
 
         [output[0].force_encoding(Encoding::UTF_8), clean(output[1].to_s.force_encoding(Encoding::UTF_8)), wait.value]
       end

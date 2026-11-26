@@ -9,6 +9,10 @@
 - `method: :partition` (experimental, never a fallback): the ground round the building is shared with every other building nearby by the shortest path that doesn't cross a public road or railway, and the site keeps up to twice its even share. Non-convex premises that follow the ground. Benchmark, default view, caught / taken: tuning 72.4% / 6.8% (default method 73.3% / 6.0%), validation 72.5% / 13.0% (47.4% / 14.5%); core view, validation 78.0% / 5.1% (60.2% / 8.9%). It rescues sites where the default method's rectangle and straight cuts miss the lot, and costs a few points on many ordinary ones.
 - Public benchmark: spot-check of held-out set 2 (80 points): the second labeller gave the same kind for 65% of points, and put 85% of those it answered on the same side of the default view (`benchmark/spot_checks.md`).
 
+### Fixed
+
+- Lookups in built files no longer stop in dense cities: a batch of pins whose DuckDB output passed the 200 MB cap stopped the whole run (seen with 500 pins in Washington DC). It is now read again in halves, down to one pin; only a single pin over the cap still fails, as `Curtilage::OutputTooLarge`.
+
 ## [0.9.1] - 2026-11-25
 
 Default results are unchanged from 0.9.0.

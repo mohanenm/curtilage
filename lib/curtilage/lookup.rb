@@ -46,16 +46,23 @@ module Curtilage
       pins.each_slice(PINS_PER_CALL).flat_map { |batch| read_batch(files, batch, options) }
     end
 
+    # A batch whose output passes the cap (many pins in a dense city, each
+    # with everything round it) is read again in halves, down to one pin.
     def read_batch(files, pins, options)
       sql = sql(files, pins, options[:extension_directory], options.fetch(:radius_deg, DEFAULT_RADIUS_DEG),
                 options[:setup_sql], duckdb: options.fetch(:duckdb, "duckdb"),
                                      memory_limit: options.fetch(:memory_limit, DEFAULT_MEMORY))
       out, err, status = DuckDB.capture(options.fetch(:duckdb, "duckdb"), sql, "-json",
                                         timeout: options.fetch(:timeout, Curtilage.config.duckdb_timeout),
-                                        max_output: MAX_OUTPUT_BYTES)
+                                        max_output: options.fetch(:max_output, MAX_OUTPUT_BYTES))
       raise Error, "duckdb failed: #{err.strip[0, 500]}" unless status.success?
 
       group(out, pins.size)
+    rescue OutputTooLarge
+      raise if pins.size == 1
+
+      half = pins.size / 2
+      read_batch(files, pins.first(half), options) + read_batch(files, pins.drop(half), options)
     end
 
     def check_files(files)
