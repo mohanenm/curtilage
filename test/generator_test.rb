@@ -223,6 +223,21 @@ class GeneratorTest < Minitest::Test
     assert(checked.explanation.first.include?("take in another building"))
   end
 
+  # method: :partition shares the ground with the neighbour east (x 50-70)
+  # and stops short of the secondary road (centreline y = -40, 7 m half
+  # width): the parking west is the site's, the neighbour isn't.
+  def test_partition_shares_the_ground_and_stops_at_the_road
+    result = Curtilage.generate(PIN, scene, method: :partition)
+    points = xy(result)
+
+    assert result.ok?, result.validation.errors.inspect
+    assert_operator points.map(&:last).min, :>, -34
+    assert Curtilage::Geometry.contains?(points, [-30, 0]), "the parking west"
+    refute Curtilage::Geometry.contains?(points, [60, 0]), "the neighbour"
+    refute Curtilage::Geometry.contains?(points, [45, 0]), "nearer the neighbour"
+    assert_equal(1, result.steps.count { |s| s[:step] == "partition" })
+  end
+
   # Another business's lot across an aisle (mapped parking 25 m south, not
   # the site's): the premises stop at its edge instead of growing into it.
   def test_premises_stop_at_another_business_lot

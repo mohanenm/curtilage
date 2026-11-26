@@ -299,8 +299,10 @@ module Curtilage
       extra += 4 * log.steps.to_a.count do |s|
         s[:step] == "keep_off_neighbour" && %w[neighbour_cut touching_neighbours].include?(s[:rule])
       end
-      # A whole centre traced round its aisles isn't a rectangle.
-      extra = Validation::DEFAULTS[:max_vertices] if log.steps.to_a.any? { |s| s[:step] == "whole_centre" }
+      # A whole centre traced round its aisles, or a partition, isn't a rectangle.
+      if log.steps.to_a.any? { |s| %w[whole_centre partition].include?(s[:step]) }
+        extra = Validation::DEFAULTS[:max_vertices]
+      end
       [opts[:max_vertices] + extra, Validation::DEFAULTS[:max_vertices]].min
     end
 

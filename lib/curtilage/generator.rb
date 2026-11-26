@@ -46,7 +46,7 @@ module Curtilage
 
     # The methods generate accepts, and the order propose falls back through.
     # Kept apart on purpose: a method can be offered without being a fallback.
-    METHODS = %i[grow_trim building].freeze
+    METHODS = %i[grow_trim building partition].freeze
     CHAIN = %i[grow_trim building].freeze
 
     PUBLIC_HIGHWAYS = %w[
