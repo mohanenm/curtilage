@@ -89,9 +89,8 @@ module CurtilageBenchmark
   def regional_rows(site, result, baselines)
     base = site.slice("id", "group", "building", "parcel")
     osm = result.details&.dig(:building, :footprint)
-    osm_ring = osm && Curtilage::Geometry.closed?(osm) ? osm : osm && (osm + [osm.first])
     own = { "kind" => "curtilage", "premises" => polygon(result.ring),
-            "store" => polygon(result.store_ring), "osm" => polygon(osm_ring),
+            "store" => polygon(result.store_ring), "osm" => polygon(osm),
             "access" => result.details&.dig(:access_points) || [] }
     pin = [site["lng"], site["lat"]]
     extra = baselines.map do |kind|
@@ -121,15 +120,8 @@ module CurtilageBenchmark
   end
 
   def regional_score_sql(region, results, out, dir)
-    q = ->(path) { Curtilage::DuckDB.quote(path) }
-    values = {
-      setup: "#{extension_setup} #{Curtilage::DuckDB.load_sql("spatial")}",
-      crs: "'EPSG:#{Integer(REGIONAL_AREAS.fetch(region)[:epsg])}'",
-      layers: REGIONAL_LAYERS.fetch(region).map { |l| q.call(File.join(dir, "#{l[:name]}.ndjson")) }.join(", "),
-      results: q.call(results), out: q.call(out), tol: Float(REGIONAL_TOLERANCE_M), entrance_m: REGIONAL_ENTRANCE_M
-    }
-    sql = File.read(File.join(DIR, "regional", "score.sql"))
-    sql.gsub(/\{\{(\w+)\}\}/) { values.fetch(Regexp.last_match(1).to_sym).to_s }
+    regional_sql("score.sql", region, dir, results: Curtilage::DuckDB.quote(results), out: Curtilage::DuckDB.quote(out),
+                                           tol: Float(REGIONAL_TOLERANCE_M), entrance_m: REGIONAL_ENTRANCE_M)
   end
 
   REGIONAL_LEAK_M2 = 10 # a leak this small is within the alignment allowance's noise
@@ -159,31 +151,24 @@ module CurtilageBenchmark
   end
 
   def regional_shares(rows)
-    leaks = %w[road sidewalk neighbour].to_h do |k|
-      ["any_#{k}_leak", rows.map do |s|
-        s["#{k}_m2"].to_f > REGIONAL_LEAK_M2
-      end]
-    end
-    leaks.merge("whole_building" => rows.map { |s| s["building_share"].to_f >= 0.98 },
-                "all_in" => rows.map { |s| regional_all_in?(s) },
-                "nothing_out" => rows.map { |s| regional_nothing_out?(s) }).transform_values { |v| regional_share(v) }
+    leak = ->(key) { rows.map { |s| s[key].to_f > REGIONAL_LEAK_M2 } }
+    { "any_road_leak" => leak.call("road_m2"), "any_sidewalk_leak" => leak.call("sidewalk_m2"),
+      "any_neighbour_leak" => leak.call("neighbour_m2"),
+      "whole_building" => rows.map { |s| s["building_share"].to_f >= 0.98 },
+      "all_in" => rows.map { |s| regional_all_in?(s) },
+      "nothing_out" => rows.map { |s| regional_nothing_out?(s) } }.transform_values { |v| regional_share(v) }
   end
 
   # The share of structures inside the premises, by class: on the site's
   # parcel (should be in) and off it (should be out).
   def structure_rates(rows)
     own, other = rows.flat_map { |s| s["structures"] }.partition { |x| x["own"] }
-    rate = lambda { |list|
-      list.group_by { |x| x["class"] }.transform_values do |xs|
-        regional_share(xs.map do |x|
-          x["inside"]
-        end)
-      end
-    }
+    inside = ->(xs) { regional_share(xs.map { |x| x["inside"] }) }
+    rate = ->(list) { list.group_by { |x| x["class"] }.transform_values(&inside) }
     { "own_structures_in" => rate.call(own), "other_structures_in" => rate.call(other) }
   end
 
-  def regional_median(values) = (v = values.compact.sort).empty? ? nil : v[v.size / 2]
+  def regional_median(values) = median(values.compact)
   def regional_share(flags) = flags.empty? ? nil : (flags.count(true).to_f / flags.size).round(3)
 
   def regional_ratio(rows, part, whole)
@@ -231,6 +216,49 @@ module CurtilageBenchmark
     own = row["kind"] == "curtilage"
     cells = REGIONAL_COLUMNS.keys.map { |k| row[k].nil? ? "-" : format("%.2f", row[k]) }
     [row["group"], own ? run["label"] : row["kind"], row["sites"].to_s, *cells, own ? run["seconds"].to_s : ""]
+  end
+
+  # The default run (with baselines) for every region with sites chosen,
+  # and all of them pooled; saves the pooled run in data/regional/.
+  def regional_all
+    regions = REGIONAL_LAYERS.keys.select { |r| File.exist?(File.join(regional_dir(r), "selection.json")) }
+    runs = regions.map { |r| regional_run(r) }
+    pooled = { "region" => "all", "label" => "default (#{regions.join(", ")})", "seconds" => runs.sum do |r|
+      r["seconds"]
+    end,
+               "sites" => runs.flat_map { |r| r["sites"].map { |s| s.merge("id" => "#{r["region"]}:#{s["id"]}") } } }
+    [runs, save_regional_run(File.join(ROOT, "data", "regional"), pooled)]
+  end
+
+  # Per kind and group, each column in two runs; then the sites that passed
+  # a test in one run and failed it in the other ("all in", "nothing out").
+  def regional_compare(old, new)
+    before = regional_summary(old).to_h { |r| [[r["kind"], r["group"]], r] }
+    lines = regional_summary(new).filter_map do |row|
+      was = before[[row["kind"], row["group"]]] or next
+      cells = REGIONAL_COLUMNS.map { |k, name| "#{name} #{regional_cell(was[k])} -> #{regional_cell(row[k])}" }
+      "#{row["group"]} #{row["kind"]}: #{cells.join(", ")}"
+    end
+    lines + regional_flips(old, new)
+  end
+
+  def regional_cell(value) = value.nil? ? "-" : format("%.2f", value)
+
+  def regional_flips(old, new)
+    a = regional_own(old)
+    b = regional_own(new)
+    common = a.keys & b.keys
+    { "all in" => :regional_all_in?, "nothing out" => :regional_nothing_out? }.map do |name, test|
+      better = common.count { |id| !send(test, a[id]) && send(test, b[id]) }
+      worse = common.count { |id| send(test, a[id]) && !send(test, b[id]) }
+      "#{name}: #{better} sites better, #{worse} worse, of #{common.size}"
+    end
+  end
+
+  # curtilage's own rows by site id, vintage sites left out (as in the summary).
+  def regional_own(run)
+    rows = run["sites"].select { |s| s["kind"] == "curtilage" && !(s["osm_iou"] && s["osm_iou"] < 0.5) }
+    rows.to_h { |s| [s["id"], s] }
   end
 
   def save_regional_run(dir, run)

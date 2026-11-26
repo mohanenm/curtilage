@@ -83,7 +83,8 @@ class BenchmarkRegionalTest < Minitest::Test
 
       assert_equal [1.0, 1.0, 1.0], scores["wide"].values_at("building_share", "store_iou", "pavement_share")
       assert_in_delta 100 * 8, scores["wide"]["road_m2"], 20 # 100 m of the strip, the road shrunk 2 m
-      assert_equal [0, 0], scores["wide"].values_at("sidewalk_m2", "neighbour_m2")
+      assert_equal [0, 0, 0, 0], scores["wide"].values_at("sidewalk_m2", "neighbour_m2", "neighbour_building_m2",
+                                                          "neighbour_paving_m2")
       assert_equal [1.0, 0.0, 0], scores["building"].values_at("building_share", "pavement_share", "road_m2")
     end
   end
@@ -121,6 +122,20 @@ class BenchmarkRegionalTest < Minitest::Test
     assert_equal({ "canopy" => 1.0 }, row["own_structures_in"])
     assert_equal({ "building" => 1.0 }, row["other_structures_in"])
     assert_equal [0.5, 1.0], row.values_at("entrance_recall", "entrance_precision")
+  end
+
+  # The comparison counts sites that pass a test in one run and fail it in the other.
+  def test_compare_counts_sites_better_and_worse
+    site = { "kind" => "curtilage", "group" => "clear", "osm_iou" => 0.9, "building_share" => 1.0,
+             "pavement_share" => 1.0, "area_m2" => 1000, "road_m2" => 0, "sidewalk_m2" => 0, "neighbour_m2" => 0,
+             "structures" => [] }
+    old = { "sites" => [site.merge("id" => "a", "road_m2" => 50), site.merge("id" => "b")] }
+    new = { "sites" => [site.merge("id" => "a"), site.merge("id" => "b", "building_share" => 0.5)] }
+    lines = B.regional_compare(old, new)
+
+    assert_includes lines, "all in: 0 sites better, 1 worse, of 2"
+    assert_includes lines, "nothing out: 1 sites better, 0 worse, of 2"
+    assert(lines.first.start_with?("clear curtilage: bldg 1.00 -> 0.50"))
   end
 
   # Pages until the server stops saying there's more.

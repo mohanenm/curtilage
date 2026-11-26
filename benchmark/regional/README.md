@@ -85,7 +85,7 @@ Places of the 13 types the benchmark's random picks use (pharmacy, gas station, 
 
 Everything else is **unclear** (shared lots, multi-tenant buildings, pins away from a building), with the reasons recorded; it is to be scored for the "out" measures only. Official polygons are repaired where invalid before any area is measured. Places within 500 m of a held-out benchmark site are left out (`benchmark/README.md`, held-out rules). The selection runs in DuckDB (`select.sql`).
 
-DC, Overture 2026-11-18.0: 4,090 places, 124 clear, 3,966 unclear (2,755 share their parcel with other businesses, 2,241 have no parking or driveway on their parcel, 735 have no single building at the pin, 404 have a building spanning parcels, 38 no parcel; a site can have several reasons).
+DC, Overture 2026-11-18.0: 4,090 places, 10 of them with no official parcel within 50 m (outside the data), leaving 124 clear and 3,956 unclear (2,755 share their parcel with other businesses, 2,241 have no parking or driveway on their parcel, 731 have no single building at the pin, 404 have a building spanning parcels, 32 no parcel under the building; a site can have several reasons). Clear sites are 3% of DC's places: the standalone cases, where curtilage does best, so DC's clear-site figures flatter dense urban use; the unclear sample's figures sit beside them.
 
 ## Metrics
 
@@ -98,7 +98,7 @@ Every clear site and a seeded sample of 400 unclear ones (seed 20261126) are gen
 - **Building:** the share of the official building inside the premises (whole when 98% or more), and the store zone's IoU with it.
 - **Own pavement:** the share of the parcel's official parking and driveway inside the premises.
 - **Road and sidewalk leak:** premises area on official road or alley, and on sidewalk, measured on those polygons shrunk by the alignment tolerance; a site leaks when either is over 10 m2. Curtilage keeps the sidewalk in front of a building on the street by design, so the two are reported apart.
-- **Neighbour leak:** premises area on other buildings (not mostly on the site's parcel) or on parking and driveways on other parcels. The right of way is in no parcel, so a driveway apron there doesn't count.
+- **Neighbour leak:** premises area on other buildings (not mostly on the site's parcel) or on parking and driveways on other parcels. The right of way is in no parcel, so a driveway apron there doesn't count. Saved as both parts too (`neighbour_building_m2`, `neighbour_paving_m2`).
 - **Structures:** official buildings, canopies, parking garages and other structures within 60 m: on the site's parcel (should be in) or off it (should be out), counted in when their interior point is inside the premises.
 - **Entrances:** where paving that reaches the parcel meets official road or alley; an access point within 15 m of one matches it (recall over official entrances, precision over access points).
 - **All in / nothing out:** a site has everything in when the whole building, 90% of its pavement and every structure on its parcel are inside; nothing out when no road, sidewalk or neighbour leak passes 10 m2 and no structure off its parcel is inside.
@@ -107,3 +107,43 @@ Every clear site and a seeded sample of 400 unclear ones (seed 20261126) are gen
 Baselines, scored the same way: 50 m and 75 m circles round the pin, the OSM building alone, and the official parcel alone.
 
 **Alignment tolerance: 2 m.** Where the OSM building matches the official one (IoU 0.5 or more, 366 DC sites), their centres are a median 1.1 m apart (75th percentile 1.6 m, 90th 3.7 m, partly from different shapes), so 2 m covers the usual offset without hiding real leaks.
+
+## Options
+
+```sh
+bundle exec rake "benchmark:regional:options[dc]"   # each option alone, then the combinations (REGIONAL_RUNS=a,b for some)
+bundle exec rake "benchmark:regional:table[dc]"     # the latest run of each, side by side
+```
+
+Every option that might change results on this data, run alone on the same sites, then two combinations the single runs pointed to. ML footprints (none in the region's build), `candidates` (the main result doesn't change) and `unit_m` (the store zone only) aren't run. The parcel options use the official parcels, which the neighbour measure also uses, so their neighbour figures aren't independent; their road and sidewalk figures are.
+
+DC, 105 clear sites (19 vintage left out), share of sites:
+
+| Run | Whole building | Everything in | Nothing out | Road leak | Sidewalk leak | Neighbour leak | Entrances found / right | Seconds |
+|---|---|---|---|---|---|---|---|---|
+| default | 94% | 70% | 21% | 33% | 43% | 64% | 47% / 70% | 63 |
+| `parcels:`, `parcel_mode: :grow`, `road_offset_m: 9`, `snap_m: 20` | 96% | 83% | 27% | 21% | 32% | 65% | 45% / 71% | 300 |
+| `parcels:`, `parcel_mode: :clip`, `snap_m: 20` | 85% | 58% | 41% | 18% | 19% | 48% | 47% / 70% | 116 |
+| `parcels:`, `parcel_mode: :grow` | 96% | 83% | 21% | 34% | 41% | 66% | 47% / 70% | 370 |
+| `parcels:`, `parcel_mode: :clip` | 86% | 59% | 40% | 21% | 20% | 48% | 47% / 70% | 197 |
+| `road_offset_m: 9` | 94% | 68% | 25% | 24% | 36% | 64% | 45% / 71% | 51 |
+| `snap_m: 20` | 94% | 70% | 21% | 31% | 43% | 64% | 47% / 70% | 53 |
+| `grow_m: 20` | 94% | 70% | 22% | 34% | 38% | 63% | 47% / 70% | 51 |
+| `parking_max_extent_m: 90` | 94% | 70% | 21% | 33% | 43% | 64% | 47% / 69% | 51 |
+| `touching_neighbours: :cut` | 90% | 66% | 24% | 34% | 43% | 58% | 47% / 70% | 84 |
+| `neighbour_cut: :notch` | 95% | 73% | 18% | 40% | 46% | 70% | 47% / 70% | 71 |
+| `entrances: :all` | 96% | 72% | 18% | 41% | 44% | 68% | 61% / 56% | 124 |
+| `method: :partition` | 96% | 59% | 18% | 44% | 41% | 64% | none recorded | 976 |
+| `scope: :centre` | 91% | 73% | 18% | 43% | 47% | 70% | 34% / 73% | 119 |
+| `preset: :tight` | 97% | 17% | 31% | 20% | 30% | 64% | none recorded | 33 |
+| 50 m circle | 92% | 79% | 0% | 99% | 80% | 97% | | |
+| the parcel alone | 62% | 61% | 96% | 2% | 12% | 2% | | |
+
+What it shows, as findings, not decisions:
+
+- With parcels, `:grow` with a 9 m road offset and pin snapping is better than the default on every measure here: more caught (everything in 70% to 83%) and less leak (road 33% to 21%, nothing out 21% to 27%). `:clip` leaks least (nothing out 41%) but loses whole buildings (94% to 85%).
+- Without parcels, a 9 m road offset cuts road leak (33% to 24%) at little cost. Not because DC's roads are wider than the half-widths by road class: measured from OpenStreetMap centrelines to the edge of DC's road polygons, they're narrower (median half-width primary 5.7 m against curtilage's 7.5 m, secondary 5.4 against 7, tertiary 4.9 against 6, residential 4.2 against 4.5). A larger fixed offset trims harder where the usual trim is held back (near the building or pin, at corners, where the OSM line is off-centre); which of these causes the leak isn't established yet.
+- `touching_neighbours: :cut` lowers neighbour leak (64% to 58%) but loses whole buildings at 40 sites, often where OpenStreetMap draws one building as several parts.
+- `method: :partition` leaks more road here than the default, records no entrances and is far slower in a dense city.
+- `shared_checks` changes flags only (its scores match the default's). Its `takes_in_building` flag marks the sites that leak onto neighbours: 78% of flagged sites against 51% of the rest. In DC it fires on half the sites, so it orders a review rather than singling out a few. The other flags separate leaking sites little.
+- Unclear sites (349) move the same way, with smaller gains.
