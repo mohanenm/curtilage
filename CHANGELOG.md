@@ -16,6 +16,7 @@
 ### Fixed
 
 - Lookups in built files no longer stop in dense cities: a batch of pins whose DuckDB output passed the 200 MB cap stopped the whole run (seen with 500 pins in Washington DC). It is now read again in halves, down to one pin; only a single pin over the cap still fails, as `Curtilage::OutputTooLarge`.
+- Public benchmark: `benchmark:intervals` gives 95% intervals by resampling sites, for a run and for the difference between two runs; `benchmark/README.md` says what label noise and sample size mean for comparisons. Tuning, default view: 73.3% in caught (61.9 to 84.3), 6.0% out taken in (2.0 to 10.9).
 
 ## [0.9.1] - 2026-11-25
 

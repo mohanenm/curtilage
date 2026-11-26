@@ -24,6 +24,7 @@ bundle exec rake benchmark:circles                          # 50 m and 75 m circ
 bundle exec rake "benchmark:spot_check_sample[3]"           # a seeded sample of a held-out set's points, without their kinds
 bundle exec rake "benchmark:spot_check_score[ANSWERS.json]" # a second labeller's agreement with the sealed labels
 bundle exec rake benchmark:diagnose                         # why points are wrong: causes ranked per view, scores by pin quality
+bundle exec rake "benchmark:intervals[RUN.json]"            # 95% intervals by resampling sites ([OLD,NEW] for a difference)
 ```
 
 `benchmark:diagnose` gives every wrong point on the tuning and validation sites a cause (shared-lot split, reach limit, unmapped parking, neighbour cut, a public road between the building and the point, and so on), read from the map data by the heuristics in `benchmark/diagnose.rb`, and ranks the causes by what fixing each would add to the per-site averages. It also splits the scores by where the pin was (on the business's building, beside it, on another building) and by site context (large or shared building). It never looks at held-out sites.
@@ -85,6 +86,37 @@ Every label in the public benchmark was placed by one person, the project's main
 
 The held-out sets were labelled by the same person who reviews tuning results and directs rule changes, so they share that person's judgement of what counts as the lot. To check that, a random sample of points from each held-out set is to be checked on imagery by a second labeller who has never seen the rules' output, with the agreement rate recorded here and disagreements logged in [spot_checks.md](spot_checks.md), not fixed (sealed labels never change). Both held-out sets have been checked by a separate AI process given only imagery and the kinds table, weaker than a second person: on the default view's in/out it agreed with the sealed labels for 85% of the points it answered in set 2 and 92% in set 3 ([spot_checks.md](spot_checks.md)).
 
+## How sure the numbers are
+
+Two things limit what the numbers can show: the labels and the number of sites.
+
+**Labels.** Every label was placed by one person. A separate AI process, given only imagery and the kinds table, put 85% of the points it answered on the same side of the default view as the sealed labels in held-out set 2, and 92% in set 3 ([spot_checks.md](spot_checks.md)). So roughly one point in ten could be read either way, which is about the size of the differences between options. A human spot check, to tell whether the disagreement comes from the labels or the checker, is being prepared.
+
+**Sites.** Each figure is an average over few sites, so it moves when a site is added or dropped. `rake "benchmark:intervals[RUN.json]"` gives 95% intervals by resampling sites (2,000 draws, seeded), and `rake "benchmark:intervals[OLD.json,NEW.json]"` the interval for the difference between two runs on the same sites. At 0.9.1, default settings:
+
+| Role | View | Sites | In caught | Out taken in |
+|---|---|---|---|---|
+| Tuning | default | 25 | 73.3% (61.9 to 84.3) | 6.0% (2.0 to 10.9) |
+| Tuning | core | 25 | 90.3% (82.1 to 97.0) | 1.3% (0.3 to 2.9) |
+| Validation | default | 7 | 47.4% (25.2 to 70.1) | 14.5% (5.4 to 24.0) |
+| Validation | core | 7 | 60.2% (31.2 to 86.5) | 8.9% (2.6 to 15.8) |
+
+`method: :partition` minus the default, on the same sites:
+
+| Role | View | Sites | In caught | Out taken in |
+|---|---|---|---|---|
+| Tuning | default | 25 | -1.6 points (-8.4 to 5.6) | +0.3 (-2.0 to 3.0) |
+| Tuning | core | 25 | -4.1 (-10.7 to 3.4) | +0.3 (-1.8 to 3.0) |
+| Validation | default | 7 | +24.7 (4.2 to 48.7) | -1.5 (-8.6 to 5.3) |
+| Validation | core | 7 | +17.4 (-2.2 to 41.5) | -3.8 (-9.8 to 1.2) |
+
+What that means in practice:
+
+- On the tuning sites, a change of less than about 7 points in "in caught", or 2 to 3 points in "out taken in", can't be told from chance. Count the sites that got better and worse (`benchmark:compare`) as well.
+- On the 7 validation sites, only very large differences show: partition's gain in the default view is the one comparison here whose interval clears zero, and it rests on 7 sites.
+- The held-out sites (24) are scored once per release, totals only; their intervals come with the release check.
+- Label noise comes on top of all this: a difference of a few points between options is within what a second labeller would dispute.
+
 ## Correcting a label
 
 Labels change only to record what's physically there more accurately, never to improve a score. Corrections made while looking at results drift toward them: the corrections log, backfilled from git history (127 changes since the 30-site expansion), shows that, under the core view, 108 raised the score and 10 lowered it.
@@ -106,7 +138,7 @@ Held-out labels are never corrected (see above).
 - `LABELS.md`: the labelling guide.
 - `spot_checks.md`: second-labeller checks of held-out labels, with every disagreement.
 - `vendor/leaflet-1.9.4/`: Leaflet (BSD 2-Clause), inlined into the labelling page.
-- `runner.rb`, `labels.rb`, `label_page.rb`, `gallery.rb`, `parcels.rb`, `parcel_modes.rb`, `flags_check.rb`, `circles.rb`, `spot_check.rb`, `diagnose.rb`, `corrections.rb`, `review_sample.rb`, `check_sites.rb` and `../rakelib/benchmark.rake`: the code.
+- `runner.rb`, `labels.rb`, `label_page.rb`, `gallery.rb`, `parcels.rb`, `parcel_modes.rb`, `flags_check.rb`, `circles.rb`, `spot_check.rb`, `intervals.rb`, `diagnose.rb`, `corrections.rb`, `review_sample.rb`, `check_sites.rb` and `../rakelib/benchmark.rake`: the code.
 
 ## Your own sites and views
 
