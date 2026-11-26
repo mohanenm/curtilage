@@ -15,7 +15,7 @@ module CurtilageBenchmark
     "dc" => [
       { name: "roads", url: "#{DC_GIS}/Planimetrics_2023/MapServer/10", field: "FEATURECODE",
         classes: DC_ROAD_CLASSES, page: 500 },
-      { name: "sidewalks", url: "#{DC_GIS}/Planimetrics_2023/MapServer/11", class: "sidewalk" },
+      { name: "sidewalks", url: "#{DC_GIS}/Planimetrics_2023/MapServer/11", class: "sidewalk", page: 250 },
       { name: "buildings", url: "#{DC_GIS}/Planimetrics_2023/MapServer/1", class: "building" },
       { name: "parcels", url: "#{DC_GIS}/Property_and_Land/MapServer/40", class: "parcel" },
     ],
