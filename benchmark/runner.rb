@@ -130,9 +130,6 @@ module CurtilageBenchmark
 
   def role(site) = site["role"] || (site["holdout"] == true ? "holdout" : "tuning")
 
-  # Tuning and validation sites. Held-out sites only with
-  # CURTILAGE_BENCHMARK_HOLDOUT=1 and CURTILAGE_RELEASE_CHECK=1, and then
-  # only them.
   # Tuning and validation sites; with the release check (both flags), every
   # site, held-out ones included, once their labels are all sealed. A
   # release-check run keeps totals only (summary_only).
@@ -292,8 +289,7 @@ module CurtilageBenchmark
     metrics = { "reference_area_m2" => G.area(ref).round }
     return metrics.merge("iou" => 0.0) unless generated
 
-    common = G.overlap_area(ref, generated)
-    metrics.merge("iou" => (common / (G.area(generated) + G.area(ref) - common)).round(3),
+    metrics.merge("iou" => G.iou(ref, generated).round(3),
                   "area_ratio" => (G.area(generated) / G.area(ref)).round(2))
   end
 

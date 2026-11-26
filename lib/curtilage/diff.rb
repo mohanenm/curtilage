@@ -62,8 +62,7 @@ module Curtilage
       areas = [a, b].map { |xy| xy && Geometry.area(xy).round }
       return [nil, *areas] unless a && b
 
-      shared = Geometry.overlap_area(a, b)
-      [shared / (Geometry.area(a) + Geometry.area(b) - shared), *areas]
+      [Geometry.iou(a, b), *areas]
     end
 
     # The ring in metres around origin, or nil if it isn't a usable shape.

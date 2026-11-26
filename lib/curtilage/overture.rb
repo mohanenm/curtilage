@@ -60,9 +60,8 @@ module Curtilage
       bbox = checked_bbox(bbox)
       where = place_filter(category, brand, ids)
       if min_confidence
-        raise ArgumentError, "min_confidence is 0 to 1" unless min_confidence.is_a?(Numeric) && min_confidence.between?(
-          0, 1
-        )
+        ok = min_confidence.is_a?(Numeric) && min_confidence.between?(0, 1)
+        raise ArgumentError, "min_confidence is 0 to 1" unless ok
 
         where += " AND confidence >= #{min_confidence.to_f}"
       end

@@ -277,10 +277,8 @@ module Curtilage
     return run_many(pins, catalogue, parquet, lookup, options) if catalogue || parquet
 
     source = (source || config.source).to_sym
-    unless SOURCES.include?(source)
-      raise ArgumentError,
-            "unknown source #{source.inspect} (have: #{SOURCES.join(", ")})"
-    end
+    known = SOURCES.include?(source)
+    raise ArgumentError, "unknown source #{source.inspect} (have: #{SOURCES.join(", ")})" unless known
     return from_overture(pins, lookup, data, options) if source == :overture
 
     auto = AutoData.new(cache_dir: cache_dir || config.cache_dir, **lookup.slice(:duckdb, :extension_directory),

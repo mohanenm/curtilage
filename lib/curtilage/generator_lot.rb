@@ -146,7 +146,7 @@ module Curtilage
     # driveways linking the claimed lot to a public road are taken in.
     def add_parking(poly, lots, site)
       far = fence(site, site.opts[:parking_max_extent_m])
-      parts = lots.map { |lot| lot_part(Geometry.clip_convex(lot.xy, far), lot, site) }
+      parts = lots.map { |lot| share_lot(Geometry.clip_convex(lot.xy, far), lot, site) }
       grown = lot_box(poly + parts.select { |p| p.size >= 3 }.flatten(1), far, site.target)
       grown = add_entrances(grown, far, site) unless only_aisles?(lots)
       note_lot_taken(poly, grown, lots, site)
@@ -256,8 +256,6 @@ module Curtilage
       end
       part
     end
-
-    def lot_part(part, lot, site) = share_lot(part, lot, site)
 
     # Other buildings the lot touches (not ones joined to the site's own),
     # nearest first.

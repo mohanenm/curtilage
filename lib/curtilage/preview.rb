@@ -229,7 +229,6 @@ module Curtilage
         "base-uri 'none'; form-action 'none'"
     end
 
-    # extras: [buffer_m, zones drawn on some card], for the legend.
     # extras: [buffer_m, zones drawn on some card, the backgrounds' credit or
     # nil without backgrounds].
     def page(title, cards, toolbar, credits, extras)

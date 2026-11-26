@@ -49,6 +49,12 @@ module Curtilage
 
     # Area shared by two simple rings of any shape: the subject clipped by
     # each triangle of the other (a convex one is used whole).
+    # Intersection over union of two rings in metres.
+    def iou(subject, other)
+      common = overlap_area(subject, other)
+      common / (area(subject) + area(other) - common)
+    end
+
     def overlap_area(subject, other)
       other = counter_clockwise(other)
       pieces = convex?(other) ? [other] : triangulate(other)

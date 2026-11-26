@@ -74,10 +74,8 @@ module Curtilage
       end
 
       def sites_and_options(request)
-        if request.headers["content-type"].to_s.include?("ndjson")
-          return [Formats.parse_pins(request.body, :ndjson),
-                  {}]
-        end
+        ndjson = request.headers["content-type"].to_s.include?("ndjson")
+        return [Formats.parse_pins(request.body, :ndjson), {}] if ndjson
 
         doc = JSON.parse(request.body, max_nesting: 20)
         return [Formats.parse_pins(request.body, :geojson), {}] if doc.is_a?(Hash) && doc["type"] == "FeatureCollection"
@@ -105,10 +103,8 @@ module Curtilage
 
         options.to_h do |key, value|
           name = key.to_s.to_sym
-          unless REQUEST_OPTIONS.include?(name)
-            raise Refused.new(400,
-                              "option #{key.to_s[0, 50]} can't be set per request")
-          end
+          allowed = REQUEST_OPTIONS.include?(name)
+          raise Refused.new(400, "option #{key.to_s[0, 50]} can't be set per request") unless allowed
 
           [name, option_value(name, value)]
         end
