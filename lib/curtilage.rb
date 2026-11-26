@@ -64,6 +64,8 @@ module Curtilage
                   "not the whole centre.",
     shared_lot: "The lot is shared with other buildings and was split by nearest building: where it really " \
                 "divides isn't in the map, so check the line.",
+    takes_in_building: "shared_checks: the premises take in another building (not a canopy or car park): if it's " \
+                       "another business's, trim the premises off it.",
     pin_moved: "The pin wasn't on a building and was moved onto the nearest one (snap_m:): check it's the right one.",
     fallback: "The main method failed validation; the building rectangle was used.",
     ml_footprint: "Built on a machine-learned footprint, not an OSM building.",

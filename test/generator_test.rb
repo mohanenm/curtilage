@@ -194,6 +194,35 @@ class GeneratorTest < Minitest::Test
     assert notch.ok?
   end
 
+  # A neighbour sharing the building's east wall can't be split off with a
+  # line, so it's kept; touching_neighbours: :cut cuts its footprint out.
+  def test_cut_touching_cuts_out_a_neighbour_sharing_a_wall
+    raw = [polygon("building", 1, -10, -7.5, 10, 7.5), polygon("building", 2, 10, -7.5, 60, 7.5),
+           road(4, "secondary", [[-200, -60], [200, -60]])]
+    kept = Curtilage.generate(PIN, raw, method: :grow_trim)
+    cut = Curtilage.generate(PIN, raw, method: :grow_trim, touching_neighbours: :cut)
+
+    assert Curtilage::Geometry.contains?(xy(kept), [20, 0]), "kept by default"
+    refute Curtilage::Geometry.contains?(xy(cut), [20, 0]), "the neighbour is cut out"
+    assert Curtilage::Geometry.contains?(xy(cut), [9, 7]), "the building stays whole"
+    assert Curtilage::Geometry.contains?(xy(cut), [20, -20]), "the lot in front of the neighbour stays"
+    assert cut.ok?, cut.validation.errors.inspect
+  end
+
+  # A neighbour the premises surround can't be cut out (it would be a
+  # hole): shared_checks flags it.
+  def test_shared_checks_flags_a_building_taken_in
+    raw = [polygon("building", 1, -10, -7.5, 10, 7.5), polygon("building", 2, 10, -7.5, 30, 7.5),
+           road(4, "secondary", [[-200, -60], [200, -60]])]
+    plain = Curtilage.generate(PIN, raw, method: :grow_trim, touching_neighbours: :cut)
+    checked = Curtilage.generate(PIN, raw, method: :grow_trim, touching_neighbours: :cut, shared_checks: true)
+
+    assert Curtilage::Geometry.contains?(xy(plain), [20, 0])
+    refute_includes plain.flags, :takes_in_building
+    assert_includes checked.flags, :takes_in_building
+    assert(checked.explanation.first.include?("take in another building"))
+  end
+
   # Another business's lot across an aisle (mapped parking 25 m south, not
   # the site's): the premises stop at its edge instead of growing into it.
   def test_premises_stop_at_another_business_lot

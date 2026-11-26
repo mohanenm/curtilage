@@ -118,6 +118,7 @@ module Curtilage
       unit_m: nil,                   # store zone of a large building: this much frontage round the pin (nil: all)
       entrances: :near,              # :near, or :all (follow driveways to every entrance; premises not convex)
       neighbour_cut: :line,          # after taking the lot: :line (cut across) or :notch (cut round the neighbour)
+      touching_neighbours: :keep,    # a neighbour touching the building: :keep, or :cut (its footprint cut out)
       parcel_mode: :clip,            # with parcels: :clip, or :grow (also take in the paving inside the site's parcels)
       shared_checks: false,          # mark large and shared buildings as estimates (flags, confidence, explanation)
     }.freeze
@@ -207,8 +208,8 @@ module Curtilage
 
     # The options that take one of a few names, and the names.
     def choices
-      { scope: SCOPES, buildings: BUILDING_SOURCES, entrances: ENTRANCES,
-        neighbour_cut: NEIGHBOUR_CUTS, parcel_mode: PARCEL_MODES, store_zone: [true, false],
+      { scope: SCOPES, buildings: BUILDING_SOURCES, entrances: ENTRANCES, store_zone: [true, false],
+        neighbour_cut: NEIGHBOUR_CUTS, touching_neighbours: %i[keep cut], parcel_mode: PARCEL_MODES,
         shared_checks: [true, false] }
     end
 
@@ -264,7 +265,7 @@ module Curtilage
       result.validation = Validation.check(pin, result.ring, **opts[:validation])
       result.details = details(target, premises, features, pin, log, precision: opts[:precision])
       add_zones(result, [premises, target, features], opts, log)
-      note_estimate(result) if opts[:shared_checks]
+      check_shared(result, [premises, target, features], opts, log) if opts[:shared_checks]
       result
     end
 
@@ -337,7 +338,8 @@ module Curtilage
       features = features.with_buildings(features.buildings - claimed) unless claimed.empty?
       poly = trim_at_neighbours(poly, features, target, opts, log)
       poly = take_lot(poly, lots, Site.new(features, target, opts, log, shared))
-      [keep_off_other_lots(poly, features, target, lots + parcel_lots(features, target, opts), log), target]
+      poly = keep_off_other_lots(poly, features, target, lots + parcel_lots(features, target, opts), log)
+      [cut_touching(poly, features, target, opts, log), target]
     end
 
     def take_lot(poly, lots, site)

@@ -4,6 +4,8 @@
 
 ### Added
 
+- `touching_neighbours: :cut` (experimental, off by default): a neighbouring building that touches the site's building, which a line cut can't split off, has its footprint cut out of the premises. Tuning sites, default view: out taken 6.0% to 5.6%, in caught unchanged; 2 of 32 sites changed, both better.
+- `shared_checks` also flags `takes_in_building`: the premises hold the centre of another building that isn't a canopy or car park.
 - Public benchmark: spot-check of held-out set 2 (80 points): the second labeller gave the same kind for 65% of points, and put 85% of those it answered on the same side of the default view (`benchmark/spot_checks.md`).
 
 ## [0.9.1] - 2026-11-25
