@@ -10,6 +10,17 @@ Give it a location; it gives back the site's **premises** (the building plus its
 
 **How it does on sites it was never tuned on.** On 24 held-out sites in 24 states, labelled blind and scored once, the premises took in 80% of what should be inside and 6.8% of what should stay out. A 50 m circle round the same pins takes in about as much of the lot (80%) but over three times as much that isn't the site's (23%); a 75 m circle reaches 94% only by taking in half the surroundings (51%). On the benchmark's hardest sites (a pin in the road, very large shared buildings) curtilage only ties a circle, and a published tax parcel does better. [How it compares](#how-it-compares).
 
+<p align="center">
+<img src="https://raw.githubusercontent.com/mohanenm/curtilage/main/docs/images/compare-circle.jpg" width="49%" alt="A 50 m circle round a gas station's pin, taking in the road, neighbouring houses and part of the next lot">
+<img src="https://raw.githubusercontent.com/mohanenm/curtilage/main/docs/images/compare-curtilage.jpg" width="49%" alt="curtilage's outline of the same gas station: its building, canopy and forecourt, short of the road and the houses">
+</p>
+
+*A Massachusetts gas station from the benchmark, the tuning site closest to the median score. Of the points labelled on its lot, the circle takes in all 19, and 19 of the 23 that aren't the site's; curtilage takes in 15 and none. USGS aerial imagery (public domain). More sites, failures included, in the [gallery](https://mohanenm.github.io/curtilage/gallery/).*
+
+![Every business in part of Ballston, Arlington, Virginia, drawn by curtilage over the OpenStreetMap roads it used](https://raw.githubusercontent.com/mohanenm/curtilage/main/docs/images/arlington-map.jpg)
+
+*Every business in part of Ballston, Arlington, Virginia, drawn by curtilage with default settings over the OpenStreetMap roads it used. Teal outlines overlap no other site; amber ones share some lot ground with another (the overlap shaded); red ones take in another business's building. [Explore the whole county](https://mohanenm.github.io/curtilage/map/).*
+
 ## Try it
 
 The pin below is a public store from the [benchmark](benchmark/sites.geojson). With Docker (it builds the image from this repository, a few minutes the first time):
