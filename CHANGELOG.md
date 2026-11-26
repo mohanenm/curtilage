@@ -4,6 +4,7 @@
 
 ### Added
 
+- README images: a 50 m circle and curtilage's outline over USGS imagery at the benchmark's median tuning site, and part of Arlington, Virginia, drawn with every business's outline. The website has the whole county as an interactive map (`docs/map/`), over OpenStreetMap or USGS imagery.
 - `touching_neighbours: :cut` (experimental, off by default): a neighbouring building that touches the site's building, which a line cut can't split off, has its footprint cut out of the premises. Tuning sites, default view: out taken 6.0% to 5.6%, in caught unchanged; 2 of 32 sites changed, both better.
 - `shared_checks` also flags `takes_in_building`: the premises hold the centre of another building that isn't a canopy or car park.
 - `method: :partition` (experimental, never a fallback): the ground round the building is shared with every other building nearby by the shortest path that doesn't cross a public road or railway, and the site keeps up to twice its even share. Non-convex premises that follow the ground. Benchmark, default view, caught / taken: tuning 72.4% / 6.8% (default method 73.3% / 6.0%), validation 72.5% / 13.0% (47.4% / 14.5%); core view, validation 78.0% / 5.1% (60.2% / 8.9%). It rescues sites where the default method's rectangle and straight cuts miss the lot, and costs a few points on many ordinary ones.

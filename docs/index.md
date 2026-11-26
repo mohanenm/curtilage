@@ -3,6 +3,7 @@
 Free lot outlines for any business, from open map data: the building and its parking, up to the kerb, with flags saying what to check. From OpenStreetMap and Overture.
 
 - [Gallery](gallery/): the public benchmark sites (all but the held-out ones) over public-domain USGS aerial snapshots, with their premises, zones, flags and steps, and what their labels say each got wrong.
+- [Map](map/): every business in Arlington County, Virginia (7,146 places), drawn with the default settings over OpenStreetMap, coloured by whether outlines overlap or take in another business's building.
 - [Reference](reference.md): every option, flag and command.
 - [Recipes](recipes/README.md): PostGIS, QGIS, GeoPandas, DuckDB, geofences, Rails.
 - [Security](security.md) and the [HTTP API spec](openapi.yaml).
