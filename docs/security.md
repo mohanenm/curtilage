@@ -70,7 +70,7 @@ DuckDB's extensions come from its own repository, signed, and their versions fol
 
 ## Known gaps
 
-None open from this review. Releases are published by a workflow with trusted publishing and a signed provenance attestation for the gem ([releases](design/release-plan.md)); the Docker image isn't published. The HTTP server has no rate limit per client beyond its concurrency cap: put it behind a proxy that limits rates if it faces untrusted clients.
+One left from the 2026-11-26 review: a building with thousands of points on its convex outline still costs about a second (finding its minimum rectangle), so a site full of such buildings is slow but bounded by the caps above; simplifying an outline no longer grows with the square of its corners (a 5,000-corner building: 9 s to under 2 s). Releases are published by a workflow with trusted publishing and a signed provenance attestation for the gem ([releases](design/release-plan.md)); the Docker image isn't published. The HTTP server has no rate limit per client beyond its concurrency cap: put it behind a proxy that limits rates if it faces untrusted clients.
 
 
 ## Out of scope

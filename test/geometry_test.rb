@@ -78,4 +78,29 @@ class GeometryTest < Minitest::Test
 
     refute G.self_intersects?(star), "a simple 10-pointed star"
   end
+
+  # Same corners as rescanning every triangle each time (ties to the earlier
+  # corner), without the time that takes on a big outline.
+  def test_simplify_matches_a_full_rescan_and_scales
+    rescan = lambda do |xy, max|
+      pts = xy.dup
+      pts.delete_at((0...pts.size).min_by do |k|
+        G.area([pts[k - 1], pts[k], pts[(k + 1) % pts.size]])
+      end) while pts.size > max
+      pts
+    end
+    rng = Random.new(5)
+    50.times do
+      n = rng.rand(4..40)
+      ring = Array.new(n) { |i| [Math.cos(2 * Math::PI * i / n), Math.sin(2 * Math::PI * i / n)].map { |v| v * rng.rand(5.0..30.0) } }
+      max = rng.rand(3..n)
+
+      assert_equal rescan.call(ring, max), G.simplify(ring, max)
+    end
+    big = Array.new(5_000) { |i| [Math.cos(i * 0.001257), Math.sin(i * 0.001257)].map { |v| v * (25 + (i % 2 * 0.3)) } }
+    started = Process.clock_gettime(Process::CLOCK_MONOTONIC)
+
+    assert_equal 20, G.simplify(big, 20).size
+    assert_operator Process.clock_gettime(Process::CLOCK_MONOTONIC) - started, :<, 3
+  end
 end

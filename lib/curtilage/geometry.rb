@@ -273,14 +273,72 @@ module Curtilage
     # Drops the vertices that matter least (smallest triangle with their
     # neighbours) until at most max remain. On a convex polygon this only
     # cuts corners, so the result stays convex and inside the original.
+    #
+    # Each triangle is kept in a queue and only a dropped corner's two
+    # neighbours are measured again, so a 5,000-corner outline takes a
+    # moment, not seconds; ties go to the earlier corner, as a full rescan
+    # would.
     def simplify(xy, max)
-      pts = xy.dup
-      while pts.size > max
-        n = pts.size
-        i = (0...n).min_by { |k| area([pts[(k - 1) % n], pts[k], pts[(k + 1) % n]]) }
-        pts.delete_at(i)
+      n = xy.size
+      return xy.dup if n <= max
+
+      links = [Array.new(n) { |i| (i - 1) % n }, Array.new(n) { |i| (i + 1) % n }]
+      stamp = Array.new(n, 0)
+      queue = MinQueue.new
+      n.times { |i| queue.push([corner_area(xy, links, i), i, 0]) }
+      (n - max).times { drop_corner(xy, links, stamp, queue) }
+      xy.select.with_index { |_, i| stamp[i] >= 0 }
+    end
+
+    def corner_area(xy, links, index) = area([xy[links[0][index]], xy[index], xy[links[1][index]]])
+
+    # Takes out the corner with the smallest triangle (skipping entries for
+    # corners since dropped or re-measured) and re-measures its neighbours.
+    def drop_corner(xy, links, stamp, queue)
+      top = queue.pop
+      top = queue.pop until stamp[top[1]] == top[2]
+      i = top[1]
+      before, after = links
+      stamp[i] = -1
+      after[before[i]] = after[i]
+      before[after[i]] = before[i]
+      [before[i], after[i]].each { |j| queue.push([corner_area(xy, links, j), j, stamp[j] += 1]) }
+    end
+
+    # A binary min-heap of comparable entries.
+    class MinQueue
+      def initialize = @items = []
+      def peek = @items.first
+
+      def push(item)
+        @items << item
+        i = @items.size - 1
+        while i.positive? && (@items[(i - 1) / 2] <=> item).positive?
+          @items[i] = @items[(i - 1) / 2]
+          i = (i - 1) / 2
+        end
+        @items[i] = item
       end
-      pts
+
+      def pop
+        top = @items.first
+        last = @items.pop
+        return top if @items.empty?
+
+        i = 0
+        loop do
+          child = (2 * i) + 1
+          break if child >= @items.size
+
+          child += 1 if child + 1 < @items.size && (@items[child + 1] <=> @items[child]).negative?
+          break unless (@items[child] <=> last).negative?
+
+          @items[i] = @items[child]
+          i = child
+        end
+        @items[i] = last
+        top
+      end
     end
 
     # Like simplify, but only drops a vertex if the polygon still contains

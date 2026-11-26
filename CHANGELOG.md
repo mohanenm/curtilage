@@ -23,6 +23,7 @@
 
 ### Fixed
 
+- Simplifying a store outline no longer takes time growing with the square of its corners: a 5,000-corner building took 9 s to generate, now under 2 s. Results are identical (same corners dropped, ties included).
 - Taking in the lot no longer shrinks the premises. A road beyond the first trim could cut the lot's fence along a line back through ground already held, and which road did depended on the pin: one tuning site lost 60% of its premises when its pin moved 3 m east. Pins moved 3 m (42 sites, 8 directions): results changing a lot with the same building 3 to 0, all changes 17 to 14. Benchmark: one site gains 132 m2; no labelled point changes.
 - Overture reads split a batch whose output passes the 200 MB cap into halves, down to one site, as reads of built files already did; a dense batch no longer fails the whole call.
 - Lookups in built files no longer stop in dense cities: a batch of pins whose DuckDB output passed the 200 MB cap stopped the whole run (seen with 500 pins in Washington DC). It is now read again in halves, down to one pin; only a single pin over the cap still fails, as `Curtilage::OutputTooLarge`.
