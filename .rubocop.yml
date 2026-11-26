@@ -4,6 +4,7 @@ AllCops:
   SuggestExtensions: false
   Exclude:
     - "data/**/*"
+    - "notes/**/*"
     - "vendor/**/*"
     # Homebrew formulas follow Homebrew's style (brew style), not ours.
     - "packaging/homebrew/**/*"
