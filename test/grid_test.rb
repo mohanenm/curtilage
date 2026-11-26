@@ -21,6 +21,21 @@ class GridTest < Minitest::Test
     assert_operator G.signed_area(outline), :>, 0
   end
 
+  # A wall from the bottom edge to y = 20 at x = 10-11: the path from the
+  # source to (20, 2) goes round its top, about twice as far.
+  def test_path_distance_goes_round_a_blocked_wall
+    g = Curtilage::Grid.new([0, 0, 30, 30], 1.0)
+    source = g.painted([[[1.5, 1.5], [2.5, 1.5], [2.5, 2.5], [1.5, 2.5]]])
+    wall = g.painted([[[10, -5], [11, -5], [11, 20], [10, 20]]])
+    open = g.path_distance(source, Array.new(source.size, false), 100)
+    round = g.path_distance(source, wall, 100)
+    at = ->(dist, x, y) { dist[((y + 2).floor * 34) + (x + 2).floor] }
+
+    assert_in_delta 19.4, at.call(open, 20, 2), 0.1 # cell centres (1.5, 1.5) to (20.5, 2.5)
+    assert_in_delta 2 * 18.5 * 1.1, at.call(round, 20, 2), 6
+    assert_equal Float::INFINITY, at.call(g.path_distance(source, wall, 10), 20, 2)
+  end
+
   def test_erase_cuts_a_notch_and_fills_holes
     g = grid.paint([[0, 0], [30, 0], [30, 20], [0, 20]]).erase([[20, 10], [31, 10], [31, 21], [20, 21]])
     g.erase([[5, 5], [8, 5], [8, 8], [5, 8]]) # a hole: filled again
