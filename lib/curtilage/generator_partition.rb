@@ -57,7 +57,8 @@ module Curtilage
       others = neighbours(features, target, opts).reject { |o| LOT_TYPES.include?(o.category) }
       mine = grid.painted([target.xy])
       { mine: mine, theirs: grid.painted(others.map(&:xy)).each_with_index.map { |t, i| t && !mine[i] },
-        keep: grid.painted([Geometry.convex_hull(target.hull + pin_square(opts))]), others: others.size }
+        keep: grid.painted([grown_hull(Geometry.convex_hull(target.hull + pin_square(opts)), 2 * grid.cell)]),
+        others: others.size }
     end
 
     # A metre a cell, coarser round very large buildings.

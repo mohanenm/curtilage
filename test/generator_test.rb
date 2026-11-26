@@ -238,6 +238,19 @@ class GeneratorTest < Minitest::Test
     assert_equal(1, result.steps.count { |s| s[:step] == "partition" })
   end
 
+  # A neighbour sharing the building's wall: the outline runs along the
+  # wall, and must still hold the whole building without falling back to a
+  # convex outline (which would take the neighbour back in).
+  def test_partition_keeps_off_a_neighbour_sharing_a_wall
+    raw = [polygon("building", 1, -10, -7.5, 10, 7.5), polygon("building", 2, 10, -7.5, 60, 7.5),
+           road(4, "secondary", [[-200, -60], [200, -60]])]
+    result = Curtilage.generate(PIN, raw, method: :partition)
+
+    assert result.ok?, result.validation.errors.inspect
+    refute Curtilage::Geometry.contains?(xy(result), [30, 0]), "the neighbour"
+    refute(result.steps.any? { |s| s[:step] == "simplify" })
+  end
+
   # Another business's lot across an aisle (mapped parking 25 m south, not
   # the site's): the premises stop at its edge instead of growing into it.
   def test_premises_stop_at_another_business_lot
