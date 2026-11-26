@@ -26,6 +26,7 @@ module CurtilageBenchmark
     ],
   }.freeze
   REGIONAL_PAGE = 1000
+  REGIONAL_MIN_PAGE = 50
   REGIONAL_MAX_VERTICES = 20_000
 
   module_function
@@ -56,17 +57,26 @@ module CurtilageBenchmark
   def fetch_layer(layer, out)
     offset = kept = 0
     last = -1
+    page = layer.fetch(:page, REGIONAL_PAGE)
     loop do
-      doc = regional_page(layer, offset)
+      doc, page = regional_page(layer, offset, page)
       features = Array(doc["features"])
       last = moved_on(layer, offset, features, last)
       rows = features.filter_map { |f| regional_row(layer, f) }
       rows.each { |row| out.puts(JSON.generate(row)) }
       kept += rows.size
       offset += features.size
-      break if features.empty? || !doc["exceededTransferLimit"]
+      break unless more?(doc, features, page)
     end
     [kept, offset - kept]
+  end
+
+  # Servers say there's more at the top (ArcGIS Server) or in properties
+  # (ArcGIS Online); a full page means more either way.
+  def more?(doc, features, page)
+    return false if features.empty?
+
+    doc["exceededTransferLimit"] || doc.dig("properties", "exceededTransferLimit") || features.size >= page
   end
 
   # The page's highest OBJECTID, after checking it starts past last.
@@ -77,14 +87,28 @@ module CurtilageBenchmark
     ids.max || last
   end
 
-  def regional_page(layer, offset)
-    query = { where: "1=1", outFields: ["OBJECTID", layer[:field]].compact.join(","), returnGeometry: true,
-              outSR: 4326, geometryPrecision: 7, orderByFields: "OBJECTID", resultOffset: offset,
-              resultRecordCount: layer.fetch(:page, REGIONAL_PAGE), f: "geojson" }
-    doc = arcgis_get(URI("#{layer[:url]}/query?#{URI.encode_www_form(query)}"))
+  # [answer, page size]: an answer over the size cap is asked for again
+  # with half as many features, down to REGIONAL_MIN_PAGE.
+  def regional_page(layer, offset, page)
+    doc = arcgis_get(URI("#{layer[:url]}/query?#{URI.encode_www_form(regional_query(layer, offset, page))}"))
     raise "#{URI(layer[:url]).host}: #{doc.dig("error", "message")}" if doc["error"]
 
-    doc
+    [doc, page]
+  rescue AnswerTooBig
+    raise if page <= REGIONAL_MIN_PAGE
+
+    regional_page(layer, offset, page / 2)
+  end
+
+  def regional_query(layer, offset, page)
+    query = { where: layer.fetch(:where, "1=1"), outFields: ["OBJECTID", layer[:field]].compact.join(","),
+              returnGeometry: true, outSR: 4326, geometryPrecision: 7, orderByFields: "OBJECTID", resultOffset: offset,
+              resultRecordCount: page, f: "geojson" }
+    if layer[:box]
+      query.merge!(geometry: layer[:box].join(","), geometryType: "esriGeometryEnvelope", inSR: 4326,
+                   spatialRel: "esriSpatialRelIntersects")
+    end
+    query
   end
 
   # { "class" =>, "geometry" => } for a polygon of a known class, else nil.

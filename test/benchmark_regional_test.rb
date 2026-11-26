@@ -93,16 +93,42 @@ class BenchmarkRegionalTest < Minitest::Test
     with_pages(Hash.new(first)) { assert_raises(RuntimeError) { B.fetch_layer(ROADS, StringIO.new) } }
   end
 
+  # ArcGIS Online says there's more in properties; a full page means more too.
+  def test_more_pages_from_either_marker_or_a_full_page
+    two = [feature(1050), feature(1070)]
+
+    assert B.more?({ "properties" => { "exceededTransferLimit" => true } }, two, 500)
+    assert B.more?({}, two, 2)
+    refute B.more?({}, two, 500)
+    refute B.more?({ "exceededTransferLimit" => true }, [], 500)
+  end
+
+  # An answer over the size cap is asked for again with half the features.
+  def test_oversized_pages_are_halved
+    asked = []
+    B.singleton_class.send(:alias_method, :real_arcgis_get, :arcgis_get)
+    B.define_singleton_method(:arcgis_get) do |uri|
+      size = URI.decode_www_form(uri.query).to_h.fetch("resultRecordCount").to_i
+      asked << size
+      raise B::AnswerTooBig, "too big" if size > 250
+
+      { "features" => [] }
+    end
+
+    assert_equal 250, B.regional_page(ROADS, 0, 1000)[1]
+    assert_equal [1000, 500, 250], asked
+  ensure
+    B.singleton_class.send(:alias_method, :arcgis_get, :real_arcgis_get)
+  end
+
   # Runs the block with regional_page answering from pages (offset =>
   # features, more to come after offset 0); returns the offsets asked for.
   def with_pages(pages)
     offsets = []
     B.singleton_class.send(:alias_method, :real_regional_page, :regional_page)
-    B.define_singleton_method(:regional_page) do |_layer, offset|
+    B.define_singleton_method(:regional_page) do |_layer, offset, page|
       offsets << offset
-      { "features" => pages[offset], "exceededTransferLimit" => true }.tap do |doc|
-        doc["exceededTransferLimit"] = offset.zero? unless pages.default
-      end
+      [{ "features" => pages[offset], "exceededTransferLimit" => pages.default ? true : offset.zero? }, page]
     end
     yield
     offsets
