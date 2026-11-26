@@ -126,6 +126,21 @@ class IntegrationTest < Minitest::Test
     end
   end
 
+  # A batch whose output passes the cap is read again in halves, down to
+  # one pin, with the same result; one pin over the cap still fails.
+  def test_lookup_splits_a_batch_over_the_output_cap
+    with_region do |dir|
+      parquet = File.join(dir, "fixture.parquet")
+      pins = [PIN, [-79.0, 35.0], PIN, PIN]
+      whole = Curtilage::Lookup.features_many(parquet: parquet, pins: pins)
+      one = Curtilage::Lookup.features(parquet: parquet, pin: PIN)
+      cap = JSON.generate(one).bytesize + 200 # one pin's rows fit, two don't
+
+      assert_equal whole, Curtilage::Lookup.features_many(parquet: parquet, pins: pins, max_output: cap)
+      assert_raises(Curtilage::OutputTooLarge) { Curtilage::Lookup.features(parquet: parquet, pin: PIN, max_output: 10) }
+    end
+  end
+
   def test_generate_many_from_a_catalogue_end_to_end
     with_region do |dir|
       catalogue = Curtilage::Catalogue.from_dir(dir)
