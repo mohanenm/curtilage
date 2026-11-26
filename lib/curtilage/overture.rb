@@ -41,11 +41,20 @@ module Curtilage
       boxes = pins.map { |pin| box(pin, radius) }
       Dir.mktmpdir("curtilage-overture") do |dir|
         index = file_index(dir, options)
-        boxes.each_slice(Lookup::PINS_PER_CALL).flat_map do |batch|
-          rows = run(data_sql(batch, files_for(index, batch, options), options), options)
-          Lookup.group_rows(rows, batch.size)
-        end
+        boxes.each_slice(Lookup::PINS_PER_CALL).flat_map { |batch| read_boxes(index, batch, options) }
       end
+    end
+
+    # A batch whose output passes the cap (a dense area) is read in halves,
+    # down to one box, as Lookup does for built files.
+    def read_boxes(index, batch, options)
+      rows = run(data_sql(batch, files_for(index, batch, options), options), options)
+      Lookup.group_rows(rows, batch.size)
+    rescue OutputTooLarge
+      raise if batch.size == 1
+
+      half = batch.size / 2
+      read_boxes(index, batch.first(half), options) + read_boxes(index, batch.drop(half), options)
     end
 
     # Places matching one filter inside a box (west, south, east, north),
@@ -290,7 +299,7 @@ module Curtilage
     def run(sql, options, attempts: 2)
       out, err, status = DuckDB.capture(options.fetch(:duckdb, "duckdb"), sql, "-json",
                                         timeout: options.fetch(:timeout, Curtilage.config.duckdb_timeout),
-                                        max_output: MAX_OUTPUT_BYTES)
+                                        max_output: options.fetch(:max_output, MAX_OUTPUT_BYTES))
       unless status.success?
         return run(sql, options, attempts: attempts - 1) if err.strip.empty? && attempts > 1
 

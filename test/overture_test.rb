@@ -74,4 +74,29 @@ class OvertureTest < Minitest::Test
       assert_raises(ArgumentError) { O.release(release: bad) } unless bad.empty?
     end
   end
+
+  # A dense batch over the output cap is read in halves, down to one box;
+  # one box over the cap still fails.
+  def test_a_batch_over_the_output_cap_is_split
+    sizes = []
+    run = lambda do |sql, _options, **|
+      n = Integer(sql[/n=(\d+)/, 1])
+      sizes << n
+      raise Curtilage::OutputTooLarge, "over the cap" if n > 1
+
+      [{ "pin_index" => 0, "feature" => "road", "geometry" => "{}" }]
+    end
+    with_stub(O, :file_index, ->(*) { "index" }) do
+      with_stub(O, :files_for, ->(*) { {} }) do
+        with_stub(O, :data_sql, ->(batch, *) { "n=#{batch.size}" }) do
+          with_stub(O, :run, run) do
+            lists = O.features_many([[-80.0, 35.0]] * 3)
+
+            assert_equal [1, 1, 1], lists.map(&:size)
+            assert_equal [3, 1, 2, 1, 1], sizes
+          end
+        end
+      end
+    end
+  end
 end
