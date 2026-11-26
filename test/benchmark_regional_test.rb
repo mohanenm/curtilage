@@ -3,6 +3,7 @@
 require_relative "test_helper"
 require_relative "../benchmark/runner"
 require "stringio"
+require "tmpdir"
 
 # Offline: the regional check's class mapping and paging, on made-up pages.
 class BenchmarkRegionalTest < Minitest::Test
@@ -30,6 +31,49 @@ class BenchmarkRegionalTest < Minitest::Test
     assert_nil B.regional_row(ROADS, feature(9999))
     assert_nil B.regional_row(ROADS, feature(1050, { "type" => "Point", "coordinates" => [0, 0] }))
     assert_nil B.regional_row(ROADS, feature(1050, huge))
+  end
+
+  # A made-up region round [-80, 35]: A is clear; B shares its parcel with
+  # another business; C is 100 m from a held-out site; D is on no building.
+  def test_selection_sorts_clear_and_unclear_sites
+    skip "no DuckDB CLI" unless Curtilage::DuckDB.version(Curtilage.config.duckdb)
+
+    Dir.mktmpdir do |dir|
+      write_region(dir)
+      sql = B.regional_select_sql("dc", dir, [lnglat(0, 2100)])
+      _, err, status = Curtilage::DuckDB.capture(Curtilage.config.duckdb, sql)
+
+      assert status.success?, err
+      rows = JSON.parse(File.read(File.join(dir, "selection.json"))).to_h { |r| [r["id"], r] }
+
+      assert_equal %w[A B D], rows.keys.sort
+      assert_equal ["clear", []], rows["A"].values_at("group", "reasons")
+      assert_equal ["other businesses on the parcel"], rows["B"]["reasons"]
+      assert_equal ["no single building at the pin"], rows["D"]["reasons"]
+    end
+  end
+
+  def lnglat(x, y) = [-80.0 + (x / 91_290.0), 35.0 + (y / 110_950.0)]
+
+  def square(x, y, half)
+    ring = [[-1, -1], [1, -1], [1, 1], [-1, 1], [-1, -1]].map { |a, b| lnglat(x + (a * half), y + (b * half)) }
+    { "type" => "Polygon", "coordinates" => [ring] }
+  end
+
+  def write_region(dir)
+    layers = { "buildings" => [square(0, 0, 10), square(400, 0, 10), square(0, 2000, 10)].map { ["building", _1] },
+               "parcels" => [square(0, 0, 40), square(400, 0, 40), square(0, 2000, 40)].map { ["parcel", _1] },
+               "roads" => [square(0, -25, 10), square(400, -25, 10), square(0, 1975, 10)].map { ["parking", _1] },
+               "sidewalks" => [] }
+    layers.each do |name, rows|
+      File.write(File.join(dir, "#{name}.ndjson"), rows.map { |c, g| "#{JSON.generate(class: c, geometry: g)}\n" }.join)
+    end
+    pins = { "A" => [0, 0], "B" => [400, 0], "C" => [0, 2000], "D" => [1000, 1000] }
+    place = lambda do |id, (x, y)|
+      JSON.generate(id: id, name: id, category: "pharmacy", lng: lnglat(x, y)[0], lat: lnglat(x, y)[1])
+    end
+    File.write(File.join(dir, "sites.ndjson"), pins.map { |id, xy| "#{place.call(id, xy)}\n" }.join)
+    File.write(File.join(dir, "businesses.ndjson"), "#{place.call("X", [410, 5])}\n#{place.call("A", [0, 0])}\n")
   end
 
   # Pages until the server stops saying there's more.

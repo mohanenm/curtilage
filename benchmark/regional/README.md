@@ -48,3 +48,19 @@ Every source is mapped to `building`, `parking`, `driveway`, `road`, `sidewalk`,
 | DC Sidewalks 2023 | `sidewalk` |
 | DC Building Footprints 2023 | `building` |
 | DC Owner Polygons (Common Ownership Lots) | `parcel` |
+
+## Choosing sites
+
+```sh
+bundle exec rake "benchmark:regional:sites[dc]"   # Overture places in the region, sorted (data/regional/dc/selection.json)
+```
+
+Places of the 13 types the benchmark's random picks use (pharmacy, gas station, fast food, grocery, bank, hotel, hardware, restaurant, coffee shop, post office, library, department store, convenience store), confidence 0.9 or more, inside the region's Geofabrik outline, from the Overture release pinned in `../config.json`. A site is **clear** when pavement on its parcel can be put down to the business:
+
+- one official building is under the pin, or exactly one within 5 m;
+- an official parcel holds that building, and no other Overture business (any category, confidence 0.7 or more) is on it;
+- the parcel holds at least 50 m2 of official parking or driveway.
+
+Everything else is **unclear** (shared lots, multi-tenant buildings, pins away from a building), with the reasons recorded, and scored for the "out" measures only. Places within 500 m of a held-out benchmark site are left out (`benchmark/README.md`, held-out rules). The selection runs in DuckDB (`select.sql`).
+
+DC, Overture 2026-11-18.0: 4,090 places, 146 clear, 3,944 unclear (2,748 share their parcel with other businesses, 2,267 have no parking or driveway on their parcel, 667 have no single building at the pin, 88 no parcel; a site can have several reasons).
