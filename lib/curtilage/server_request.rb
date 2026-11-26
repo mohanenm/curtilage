@@ -62,8 +62,6 @@ module Curtilage
     # "options": { ... } }, a GeoJSON FeatureCollection of points, or NDJSON
     # (Content-Type: application/x-ndjson) as the command line reads it.
     module ServerInput
-      CHOICES = %i[scope buildings entrances preset method parcel_mode].freeze
-
       module_function
 
       # [[{ id:, pin: }], options]
@@ -117,7 +115,7 @@ module Curtilage
       end
 
       def option_value(name, value)
-        return value.to_sym if CHOICES.include?(name) && value.is_a?(String)
+        return value.to_sym if NAMED_OPTIONS.include?(name) && value.is_a?(String)
         return value.transform_keys(&:to_sym) if name == :validation && value.is_a?(Hash)
 
         value

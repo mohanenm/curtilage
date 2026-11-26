@@ -80,6 +80,10 @@ module Curtilage
   }.freeze
 
   # Named styles; any option passed alongside a preset overrides it.
+  # Options whose values are names, for callers that read them as text
+  # (profiles, the HTTP API, the benchmark's JSON).
+  NAMED_OPTIONS = (Generator.choices.select { |_, allowed| allowed.all?(Symbol) }.keys + %i[method preset]).freeze
+
   PRESETS = {
     # The building and its whole lot: parking up to the kerb, railways and a
     # strip short of neighbours. The default.

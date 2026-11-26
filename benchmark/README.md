@@ -18,7 +18,7 @@ CURTILAGE_BENCHMARK_HOLDOUT=1 CURTILAGE_RELEASE_CHECK=1 bundle exec rake benchma
 bundle exec rake benchmark:seal                             # seal newly labelled held-out sites
 bundle exec rake "benchmark:review_sample[ID]"              # the four-outcome review sample for one site
 bundle exec rake benchmark:parcels                          # fetch each site's tax parcel and those around it (data/benchmark/parcels)
-bundle exec rake benchmark:parcel_modes                     # the rules alone and with parcels (clip, grow, start), side by side
+bundle exec rake benchmark:parcel_modes                     # the rules alone and with parcels (clip, grow), side by side
 bundle exec rake benchmark:flags                            # do flags and confidence mark the poor results? (error by flag, Spearman)
 bundle exec rake benchmark:circles                          # 50 m and 75 m circles round the pin, scored the same way (baseline)
 bundle exec rake "benchmark:spot_check_sample[3]"           # a seeded sample of a held-out set's points, without their kinds

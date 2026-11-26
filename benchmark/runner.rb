@@ -33,8 +33,6 @@ module CurtilageBenchmark
   ROOT = File.expand_path("..", DIR)
   DATA = File.join(ROOT, "data", "benchmark")
   ID = /\A[a-z0-9][a-z0-9-]{0,63}\z/
-  # Options read from JSON whose values are names, not strings.
-  SYMBOL_OPTIONS = %w[buildings scope preset method entrances neighbour_cut touching_neighbours parcel_mode].freeze
   G = Curtilage::Geometry
 
   module_function
@@ -233,7 +231,8 @@ module CurtilageBenchmark
   end
 
   def symbolised(options)
-    options.to_h { |key, value| [key.to_sym, SYMBOL_OPTIONS.include?(key) ? value.to_sym : value] }
+    named = Curtilage::NAMED_OPTIONS
+    options.to_h { |key, value| [key.to_sym, named.include?(key.to_sym) && value.is_a?(String) ? value.to_sym : value] }
   end
 
   # { "views" => { name => score } } for a labelled site, one result per
