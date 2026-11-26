@@ -200,7 +200,7 @@ def run(opts, pins, **extra)
 end
 
 def data_flags(o, opts)
-  o.on("--source NAME", %w[auto geofabrik overture],
+  o.on("--source NAME", Curtilage::SOURCES.map(&:to_s),
        "auto (default: Overture for scattered pins, Geofabrik builds for many), geofabrik or overture") do |v|
     opts[:source] = v.to_sym
   end
@@ -514,7 +514,7 @@ def serve(args)
   token = ENV.fetch(opts[:token_env], nil)
   server = Curtilage::Server.new(**opts.slice(:host, :port, :cors_origin, :log_pins),
                                  token: token, log: LOG, options: serve_options(opts), **limits)
-  warn_open(opts, server)
+  warn_open(opts, token)
   # A signal handler can't close a socket another thread is blocked on.
   %w[INT TERM].each { |signal| trap(signal) { Thread.new { server.stop } } }
   server.run
@@ -550,8 +550,9 @@ def serve_options(opts)
     lookup: opts.slice(:duckdb, :extension_directory), data: { log: LOG } }.compact
 end
 
-def warn_open(opts, server)
-  return if server.instance_variable_get(:@token) || [nil, "127.0.0.1", "localhost", "::1"].include?(opts[:host])
+def warn_open(opts, token)
+  return unless token.to_s.empty? # as the server reads it: an empty token is none
+  return if [nil, "127.0.0.1", "localhost", "::1"].include?(opts[:host])
 
   LOG.puts("warning: listening on #{opts[:host]} with no token: anyone who can reach it can use it " \
            "(set $#{opts[:token_env]})")

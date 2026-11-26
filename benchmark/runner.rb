@@ -33,8 +33,6 @@ module CurtilageBenchmark
   ROOT = File.expand_path("..", DIR)
   DATA = File.join(ROOT, "data", "benchmark")
   ID = /\A[a-z0-9][a-z0-9-]{0,63}\z/
-  # Options read from JSON whose values are names, not strings.
-  SYMBOL_OPTIONS = %w[buildings scope preset method entrances neighbour_cut touching_neighbours parcel_mode].freeze
   G = Curtilage::Geometry
 
   module_function
@@ -132,9 +130,6 @@ module CurtilageBenchmark
 
   def role(site) = site["role"] || (site["holdout"] == true ? "holdout" : "tuning")
 
-  # Tuning and validation sites. Held-out sites only with
-  # CURTILAGE_BENCHMARK_HOLDOUT=1 and CURTILAGE_RELEASE_CHECK=1, and then
-  # only them.
   # Tuning and validation sites; with the release check (both flags), every
   # site, held-out ones included, once their labels are all sealed. A
   # release-check run keeps totals only (summary_only).
@@ -233,7 +228,8 @@ module CurtilageBenchmark
   end
 
   def symbolised(options)
-    options.to_h { |key, value| [key.to_sym, SYMBOL_OPTIONS.include?(key) ? value.to_sym : value] }
+    named = Curtilage::NAMED_OPTIONS
+    options.to_h { |key, value| [key.to_sym, named.include?(key.to_sym) && value.is_a?(String) ? value.to_sym : value] }
   end
 
   # { "views" => { name => score } } for a labelled site, one result per
@@ -293,8 +289,7 @@ module CurtilageBenchmark
     metrics = { "reference_area_m2" => G.area(ref).round }
     return metrics.merge("iou" => 0.0) unless generated
 
-    common = G.overlap_area(ref, generated)
-    metrics.merge("iou" => (common / (G.area(generated) + G.area(ref) - common)).round(3),
+    metrics.merge("iou" => G.iou(ref, generated).round(3),
                   "area_ratio" => (G.area(generated) / G.area(ref)).round(2))
   end
 

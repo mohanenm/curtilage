@@ -165,8 +165,6 @@ module CurtilageBenchmark
     ["", head, *lines.flatten, *role_table(run, holdout: holdout_counts)]
   end
 
-  # Each view per role, side by side: in caught / out taken, with labelled
-  # site counts.
   # Every view per role side by side, with labelled site counts. Held-out
   # sites are only in a release-check run; otherwise their line says how
   # many there are and how many are labelled (holdout: [sites, labelled]).

@@ -80,6 +80,10 @@ module Curtilage
   }.freeze
 
   # Named styles; any option passed alongside a preset overrides it.
+  # Options whose values are names, for callers that read them as text
+  # (profiles, the HTTP API, the benchmark's JSON).
+  NAMED_OPTIONS = (Generator.choices.select { |_, allowed| allowed.all?(Symbol) }.keys + %i[method preset]).freeze
+
   PRESETS = {
     # The building and its whole lot: parking up to the kerb, railways and a
     # strip short of neighbours. The default.
@@ -273,10 +277,8 @@ module Curtilage
     return run_many(pins, catalogue, parquet, lookup, options) if catalogue || parquet
 
     source = (source || config.source).to_sym
-    unless SOURCES.include?(source)
-      raise ArgumentError,
-            "unknown source #{source.inspect} (have: #{SOURCES.join(", ")})"
-    end
+    known = SOURCES.include?(source)
+    raise ArgumentError, "unknown source #{source.inspect} (have: #{SOURCES.join(", ")})" unless known
     return from_overture(pins, lookup, data, options) if source == :overture
 
     auto = AutoData.new(cache_dir: cache_dir || config.cache_dir, **lookup.slice(:duckdb, :extension_directory),

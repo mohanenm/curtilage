@@ -54,8 +54,7 @@ module Curtilage
       return nil unless generated.ok?
 
       gen = Geometry.counter_clockwise(Geometry.open_ring(Geometry.project(generated.ring, pin)))
-      common = Geometry.overlap_area(xy, gen)
-      (common / (Geometry.area(xy) + Geometry.area(gen) - common)).round(2)
+      Geometry.iou(xy, gen).round(2)
     end
 
     # Metres of public road and railway more than 1 m inside the polygon.

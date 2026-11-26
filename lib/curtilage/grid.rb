@@ -237,15 +237,7 @@ module Curtilage
 
     # Grows the shape by metres, then shrinks it back: gaps narrower than
     # twice that fill in, the outline elsewhere stays where it was.
-    def close(metres)
-      return self unless metres.positive?
-      raise ArgumentError, "close(#{metres}) needs pad: #{metres} or more" if metres > @pad + @cell
-
-      limit = (metres / @cell)**2
-      grown = Distance.squared(@on, @w, @h, true).map { |d| d <= limit }
-      @on = Distance.squared(grown, @w, @h, false).map { |d| d > limit }
-      self
-    end
+    def close(metres) = metres.positive? ? buffer(metres).buffer(-metres) : self
 
     # Keeps only the shape joined (side to side) to the cell at point, with
     # its holes filled and no cells touching only at a corner, so it has one

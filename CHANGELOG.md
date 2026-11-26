@@ -12,11 +12,13 @@
 - Public benchmark: a regional check against official planimetric data (`benchmark/regional/`, sources and terms in its README). `benchmark:regional:fetch` downloads whole layers from DC GIS (CC BY 4.0), keeping each feature's class and geometry only; `benchmark:regional:sites` sorts Overture places into clear sites (one official building, a parcel with no other business, parking or driveway on it) and unclear ones. DC: 124 clear, 3,966 unclear.
 - Regional check: `benchmark:regional:run` scores curtilage and baselines (50 m and 75 m circles, the building alone, the parcel alone) against the official polygons (building, own pavement, road, sidewalk and neighbour leak, structures, entrances), with a 2 m alignment tolerance; `benchmark:regional:table` puts runs side by side.
 - Regional check: `benchmark:regional:options` runs each option that might change results on this data, alone. Denver (DRCOG planimetrics and Denver parcels, CC BY 3.0) and six Connecticut towns (2023 impervious surface, aggregate results only) added as sources.
+- Public benchmark: `benchmark:intervals` gives 95% intervals by resampling sites, for a run and for the difference between two runs; `benchmark/README.md` says what label noise and sample size mean for comparisons. Tuning, default view: 73.3% in caught (61.9 to 84.3), 6.0% out taken in (2.0 to 10.9).
 
 ### Fixed
 
 - Lookups in built files no longer stop in dense cities: a batch of pins whose DuckDB output passed the 200 MB cap stopped the whole run (seen with 500 pins in Washington DC). It is now read again in halves, down to one pin; only a single pin over the cap still fails, as `Curtilage::OutputTooLarge`.
-- Public benchmark: `benchmark:intervals` gives 95% intervals by resampling sites, for a run and for the difference between two runs; `benchmark/README.md` says what label noise and sample size mean for comparisons. Tuning, default view: 73.3% in caught (61.9 to 84.3), 6.0% out taken in (2.0 to 10.9).
+- Profiles and the HTTP API accept every option whose value is a name (`entrances`, `neighbour_cut`, `touching_neighbours`, `parcel_mode`), not only the first few: given as text, they failed the option check.
+- `benchmark:parcel_modes` no longer runs the removed `parcel_mode: :start`.
 
 ## [0.9.1] - 2026-11-25
 

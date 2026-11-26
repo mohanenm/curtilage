@@ -7,8 +7,6 @@
 # can be ranked either way. Held-out sites are never diagnosed. The causes
 # are heuristics read from the map data, documented in each rule below.
 module CurtilageBenchmark
-  PIN_BUCKETS = %w[on_right_building beside_right_building wrong_building far_off].freeze
-
   module_function
 
   # [{ "id", "role", "pin_bucket", "site_cause", "totals" => { view => [in, out] },

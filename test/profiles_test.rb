@@ -37,6 +37,17 @@ class ProfilesTest < Minitest::Test
     assert_in_delta 28 * 23, r.validation.metrics[:area_m2], 5 # 20 x 15 m plus 4 m all round
   end
 
+  # Every option whose value is a name can be given as text, not only the
+  # first few (these failed the choice check before).
+  def test_every_named_option_reads_as_text
+    text = "wide:\n  entrances: all\n  neighbour_cut: notch\n  touching_neighbours: cut\n  parcel_mode: grow\n"
+
+    assert_equal({ entrances: :all, neighbour_cut: :notch, touching_neighbours: :cut, parcel_mode: :grow },
+                 P.parse(text, :yaml)[:wide])
+    assert_includes Curtilage::NAMED_OPTIONS, :touching_neighbours
+    refute_includes Curtilage::NAMED_OPTIONS, :store_zone
+  end
+
   def test_mistakes_fail_naming_the_profile
     { "a:\n  grow_mm: 3\n" => "profile a: unknown option", "a:\n  grow_m: -3\n" => "profile a: grow_m",
       "a:\n  preset: roomy\n" => "profile a: unknown preset", "- a\n- b\n" => "map of name",

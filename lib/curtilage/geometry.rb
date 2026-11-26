@@ -60,10 +60,7 @@ module Curtilage
     end
 
     # Shoelace area of [x, y] points (open ring), in square metres.
-    def area(xy)
-      sum = xy.each_index.sum { |i| (xy[i][0] * xy[(i + 1) % xy.size][1]) - (xy[(i + 1) % xy.size][0] * xy[i][1]) }
-      (sum / 2.0).abs
-    end
+    def area(xy) = signed_area(xy).abs
 
     def distance(p, q)
       Math.hypot(p[0] - q[0], p[1] - q[1])
@@ -96,21 +93,8 @@ module Curtilage
       distance(point, closest_point_on_segment(point, a, b))
     end
 
-    # True when any two non-adjacent edges cross. O(n^2), fine for premises.
-    def self_intersects?(xy)
-      n = xy.size
-      return false if n < 4
-      return swept_crossing?(xy) if n > 8
-
-      edges = xy.each_index.map { |i| [xy[i], xy[(i + 1) % n]] }
-      edges.each_index.any? do |i|
-        ((i + 2)...n).any? do |j|
-          next false if i.zero? && j == n - 1 # first and last edge share a vertex
-
-          segments_cross?(*edges[i], *edges[j])
-        end
-      end
-    end
+    # True when any two non-adjacent edges cross.
+    def self_intersects?(xy) = xy.size >= 4 && swept_crossing?(xy)
 
     # The same answer as checking every pair of edges, for bigger rings:
     # edges in order of their left end, each checked only against earlier
@@ -283,11 +267,7 @@ module Curtilage
     def overlap?(poly_a, poly_b)
       return true if poly_a.any? { |p| contains?(poly_b, p) } || poly_b.any? { |p| contains?(poly_a, p) }
 
-      poly_a.each_index.any? do |i|
-        a1 = poly_a[i]
-        a2 = poly_a[(i + 1) % poly_a.size]
-        poly_b.each_index.any? { |j| segments_cross?(a1, a2, poly_b[j], poly_b[(j + 1) % poly_b.size]) }
-      end
+      rings_cross?(poly_a, poly_b)
     end
 
     # Drops the vertices that matter least (smallest triangle with their

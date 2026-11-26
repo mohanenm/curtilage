@@ -18,8 +18,6 @@ module Curtilage
   module Profiles
     MAX_BYTES = 1_000_000
     MAX_PROFILES = 100
-    # Options whose values are names, given as text in the file.
-    NAMES = %i[method scope buildings preset].freeze
 
     module_function
 
@@ -53,7 +51,7 @@ module Curtilage
     end
 
     def value(key, value)
-      return value.to_s.to_sym if NAMES.include?(key) && value.is_a?(String)
+      return value.to_s.to_sym if NAMED_OPTIONS.include?(key) && value.is_a?(String)
       return value.to_h { |k, v| [k.to_s.to_sym, v] } if key == :validation && value.is_a?(Hash)
 
       value

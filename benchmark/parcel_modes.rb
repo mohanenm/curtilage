@@ -2,11 +2,11 @@
 
 # The parcel modes side by side (rake benchmark:parcel_modes): the rules
 # alone, then with the parcels around each site (benchmark:parcels) under
-# parcel_mode :clip (a), :grow (b) and :start (c), on the tuning and
+# parcel_mode :clip (a) and :grow (b), on the tuning and
 # validation sites, split by whether the site has parcels, with the parcel
 # alone scored as the result for comparison. Held-out sites are never run.
 module CurtilageBenchmark
-  PARCEL_MODE_RUNS = { "rules alone" => nil, "clip (a)" => "clip", "grow (b)" => "grow", "start (c)" => "start" }.freeze
+  PARCEL_MODE_RUNS = { "rules alone" => nil, "clip (a)" => "clip", "grow (b)" => "grow" }.freeze
 
   module_function
 
