@@ -281,9 +281,6 @@ module Curtilage
     def keep_off_neighbours(poly, features, target, opts, log)
       area = Geometry.bounds(poly)
       near = neighbours(features, target, opts).select { |other| Geometry.bounds_near?(area, other.bounds) }
-      # A neighbour the premises surround would be a hole, which the notch
-      # grid fills: those still get a line cut.
-      poly = notch_neighbours(poly, near, target, log) || poly if opts[:neighbour_cut] == :notch
       nearest_first(near, target).each { |other| poly = line_off_neighbour(poly, other, target, log) }
       poly
     end
@@ -302,83 +299,15 @@ module Curtilage
     end
 
     # Corners non-convex premises may keep: max_vertices, plus four for
-    # each entrance taken in and each neighbour cut round.
+    # each entrance taken in.
     def outline_budget(opts, log)
       extra = log.steps.to_a.any? { |s| s[:step] == "take_entrance" } ? 4 * (log.access || []).size : 0
-      extra += 4 * log.steps.to_a.count do |s|
-        s[:step] == "keep_off_neighbour" && %w[neighbour_cut touching_neighbours].include?(s[:rule])
-      end
-      # A whole centre traced round its aisles, or a partition, isn't a rectangle.
-      if log.steps.to_a.any? { |s| %w[whole_centre partition].include?(s[:step]) }
-        extra = Validation::DEFAULTS[:max_vertices]
-      end
+      # A whole centre traced round its aisles isn't a rectangle.
+      extra = Validation::DEFAULTS[:max_vertices] if log.steps.to_a.any? { |s| s[:step] == "whole_centre" }
       [opts[:max_vertices] + extra, Validation::DEFAULTS[:max_vertices]].min
     end
 
-    NEIGHBOUR_CUTS = %i[line notch].freeze
-    NOTCH_GAP_M = 1
-
-    # neighbour_cut: :notch. Cuts each neighbour out of the premises with a
-    # NOTCH_GAP_M margin instead of a line across them, so a lot that runs
-    # past a neighbour keeps the part beyond it. nil (line cuts) if that fails.
-    def notch_neighbours(poly, near, target, log)
-      hits = near.reject { |o| Geometry.overlap?(o.hull, target.hull) || !Geometry.overlap?(o.hull, poly) }
-      return poly if hits.empty?
-
-      xy = notched(poly) { |grid| hits.each { |o| grid.erase(grown_hull(o.hull, NOTCH_GAP_M)) } }
-      return nil unless xy
-
-      hits.each do |o|
-        log.note("cut round building #{o.id}, #{NOTCH_GAP_M} m clear",
-                 step: "keep_off_neighbour", rule: "neighbour_cut", features: [o.id], distance_m: NOTCH_GAP_M)
-      end
-      xy
-    end
-
-    # touching_neighbours: :cut. A neighbour touching the building leaves
-    # no room for a line cut, so its footprint is cut out instead; the lot
-    # round it stays (on the benchmark, cutting the ground nearer to it too
-    # dropped the site's own parking). One the premises surround would be a
-    # hole and stays in (shared_checks flags it), as does one under the pin.
-    def cut_touching(poly, features, target, opts, log)
-      return poly unless opts[:touching_neighbours] == :cut
-
-      hits = touching(poly, features, target, opts)
-      return poly if hits.empty? || hits.any? { |o| Geometry.contains?(o.xy, [0.0, 0.0]) }
-
-      xy = notched(poly, keep: target.hull) { |grid| hits.each { |o| grid.erase(o.xy) } } or return poly
-      out = hits.reject { |o| Geometry.contains?(xy, Geometry.centroid(o.hull)) }
-      return poly if out.empty?
-
-      out.each do |o|
-        log.note("cut out building #{o.id}, which touches the building", step: "keep_off_neighbour",
-                                                                         rule: "touching_neighbours", features: [o.id])
-      end
-      xy
-    end
-
-    # Neighbours touching the building (hulls overlapping) that reach into
-    # the premises; canopies and car parks are the site's.
-    def touching(poly, features, target, opts)
-      neighbours(features, target, opts).select do |o|
-        !LOT_TYPES.include?(o.category) && Geometry.overlap?(o.hull, target.hull) && Geometry.overlap?(o.xy, poly)
-      end
-    end
-
-    # On a grid of a metre or so: poly, cut by the block, with keep (a
-    # convex ring) painted back a cell wider so the traced outline holds it;
-    # the piece holding the pin, outlined.
-    def notched(poly, keep: nil)
-      extent = Geometry.bounds(poly)
-      cell = ((extent[2] - extent[0]) + (extent[3] - extent[1])).fdiv(400).clamp(0.5, 1.5)
-      grid = Grid.new(extent, cell).paint(poly)
-      yield grid
-      grid.paint(grown_hull(keep, cell)) if keep
-      return nil unless grid.keep_part?([0.0, 0.0])
-
-      xy = Geometry.counter_clockwise(Geometry.douglas_peucker(grid.outline, cell))
-      xy.size < 3 || Geometry.self_intersects?(xy) ? nil : xy
-    end
+    NOTCH_GAP_M = 1 # homes are kept this far clear when a centre is traced
 
     # A convex ring metres outside a convex hull (corners cut at 45 degrees).
     def grown_hull(hull, metres)

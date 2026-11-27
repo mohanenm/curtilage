@@ -107,7 +107,7 @@ Two things limit what the numbers can show: the labels and the number of sites.
 | Validation | default | 7 | 47.4% (25.2 to 70.1) | 14.5% (5.4 to 24.0) |
 | Validation | core | 7 | 60.2% (31.2 to 86.5) | 8.9% (2.6 to 15.8) |
 
-`method: :partition` minus the default, on the same sites:
+As an example, `method: :partition` (an experimental method since removed: worse on the tuning sites and in the regional check, and slow) minus the default, on the same sites:
 
 | Role | View | Sites | In caught | Out taken in |
 |---|---|---|---|---|

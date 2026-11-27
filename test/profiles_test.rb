@@ -40,11 +40,11 @@ class ProfilesTest < Minitest::Test
   # Every option whose value is a name can be given as text, not only the
   # first few (these failed the choice check before).
   def test_every_named_option_reads_as_text
-    text = "wide:\n  entrances: all\n  neighbour_cut: notch\n  touching_neighbours: cut\n  parcel_mode: grow\n"
+    text = "wide:\n  entrances: all\n  scope: centre\n  buildings: osm_or_ml\n  parcel_mode: grow\n"
 
-    assert_equal({ entrances: :all, neighbour_cut: :notch, touching_neighbours: :cut, parcel_mode: :grow },
+    assert_equal({ entrances: :all, scope: :centre, buildings: :osm_or_ml, parcel_mode: :grow },
                  P.parse(text, :yaml)[:wide])
-    assert_includes Curtilage::NAMED_OPTIONS, :touching_neighbours
+    assert_includes Curtilage::NAMED_OPTIONS, :parcel_mode
     refute_includes Curtilage::NAMED_OPTIONS, :store_zone
   end
 

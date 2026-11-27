@@ -2,6 +2,13 @@
 
 ## [Unreleased]
 
+### Breaking
+
+- Removed three experimental options, all off by default, whose own evidence was against them (default results don't change):
+  - `method: :partition`: on the tuning sites it caught a little less of the lot than the default (71.7% against 73.3%); in the DC regional check more premises reached onto the road (44% of clear sites against 34%) and fewer took in everything (59% against 70%); and it was slow. Its one gain, on the 7 validation sites, rests on 7 sites.
+  - `neighbour_cut: :notch`: in the DC check, fewer premises took in nothing that should stay out (17% against 20%) and more reached onto the road (42% against 34%).
+  - `touching_neighbours: :cut`: it lost whole buildings where OpenStreetMap draws one building in parts (DC: whole building inside 90% against 94%).
+
 ### Added
 
 - `pin_quality.warnings`: `second_building` (another building nearly as close as the nearest) or `reach_limit` (the nearest building about `building_max_distance_m` away, either side), where a pin moved 3 m could give a different result. On the 42 tuning and validation sites, the 5 warned are exactly the 5 whose building or validity changes when the pin moves 3 m. A new confidence factor, `steady_pin` (0.10), is met when there's no warning; validation sites, confidence against error (Spearman), -0.67 to -0.82.

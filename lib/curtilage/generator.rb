@@ -46,7 +46,7 @@ module Curtilage
 
     # The methods generate accepts, and the order propose falls back through.
     # Kept apart on purpose: a method can be offered without being a fallback.
-    METHODS = %i[grow_trim building partition].freeze
+    METHODS = %i[grow_trim building].freeze
     CHAIN = %i[grow_trim building].freeze
 
     PUBLIC_HIGHWAYS = %w[
@@ -117,8 +117,6 @@ module Curtilage
       snap_m: nil,                   # move a pin that's off any building onto the nearest within this (nil: don't)
       unit_m: nil,                   # store zone of a large building: this much frontage round the pin (nil: all)
       entrances: :near,              # :near, or :all (follow driveways to every entrance; premises not convex)
-      neighbour_cut: :line,          # after taking the lot: :line (cut across) or :notch (cut round the neighbour)
-      touching_neighbours: :keep,    # a neighbour touching the building: :keep, or :cut (its footprint cut out)
       parcel_mode: :clip,            # with parcels: :clip, or :grow (also take in the paving inside the site's parcels)
       shared_checks: false,          # mark large and shared buildings as estimates (flags, confidence, explanation)
     }.freeze
@@ -209,8 +207,7 @@ module Curtilage
     # The options that take one of a few names, and the names.
     def choices
       { scope: SCOPES, buildings: BUILDING_SOURCES, entrances: ENTRANCES, store_zone: [true, false],
-        neighbour_cut: NEIGHBOUR_CUTS, touching_neighbours: %i[keep cut], parcel_mode: PARCEL_MODES,
-        shared_checks: [true, false] }
+        parcel_mode: PARCEL_MODES, shared_checks: [true, false] }
     end
 
     def check_range(key, value, min, max, whole)
@@ -340,7 +337,7 @@ module Curtilage
       poly = trim_at_neighbours(poly, features, target, opts, log)
       poly = take_lot(poly, lots, Site.new(features, target, opts, log, shared))
       poly = keep_off_other_lots(poly, features, target, lots + parcel_lots(features, target, opts), log)
-      [cut_touching(poly, features, target, opts, log), target]
+      [poly, target]
     end
 
     def take_lot(poly, lots, site)
