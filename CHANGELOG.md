@@ -2,8 +2,17 @@
 
 ## [Unreleased]
 
+### Breaking
+
+- Removed three experimental options, all off by default, whose own evidence was against them (default results don't change):
+  - `method: :partition`: on the tuning sites it caught a little less of the lot than the default (71.7% against 73.3%); in the DC regional check more premises reached onto the road (44% of clear sites against 34%) and fewer took in everything (59% against 70%); and it was slow. Its one gain, on the 7 validation sites, rests on 7 sites.
+  - `neighbour_cut: :notch`: in the DC check, fewer premises took in nothing that should stay out (17% against 20%) and more reached onto the road (42% against 34%).
+  - `touching_neighbours: :cut`: it lost whole buildings where OpenStreetMap draws one building in parts (DC: whole building inside 90% against 94%).
+
 ### Added
 
+- `pin_quality.warnings`: `second_building` (another building nearly as close as the nearest) or `reach_limit` (the nearest building about `building_max_distance_m` away, either side), where a pin moved 3 m could give a different result. On the 42 tuning and validation sites, the 5 warned are exactly the 5 whose building or validity changes when the pin moves 3 m. A new confidence factor, `steady_pin` (0.10), is met when there's no warning; validation sites, confidence against error (Spearman), -0.67 to -0.82.
+- Flag `crosses_road`: the premises hold 5 m or more of a public road's centreline. It happens when the pin is on the road or across it from its building, which keeps both sides; the step now says which. Benchmark polygons unchanged; one site (a pin on the road) newly flagged.
 - README images: a 50 m circle and curtilage's outline over USGS imagery at the benchmark's median tuning site, and part of Arlington, Virginia, drawn with every business's outline. The website has the whole county as an interactive map (`docs/map/`), over OpenStreetMap or USGS imagery.
 - `touching_neighbours: :cut` (experimental, off by default): a neighbouring building that touches the site's building, which a line cut can't split off, has its footprint cut out of the premises. Tuning sites, default view: out taken 6.0% to 5.6%, in caught unchanged; 2 of 32 sites changed, both better.
 - `shared_checks` also flags `takes_in_building`: the premises hold the centre of another building that isn't a canopy or car park.
@@ -14,11 +23,21 @@
 - Regional check: `benchmark:regional:options` runs each option that might change results on this data, alone. Denver (DRCOG planimetrics and Denver parcels, CC BY 3.0) and six Connecticut towns (2023 impervious surface, aggregate results only) added as sources.
 - Public benchmark: `benchmark:intervals` gives 95% intervals by resampling sites, for a run and for the difference between two runs; `benchmark/README.md` says what label noise and sample size mean for comparisons. Tuning, default view: 73.3% in caught (61.9 to 84.3), 6.0% out taken in (2.0 to 10.9).
 
+### Changed
+
+- Docs: the accuracy claims restated. The README reports the regional check's 105 clear DC sites and a sample of 351 others side by side (road leak 33% and 58%, nothing out 21% and 12%), with the 2 m allowance and the sites left out; held-out sets are described as labelled without results on screen, corrected once (set 2) and scored a few times with the rules frozen, not "blind and scored once"; the benchmark's outside figures are called shares of labelled points; the 164 private sites are said to have judged rule changes.
+- Docs: confidence is described as uncalibrated. On the benchmark it no longer orders sites by error (rank correlation +0.12 on the tuning sites, -0.67 on the 7 validation sites, with or without `shared_checks`), so the "twice the errors" and `shared_checks` claims are withdrawn.
+
 ### Fixed
 
+- Simplifying a store outline no longer takes time growing with the square of its corners: a 5,000-corner building took 9 s to generate, now under 2 s. Results are identical (same corners dropped, ties included).
+- Taking in the lot no longer shrinks the premises. A road beyond the first trim could cut the lot's fence along a line back through ground already held, and which road did depended on the pin: one tuning site lost 60% of its premises when its pin moved 3 m east. Pins moved 3 m (42 sites, 8 directions): results changing a lot with the same building 3 to 0, all changes 17 to 14. Benchmark: one site gains 132 m2; no labelled point changes.
+- Overture reads split a batch whose output passes the 200 MB cap into halves, down to one site, as reads of built files already did; a dense batch no longer fails the whole call.
 - Lookups in built files no longer stop in dense cities: a batch of pins whose DuckDB output passed the 200 MB cap stopped the whole run (seen with 500 pins in Washington DC). It is now read again in halves, down to one pin; only a single pin over the cap still fails, as `Curtilage::OutputTooLarge`.
 - Profiles and the HTTP API accept every option whose value is a name (`entrances`, `neighbour_cut`, `touching_neighbours`, `parcel_mode`), not only the first few: given as text, they failed the option check.
 - `benchmark:parcel_modes` no longer runs the removed `parcel_mode: :start`.
+- `curtilage serve` gives a request 10 s in all to arrive, not 10 s between reads: a client sending a byte every few seconds could hold one of the four slots for hours.
+- Overture data files are read only from the `overturemaps-us-west-2` bucket the catalogue names, not any bucket whose name starts `overturemaps-`.
 
 ## [0.9.1] - 2026-11-25
 

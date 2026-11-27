@@ -121,29 +121,34 @@ DC, 105 clear sites (19 vintage left out), share of sites:
 
 | Run | Whole building | Everything in | Nothing out | Road leak | Sidewalk leak | Neighbour leak | Entrances found / right | Seconds |
 |---|---|---|---|---|---|---|---|---|
-| default | 94% | 70% | 21% | 33% | 43% | 64% | 47% / 70% | 63 |
-| `parcels:`, `parcel_mode: :grow`, `road_offset_m: 9`, `snap_m: 20` | 96% | 83% | 27% | 21% | 32% | 65% | 45% / 71% | 300 |
-| `parcels:`, `parcel_mode: :clip`, `snap_m: 20` | 85% | 58% | 41% | 18% | 19% | 48% | 47% / 70% | 116 |
-| `parcels:`, `parcel_mode: :grow` | 96% | 83% | 21% | 34% | 41% | 66% | 47% / 70% | 370 |
-| `parcels:`, `parcel_mode: :clip` | 86% | 59% | 40% | 21% | 20% | 48% | 47% / 70% | 197 |
-| `road_offset_m: 9` | 94% | 68% | 25% | 24% | 36% | 64% | 45% / 71% | 51 |
+| default | 94% | 70% | 20% | 34% | 43% | 64% | 47% / 70% | 50 |
+| `parcels:`, `parcel_mode: :grow`, `road_offset_m: 9`, `snap_m: 20` | 96% | 83% | 27% | 21% | 32% | 65% | 45% / 71% | 265 |
+| `parcels:`, `parcel_mode: :clip`, `snap_m: 20` | 85% | 59% | 41% | 18% | 19% | 48% | 47% / 70% | 2224 |
+| `parcels:`, `parcel_mode: :grow` | 96% | 83% | 21% | 35% | 41% | 66% | 47% / 70% | 297 |
+| `parcels:`, `parcel_mode: :clip` | 86% | 60% | 41% | 20% | 20% | 48% | 47% / 70% | 108 |
+| `road_offset_m: 9` | 94% | 69% | 25% | 24% | 36% | 64% | 45% / 71% | 52 |
 | `snap_m: 20` | 94% | 70% | 21% | 31% | 43% | 64% | 47% / 70% | 53 |
-| `grow_m: 20` | 94% | 70% | 22% | 34% | 38% | 63% | 47% / 70% | 51 |
-| `parking_max_extent_m: 90` | 94% | 70% | 21% | 33% | 43% | 64% | 47% / 69% | 51 |
-| `touching_neighbours: :cut` | 90% | 66% | 24% | 34% | 43% | 58% | 47% / 70% | 84 |
-| `neighbour_cut: :notch` | 95% | 73% | 18% | 40% | 46% | 70% | 47% / 70% | 71 |
-| `entrances: :all` | 96% | 72% | 18% | 41% | 44% | 68% | 61% / 56% | 124 |
-| `method: :partition` | 96% | 59% | 18% | 44% | 41% | 64% | none recorded | 976 |
-| `scope: :centre` | 91% | 73% | 18% | 43% | 47% | 70% | 34% / 73% | 119 |
+| `grow_m: 20` | 94% | 70% | 23% | 35% | 38% | 63% | 47% / 70% | 53 |
+| `parking_max_extent_m: 90` | 94% | 70% | 20% | 34% | 43% | 64% | 47% / 69% | 54 |
+| `entrances: :all` | 96% | 73% | 18% | 41% | 44% | 68% | 61% / 56% | 116 |
+| `scope: :centre` | 91% | 74% | 17% | 44% | 47% | 70% | 34% / 73% | 111 |
 | `preset: :tight` | 97% | 17% | 31% | 20% | 30% | 64% | none recorded | 33 |
 | 50 m circle | 92% | 79% | 0% | 99% | 80% | 97% | | |
 | the parcel alone | 62% | 61% | 96% | 2% | 12% | 2% | | |
 
+Seconds are wall-clock time on one laptop; the `:clip` with `snap_m` run shared the machine with other work.
+
 What it shows, as findings, not decisions:
 
-- With parcels, `:grow` with a 9 m road offset and pin snapping is better than the default on every measure here: more caught (everything in 70% to 83%) and less leak (road 33% to 21%, nothing out 21% to 27%). `:clip` leaks least (nothing out 41%) but loses whole buildings (94% to 85%).
-- Without parcels, a 9 m road offset cuts road leak (33% to 24%) at little cost. Not because DC's roads are wider than the half-widths by road class: measured from OpenStreetMap centrelines to the edge of DC's road polygons, they're narrower (median half-width primary 5.7 m against curtilage's 7.5 m, secondary 5.4 against 7, tertiary 4.9 against 6, residential 4.2 against 4.5). A larger fixed offset trims harder where the usual trim is held back (near the building or pin, at corners, where the OSM line is off-centre); which of these causes the leak isn't established yet.
-- `touching_neighbours: :cut` lowers neighbour leak (64% to 58%) but loses whole buildings at 40 sites, often where OpenStreetMap draws one building as several parts.
-- `method: :partition` leaks more road here than the default, records no entrances and is far slower in a dense city.
+- With parcels, `:grow` with a 9 m road offset and pin snapping is better than the default on every measure here: more caught (everything in 70% to 83%) and less leak (road 34% to 21%, nothing out 20% to 27%). `:clip` leaks least (nothing out 41%) but loses whole buildings (94% to 85%).
+- Without parcels, a 9 m road offset cuts road leak (34% to 24%) at little cost. Not because DC's roads are wider than the half-widths by road class: measured from OpenStreetMap centrelines to the edge of DC's road polygons, they're narrower (median half-width primary 5.7 m against curtilage's 7.5 m, secondary 5.4 against 7, tertiary 4.9 against 6, residential 4.2 against 4.5). A larger fixed offset trims harder where the usual trim is held back (near the building or pin, at corners, where the OSM line is off-centre); which of these causes the leak isn't established yet.
 - `shared_checks` changes flags only (its scores match the default's). Its `takes_in_building` flag marks the sites that leak onto neighbours: 78% of flagged sites against 51% of the rest. In DC it fires on half the sites, so it orders a review rather than singling out a few. The other flags separate leaking sites little.
-- Unclear sites (349) move the same way, with smaller gains.
+- Unclear sites move the same way, with smaller gains.
+
+DC, the sample of unclear sites (351 scored, 49 vintage left out of 400), default settings and baselines. Which parcel is the site's is a guess here (the one under the pin), so the building, everything-in and neighbour figures are rougher than road and sidewalk, which don't depend on it:
+
+| Run | Whole building | Everything in | Nothing out | Road leak | Sidewalk leak | Neighbour leak |
+|---|---|---|---|---|---|---|
+| default | 73% | 61% | 12% | 58% | 71% | 65% |
+| 50 m circle | 55% | 50% | 1% | 97% | 92% | 87% |
+| the parcel alone | 24% | 24% | 86% | 11% | 15% | 7% |

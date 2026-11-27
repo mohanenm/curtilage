@@ -8,6 +8,7 @@ module Curtilage
     ROAD_REACH_M = 60   # only the road this close to the building bounds the site
     ROAD_BEND_DEG = 30  # a sharper turn starts a new stretch
     ROAD_SNAP_DEG = 10  # a stretch this close to a building side is squared to it
+    ROAD_INSIDE_M = 5   # this much public road centreline inside the premises raises crosses_road
 
     module_function
 
@@ -17,6 +18,21 @@ module Curtilage
       (features.public_roads + features.railways)
         .flat_map { |road| road_runs(road, target).map { |run| [road, run, road_offset(road, opts)] } }
         .sort_by { |_, run, _| run.map { |p| Geometry.distance_to_edges(target.hull, p) }.min }
+    end
+
+    # Premises should stop at public roads, but a pin on or across the road
+    # from its building keeps both sides (trim_at_roads): flag any premises
+    # holding ROAD_INSIDE_M or more of a public road's centreline, counted
+    # 1 m in from their edge so a road along the boundary doesn't count.
+    def flag_crosses_road(premises, features, log)
+      inside = features.public_roads.select do |road|
+        road.xy.each_cons(2).sum { |a, b| Audit.inside_length(premises, a, b) } >= ROAD_INSIDE_M
+      end
+      return if inside.empty?
+
+      log.flag(:crosses_road, "the premises cross #{inside.map { |r| road_label(r) }.join(", ")}: they should stop " \
+                              "at it; check the pin is on the business's side", step: "check_premises",
+                                                                                features: inside.map(&:id))
     end
 
     # Points every 2 m along the road within reach of the building, split

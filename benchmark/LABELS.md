@@ -81,7 +81,7 @@ Pick the most specific kind that fits. "This site" means the business the site's
    - the drive-through lane, forecourt and service yard, where they exist;
    - 2 `public_road` points per frontage;
    - 1–2 points on each neighbour (`neighbour_lot`, `neighbour_building`, `residential`) and behind the site.
-   - Buildings: one `building` point inside the pinned building (a second in the far wing of a big or odd-shaped one), and one point on each building **next to** the site. Don't label buildings further away: any sensible outline gets them right, and the random points cover them. Another building that is clearly part of the same business on the same enclosed lot (a garden centre's sheds, a dealership's service building) is `building` too; if you can't tell, `unclear`.
+   - Buildings: one `building` point inside the pinned building (a second in the far wing of a big or odd-shaped one), and one point on each building **next to** the site. Don't label buildings further away: any sensible outline gets them right. Another building that is clearly part of the same business on the same enclosed lot (a garden centre's sheds, a dealership's service building) is `building` too; if you can't tell, `unclear`.
 4. **Most points go 5–15 m from where the site ends, on both sides of that line.** Points in the middle of a lot or a road are easy for any outline and tell us nothing.
 5. **Stay 3 m from any line you can't place precisely** (a faded kerb, an unmarked lot edge). If a spot is genuinely ambiguous, label it `unclear`.
 6. Then classify the **random points**: the page drops 15 points at random within 120 m of the pin and shows them one at a time. These keep the score honest about places you wouldn't have chosen yourself.

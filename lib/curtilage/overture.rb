@@ -17,6 +17,9 @@ module Curtilage
     class Error < Curtilage::Error; end
 
     STAC_HOST = "stac.overturemaps.org"
+    # The only bucket data files are read from: a catalogue pointing anywhere
+    # else (another bucket named overturemaps-...) is ignored.
+    BUCKET = "s3://overturemaps-us-west-2/"
     CATALOG = "/catalog.json"
     MAX_INDEX_BYTES = 20_000_000
     MAX_OUTPUT_BYTES = 200_000_000
@@ -38,11 +41,20 @@ module Curtilage
       boxes = pins.map { |pin| box(pin, radius) }
       Dir.mktmpdir("curtilage-overture") do |dir|
         index = file_index(dir, options)
-        boxes.each_slice(Lookup::PINS_PER_CALL).flat_map do |batch|
-          rows = run(data_sql(batch, files_for(index, batch, options), options), options)
-          Lookup.group_rows(rows, batch.size)
-        end
+        boxes.each_slice(Lookup::PINS_PER_CALL).flat_map { |batch| read_boxes(index, batch, options) }
       end
+    end
+
+    # A batch whose output passes the cap (a dense area) is read in halves,
+    # down to one box, as Lookup does for built files.
+    def read_boxes(index, batch, options)
+      rows = run(data_sql(batch, files_for(index, batch, options), options), options)
+      Lookup.group_rows(rows, batch.size)
+    rescue OutputTooLarge
+      raise if batch.size == 1
+
+      half = batch.size / 2
+      read_boxes(index, batch.first(half), options) + read_boxes(index, batch.drop(half), options)
     end
 
     # Places matching one filter inside a box (west, south, east, north),
@@ -123,7 +135,7 @@ module Curtilage
       sql = "SELECT assets.aws.alternate.s3.href AS href FROM read_parquet(#{quote(index)}) " \
             "WHERE collection = 'place' AND #{box_filter("bbox", bbox)};"
       hrefs = run([setup(options, remote: false), sql].join("\n"), options).map { |r| r["href"] }
-      hrefs.select { |h| h.to_s.start_with?("s3://overturemaps-") }
+      hrefs.select { |h| h.to_s.start_with?(BUCKET) }
     end
 
     PLACE_COLUMNS = "id, names.\"primary\" AS name, brand.names.\"primary\" AS brand, " \
@@ -181,7 +193,7 @@ module Curtilage
       end
       rows = run([setup(options, remote: false), "#{selects.join(" UNION ALL ")};"].join("\n"), options)
       rows.group_by { |r| [r["pin_index"], r["collection"]] }.transform_values do |list|
-        list.map { |r| r["href"] }.select { |h| h.to_s.start_with?("s3://overturemaps-") }
+        list.map { |r| r["href"] }.select { |h| h.to_s.start_with?(BUCKET) }
       end
     end
 
@@ -287,7 +299,7 @@ module Curtilage
     def run(sql, options, attempts: 2)
       out, err, status = DuckDB.capture(options.fetch(:duckdb, "duckdb"), sql, "-json",
                                         timeout: options.fetch(:timeout, Curtilage.config.duckdb_timeout),
-                                        max_output: MAX_OUTPUT_BYTES)
+                                        max_output: options.fetch(:max_output, MAX_OUTPUT_BYTES))
       unless status.success?
         return run(sql, options, attempts: attempts - 1) if err.strip.empty? && attempts > 1
 

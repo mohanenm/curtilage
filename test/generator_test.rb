@@ -117,6 +117,35 @@ class GeneratorTest < Minitest::Test
     assert Curtilage::Geometry.contains?(xy(result), [0.0, 0.0])
   end
 
+  # A pin on the road, or across it from its building, keeps both sides
+  # (the trim follows the pin's side): the note says why and the result is
+  # flagged. A pin on the building's side is trimmed and not flagged.
+  def test_a_pin_on_or_across_the_road_is_flagged
+    rows = [polygon("building", 1, -10, 10, 10, 25), road(4, "secondary", [[-200, 0], [200, 0]])]
+    on_road, across, near = [0, -3, 3].map { |y| Curtilage.generate(lnglat(0, y), rows, method: :grow_trim) }
+
+    assert_includes on_road.flags, :crosses_road
+    assert(on_road.explanation.any? { |t| t.include?("the pin is on its centreline") })
+    assert_includes across.flags, :crosses_road
+    assert(across.explanation.any? { |t| t.include?("the pin is across it from the building") })
+    refute_includes near.flags, :crosses_road
+  end
+
+  # Taking in the lot never gives up ground already held: a lot box that
+  # lost part of the premises is replaced by the outline round both.
+  def test_lot_step_never_shrinks_the_premises
+    held = [[0.0, 0.0], [40.0, 0.0], [40.0, 30.0], [0.0, 30.0]]
+    bigger = [[0.0, 0.0], [60.0, 0.0], [60.0, 30.0], [0.0, 30.0]]
+    cut = [[0.0, 0.0], [20.0, 0.0], [20.0, 50.0], [0.0, 50.0]]
+    geo = Curtilage::Geometry
+
+    assert_equal bigger, Curtilage::Generator.keep_claimed(held, bigger)
+    kept = Curtilage::Generator.keep_claimed(held, cut)
+
+    assert_in_delta geo.area(held), geo.overlap_area(held, kept), 1e-6
+    assert_operator geo.area(kept), :>=, geo.area(cut)
+  end
+
   def test_kerb_offset_keeps_room_in_front_of_the_building
     tight = scene.first(3) + [road(4, "secondary", [[-200, -11], [200, -11]])]
     ys = xy(Curtilage.generate(PIN, tight, method: :grow_trim)).map(&:last)
@@ -179,76 +208,18 @@ class GeneratorTest < Minitest::Test
     assert(wide.explanation.any? { |n| n.include?("is shared with 3 other buildings") })
   end
 
-  # neighbour_cut: :notch cuts round a neighbour beside the lot instead of
-  # across it, so the lot running past the neighbour stays in.
-  def test_notch_keeps_the_lot_beyond_a_neighbour
-    raw = [polygon("building", 1, -10, -7.5, 10, 7.5), polygon("parking", 3, -45, -50, 10, -9),
-           polygon("building", 2, -45, -20, -25, -10), road(4, "secondary", [[-200, -60], [200, -60]])]
-    line = Curtilage.generate(PIN, raw, method: :grow_trim)
-    notch = Curtilage.generate(PIN, raw, method: :grow_trim, neighbour_cut: :notch)
-    lot_corner = [-40, -45]
-
-    refute Curtilage::Geometry.contains?(xy(line), lot_corner), "a line cut drops the lot beyond the neighbour"
-    assert Curtilage::Geometry.contains?(xy(notch), lot_corner)
-    refute Curtilage::Geometry.contains?(xy(notch), [-35, -15]), "the neighbour stays out"
-    assert notch.ok?
-  end
-
   # A neighbour sharing the building's east wall can't be split off with a
-  # line, so it's kept; touching_neighbours: :cut cuts its footprint out.
-  def test_cut_touching_cuts_out_a_neighbour_sharing_a_wall
-    raw = [polygon("building", 1, -10, -7.5, 10, 7.5), polygon("building", 2, 10, -7.5, 60, 7.5),
-           road(4, "secondary", [[-200, -60], [200, -60]])]
-    kept = Curtilage.generate(PIN, raw, method: :grow_trim)
-    cut = Curtilage.generate(PIN, raw, method: :grow_trim, touching_neighbours: :cut)
-
-    assert Curtilage::Geometry.contains?(xy(kept), [20, 0]), "kept by default"
-    refute Curtilage::Geometry.contains?(xy(cut), [20, 0]), "the neighbour is cut out"
-    assert Curtilage::Geometry.contains?(xy(cut), [9, 7]), "the building stays whole"
-    assert Curtilage::Geometry.contains?(xy(cut), [20, -20]), "the lot in front of the neighbour stays"
-    assert cut.ok?, cut.validation.errors.inspect
-  end
-
-  # A neighbour the premises surround can't be cut out (it would be a
-  # hole): shared_checks flags it.
+  # line, so it stays in the premises: shared_checks flags it.
   def test_shared_checks_flags_a_building_taken_in
     raw = [polygon("building", 1, -10, -7.5, 10, 7.5), polygon("building", 2, 10, -7.5, 30, 7.5),
            road(4, "secondary", [[-200, -60], [200, -60]])]
-    plain = Curtilage.generate(PIN, raw, method: :grow_trim, touching_neighbours: :cut)
-    checked = Curtilage.generate(PIN, raw, method: :grow_trim, touching_neighbours: :cut, shared_checks: true)
+    plain = Curtilage.generate(PIN, raw, method: :grow_trim)
+    checked = Curtilage.generate(PIN, raw, method: :grow_trim, shared_checks: true)
 
     assert Curtilage::Geometry.contains?(xy(plain), [20, 0])
     refute_includes plain.flags, :takes_in_building
     assert_includes checked.flags, :takes_in_building
     assert(checked.explanation.first.include?("take in another building"))
-  end
-
-  # method: :partition shares the ground with the neighbour east (x 50-70)
-  # and stops short of the secondary road (centreline y = -40, 7 m half
-  # width): the parking west is the site's, the neighbour isn't.
-  def test_partition_shares_the_ground_and_stops_at_the_road
-    result = Curtilage.generate(PIN, scene, method: :partition)
-    points = xy(result)
-
-    assert result.ok?, result.validation.errors.inspect
-    assert_operator points.map(&:last).min, :>, -34
-    assert Curtilage::Geometry.contains?(points, [-30, 0]), "the parking west"
-    refute Curtilage::Geometry.contains?(points, [60, 0]), "the neighbour"
-    refute Curtilage::Geometry.contains?(points, [45, 0]), "nearer the neighbour"
-    assert_equal(1, result.steps.count { |s| s[:step] == "partition" })
-  end
-
-  # A neighbour sharing the building's wall: the outline runs along the
-  # wall, and must still hold the whole building without falling back to a
-  # convex outline (which would take the neighbour back in).
-  def test_partition_keeps_off_a_neighbour_sharing_a_wall
-    raw = [polygon("building", 1, -10, -7.5, 10, 7.5), polygon("building", 2, 10, -7.5, 60, 7.5),
-           road(4, "secondary", [[-200, -60], [200, -60]])]
-    result = Curtilage.generate(PIN, raw, method: :partition)
-
-    assert result.ok?, result.validation.errors.inspect
-    refute Curtilage::Geometry.contains?(xy(result), [30, 0]), "the neighbour"
-    refute(result.steps.any? { |s| s[:step] == "simplify" })
   end
 
   # Another business's lot across an aisle (mapped parking 25 m south, not

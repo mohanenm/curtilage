@@ -6,9 +6,9 @@ module Curtilage
   # weight off 1 (never below 0), so the score always comes with the reasons
   # behind it. Flags say what to look at; confidence orders sites for review.
   #
-  # The weights are judgement, set before measuring: to be calibrated on the
-  # public benchmark once its reference polygons exist. Data age isn't a
-  # factor, as it would make the same inputs score differently over time.
+  # The weights are judgement, not fitted, and uncalibrated: on the public
+  # benchmark the score doesn't yet order sites by error (docs/reference.md,
+  # Confidence). Data age isn't a factor, as it would make the same inputs score differently over time.
   module Confidence
     # name => [weight, what it means when met]
     FACTORS = {
@@ -24,6 +24,7 @@ module Curtilage
       no_homes_next_door: [0.10, "No home borders the lot."],
       own_lot: [0.10, "The lot isn't split with other buildings (where a shared lot divides isn't in the map)."],
       no_warnings: [0.05, "Validation raised no warnings (size, shape and position look typical)."],
+      steady_pin: [0.10, "A pin moved a few metres would pick the same building (no pin_quality warnings)."],
     }.freeze
 
     # With shared_checks: true, a store that may be one unit and a shared lot
@@ -53,6 +54,8 @@ module Curtilage
       result.provenance&.dig(:options, :shared_checks) || !result.flags.include?(:large_building)
     end
 
+    def steady_pin?(result) = result.pin_quality.to_h[:warnings].nil?
+
     def met(result)
       flags = result.flags
       details = result.details || {}
@@ -65,7 +68,7 @@ module Curtilage
         plausible_building: !flags.include?(:small_building),
         mapped_parking: details[:parking_area_m2].to_f.positive?, road_frontage: details[:frontage_m].to_f.positive?,
         no_homes_next_door: !flags.include?(:near_houses), own_lot: !flags.include?(:shared_lot),
-        no_warnings: result.validation.warnings.empty?
+        no_warnings: result.validation.warnings.empty?, steady_pin: steady_pin?(result)
       }
     end
   end

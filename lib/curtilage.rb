@@ -13,7 +13,6 @@ require_relative "curtilage/result"
 require_relative "curtilage/confidence"
 require_relative "curtilage/generator"
 require_relative "curtilage/generator_lot"
-require_relative "curtilage/generator_partition"
 require_relative "curtilage/generator_centre"
 require_relative "curtilage/generator_roads"
 require_relative "curtilage/generator_store"
@@ -67,6 +66,8 @@ module Curtilage
                 "divides isn't in the map, so check the line.",
     takes_in_building: "shared_checks: the premises take in another building (not a canopy or car park): if it's " \
                        "another business's, trim the premises off it.",
+    crosses_road: "The premises hold part of a public road: they should stop at it. Usually the pin is on or " \
+                  "across the road from the building; check it.",
     pin_moved: "The pin wasn't on a building and was moved onto the nearest one (snap_m:): check it's the right one.",
     fallback: "The main method failed validation; the building rectangle was used.",
     ml_footprint: "Built on a machine-learned footprint, not an OSM building.",

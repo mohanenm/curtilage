@@ -252,7 +252,7 @@ namespace :benchmark do
     end
 
     desc "Run the regional check for each option: rake \"benchmark:regional:options[dc]\" " \
-         "(REGIONAL_RUNS=partition,notch for some)"
+         "(REGIONAL_RUNS=grow_20,snap_20 for some)"
     task :options, %i[region] do |_, args|
       names = ENV["REGIONAL_RUNS"]&.split(",") || benchmark::REGIONAL_OPTION_RUNS.keys
       benchmark.regional_options(args[:region] || "dc", names).each do |run|

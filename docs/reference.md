@@ -25,7 +25,7 @@ Premises for many pins, in pin order. Pins that share map data share the work. E
 | `lookup:` | `{}` | `duckdb:`, `extension_directory:` (default: the configuration), `setup_sql:` (e.g. `CREATE SECRET` for a private bucket), `radius_deg:` (how far around each pin to read, default 0.004), `memory_limit:` (DuckDB's memory cap for lookups and Overture reads, default `"1GB"`), `timeout:` (seconds before a DuckDB query is stopped, default `Curtilage.config.duckdb_timeout`, 600). A lookup batch whose output passes 200 MB (`max_output:`, in bytes) is read again in halves, down to one pin; a single pin over it raises `Curtilage::OutputTooLarge`. |
 | `data:` | `{}` | For builds: `max_age_days:` (31), `ml_footprints:` (`"microsoft"`), `parallel_builds:` (1, at most 8; each build peaks near 600 MB, so raise it to 2-3 only on machines with the memory). An unknown `data:` option raises `ArgumentError`. For `:auto`: `auto_build_min_pins:` (10). For Overture: `release:` (default: the latest; a release name such as `"2026-11-18.0"`). `log:` where build progress goes (anything with `puts`; default standard error). |
 | `preset:` | none | `:whole_lot`, `:tight` or `:centre` (below). |
-| `method:` | none | `:grow_trim` or `:building` to force one method, no fallback. `:partition` (experimental) shares the ground round the building with every other building nearby, by the shortest path that doesn't cross a public road or railway: the site keeps ground up to twice as far from its building as from the nearest other one, and `neighbour_gap_m` clear of it, within `grow_m` (open ground) or `parking_max_extent_m` (mapped parking and service-road strips, `aisle_m` either side). The premises follow the ground, so they aren't convex. On the benchmark, default view: tuning 71.7% caught / 6.3% taken (default method 73.3% / 6.0%), validation 72.1% / 13.0% (47.4% / 14.5%); core view: tuning 86.2% / 1.7% (90.3% / 1.3%), validation 77.5% / 5.1% (60.2% / 8.9%). `scope:` and `neighbour_cut:` don't apply to it. |
+| `method:` | none | `:grow_trim` or `:building` to force one method, no fallback. |
 | `parcels:` | `nil` | Property lines you supply: a GeoJSON file of Polygons or MultiPolygons, or GeoParquet (a WKB `geometry` column) as a local path or a URL DuckDB can read (`lookup: { setup_sql: }` for a private bucket). Only parcels near the pins are used ([Parcels](#parcels)). |
 | `corrections:` | `{}` | `{ pin index => ring }` (or `{ ring:, store_ring: }`), 0-based: use these polygons instead of generating ([Corrections](#corrections-and-comparing-runs)). Their pins fetch no data. |
 | `candidates:` | none | 1 to 5: also return other premises for ambiguous sites ([Candidates](#candidates)). |
@@ -68,7 +68,7 @@ Premises from features you already have (from `Curtilage::Lookup.features` or `C
 | `staging_point` | `[lng, lat]` where a driver might wait, estimated, with a pickup zone ([Zones](#zones)); `nil` otherwise. |
 | `entrances` | Where vehicles enter from the street, with the street's name and class (`details[:entrances]`, below); `[]` when none. |
 | `flags` | Reasons a person should look first (below). |
-| `pin_quality` | `{ quality:, building_m:, moved_from: }`: where the pin was given (`on_building`; `on_road`, within half a public road's width of its centreline; `near_building`, a building within `building_max_distance_m`; or `far`), the distance to the nearest building's edge (0 on one, absent with none), and with `snap_m:` the pin as given when it was moved (`pin` is then the moved pin). `nil` for results that raised an error. |
+| `pin_quality` | `{ quality:, building_m:, moved_from: }`: where the pin was given (`on_building`; `on_road`, within half a public road's width of its centreline; `near_building`, a building within `building_max_distance_m`; or `far`), the distance to the nearest building's edge (0 on one, absent with none), with `snap_m:` the pin as given when it was moved (`pin` is then the moved pin), and `warnings` when a pin moved 3 m could give a different result: `second_building` (another building, not a kiosk, nearly as close as the nearest) or `reach_limit` (the nearest building about `building_max_distance_m` away, either side). Geocoders and GPS are often off by more than that. `nil` for results that raised an error. |
 | `explanation` | Each step, in plain words. |
 | `steps` | The same steps as records, one per line of `explanation` and in the same order, for tools to show or audit (below). |
 | `validation` | `errors`, `warnings` and `metrics` (area, rectangularity, pin inside, distances). |
@@ -160,8 +160,6 @@ All distances in metres, areas in square metres. These are `Curtilage::Generator
 | `aisle_m` | `9` | Treat this much either side of each service road near the building (within `parking_reach_m` plus this) as parking, for lots OpenStreetMap maps only as aisles and driveways. The strips are claimed, shared, trimmed and fenced like mapped parking. 9 m is half an aisle plus a stall. `nil` turns it off. |
 | `shared_checks` | `false` | Experimental (`--shared-checks`): mark large and shared buildings as the estimates they are. The premises don't change. `store_may_be_unit` is raised for a building over `large_building_note_m2` unless its type normally has one occupant (hotel, school, hospital, place of worship, civic or public building, library, post office, supermarket, warehouse and similar), and for a building joined to another (within 1 m, as in a row of shops); `shared_lot` is also raised for a claimed lot touching two other buildings (claimed whole); those two count for more in the confidence score (0.25 and 0.20); `takes_in_building` is raised when the premises hold the centre of another building (not a canopy or car park; not with `scope: :centre`'s whole centre); and the explanation starts with an "Estimate: ..." line saying why. |
 | `parcel_mode` | `:clip` | With parcels: `:clip` clips to the building's parcel; `:grow` adds the paving inside the site's parcels, without clipping. Experimental ([Parcels](#parcels)). |
-| `neighbour_cut` | `:line` | How the premises keep off neighbouring buildings after the lot is taken in: `:line` cuts straight across, square to the building; `:notch` (experimental) cuts round each neighbour 1 m clear, so a lot running past a neighbour keeps the part beyond it. Neighbours the premises surround still get a line cut. |
-| `touching_neighbours` | `:keep` | A neighbouring building that touches the site's building (a shared wall), which a line cut can't split off: `:keep` leaves it in the premises; `:cut` (experimental) cuts its footprint out, leaving the lot round it. A neighbour the premises surround would be a hole and stays in (`shared_checks` flags it), as does one under the pin. On the benchmark's tuning sites, default view: out taken 6.0% to 5.6%, in caught unchanged (73.3%). |
 | `centre_max_m2` | `50000` | With `scope: :centre`, a centre bigger than this (a regional mall) isn't used: the site keeps its own share of the lot (flag `large_centre`), as "anywhere in the mall" is too coarse to mean at the store. |
 | `lot_share_reach_m` | `5` | Another building this close to the site's lot (across a walkway) shares it: with `shared_lot_buildings` or more such buildings the lot is split between them. Buildings farther off, across an aisle or behind, don't count. The site itself takes a share of such a shared lot only when it's this close too; a shared lot across an aisle or planting strip belongs to the others. |
 | `parking_max_extent_m` | `60` | Parking is claimed at most this far from the building. |
@@ -260,9 +258,8 @@ In GeoJSON they're extra features with `properties.role` `approach`, `pickup` an
 | `keep_off_lot` | Stopped at the edge of mapped parking that isn't the site's (another business's lot). | |
 | `take_driveway` | A driveway to the street was taken in. | `ENTRANCE_REACH_M` |
 | `add_lot` | The claimed lot was added to the premises. | `parking_max_extent_m` |
-| `keep_off_neighbour` | Kept 1 m off a neighbour the lot reached, or (`touching_neighbours: :cut`) cut out a neighbour touching the building. | `neighbour_cut`, `touching_neighbours` |
+| `keep_off_neighbour` | Kept 1 m off a neighbour the lot reached. | |
 | `whole_centre` | The whole shopping centre (`scope: :centre`). | |
-| `partition` | `method: :partition` shared the ground with the buildings nearby. | `grow_m`, `parking_max_extent_m`, `aisle_m`, `neighbour_gap_m` |
 | `widen`, `simplify` | The premises widened to hold the building, or simplified. | `max_vertices` for `simplify` |
 | `trim_store` | The store outline trimmed to fit inside the premises. | |
 | `approach_zone` | The approach zone made (or dropped). | `approach_m` |
@@ -287,6 +284,7 @@ New step names may be added in minor versions; treat an unknown one as a plain n
 |---|---|---|
 | `valid` | 1.0 | The premises passed validation. |
 | `main_method` | 0.30 | Made by the main method (no `fallback`). |
+| `steady_pin` | 0.10 | No `pin_quality.warnings`: a pin moved a few metres would pick the same building. |
 | `building_under_pin` | 0.20 | The pin was given on the building used (no `building_not_under_pin` or `pin_moved`). |
 | `full_data` | 0.20 | Map data covers the whole area around the pin (no `partial_data`). |
 | `plausible_building` | 0.15 | The building is big enough to be a store (no `small_building`). |
@@ -298,7 +296,7 @@ New step names may be added in minor versions; treat an unknown one as a plain n
 | `own_lot` | 0.10 (0.20 with `shared_checks`) | The lot isn't split with other buildings (no `shared_lot`). |
 | `no_warnings` | 0.05 | Validation raised no warnings. |
 
-The weights are judgement, not fitted; treat the score as a rough order, not a probability. On the benchmark's 31 scored tuning and validation sites at 0.9.0 (default view), the third of results with the highest confidence had 14% of their labelled points wrong, the middle third 21% and the lowest third 26%, but the rank correlation between confidence and error is weak (-0.14): it sorts the worst results towards the end of a review list, and doesn't pick out individual bad results. Use it with the flags, and check flagged results whatever their score. Two factors went the other way on those sites (results with the pin beside its building, or without mapped parking, had fewer errors); the weights stay until more sites say how to change them. Data age isn't a factor, so the same inputs always score the same.
+The weights are judgement, not fitted: the score is uncalibrated, a rough order, not a probability. On the benchmark it doesn't order sites by error: the rank correlation between confidence and the share of labelled points wrong is +0.12 on the 24 tuning sites with labels (more confident results slightly worse) and -0.67 on the 7 validation sites (`rake benchmark:flags`), with or without `shared_checks`, on too few sites to settle it. Use the flags first, and check flagged results whatever their score. Some factors went the other way on those sites (results with the pin beside its building, or without mapped parking, had fewer errors); the weights stay until more sites say how to change them. Data age isn't a factor, so the same inputs always score the same.
 
 To review lowest confidence first: the preview's "Lowest confidence first" sort, or sort any output by its `confidence` field (a column in CSV).
 
@@ -312,6 +310,7 @@ The same list is `Curtilage::FLAGS` (flag => what it asks a person to check).
 | `large_building` | Building over 5,000 m2: may be shared by several tenants. |
 | `small_building` | Building under 50 m2: may be a kiosk or canopy rather than the store. |
 | `building_not_under_pin` | No building under the pin; the nearest one within 30 m was used. |
+| `crosses_road` | The premises hold 5 m or more of a public road's centreline (counted 1 m in from their edge). Roads always trim the premises, except when the pin is on the road or across it from the building: then both sides stay and this flag says so. Check the pin. |
 | `pin_moved` | The pin wasn't on a building and was moved onto the nearest one (`snap_m:`): check it's the right one. |
 | `store_may_be_unit` | The store zone is a building over 1,500 m2 (with `shared_checks`: unless its type normally has one occupant, or joined to another building): the store may be one unit of it. |
 | `shopping_centre` | `scope: :centre` mapped the whole centre. |

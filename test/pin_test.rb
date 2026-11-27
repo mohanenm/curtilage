@@ -17,12 +17,24 @@ class PinTest < Minitest::Test
 
   def test_pin_quality
     assert_equal({ quality: "on_building", building_m: 0 }, at(0, 0).pin_quality)
-    assert_equal({ quality: "on_road", building_m: 32.5 }, at(0, -40).pin_quality)
+    assert_equal({ quality: "on_road", building_m: 32.5, warnings: ["reach_limit"] }, at(0, -40).pin_quality)
     assert_equal({ quality: "near_building", building_m: 12.5 }, at(0, -20).pin_quality)
     assert_equal "far", at(0, 100).pin_quality[:quality]
     row = Curtilage::Formats.parse_csv(Curtilage::Formats.write([at(0, -20)], :csv))[1]
 
     assert_equal "near_building", row[Curtilage::Formats::CSV_COLUMNS.index("pin_quality")]
+  end
+
+  # Where a pin moved a few metres would give another result: halfway
+  # between the two buildings (each 20 m away), and 29 m from the only one.
+  def test_pin_warnings_and_confidence
+    between = at(30, 0)
+
+    assert_equal ["second_building"], between.pin_quality[:warnings]
+    refute between.confidence_factors.find { |f| f[:name] == :steady_pin }[:met]
+    assert_equal ["reach_limit"], at(0, -36.5).pin_quality[:warnings]
+    assert_nil at(0, -20).pin_quality[:warnings]
+    assert at(0, 0).confidence_factors.find { |f| f[:name] == :steady_pin }[:met]
   end
 
   def test_snapping_moves_the_pin_just_inside_the_nearest_building

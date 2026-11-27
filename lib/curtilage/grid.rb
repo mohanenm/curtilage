@@ -142,52 +142,8 @@ module Curtilage
       end
     end
 
-    # Shortest paths over the cells, round blocked ones.
-    module Paths
-      # 8 neighbours: [column step, row step, cost in tenths of a cell].
-      MOVES = [[1, 0, 10], [-1, 0, 10], [0, 1, 10], [0, -1, 10],
-               [1, 1, 14], [1, -1, 14], [-1, 1, 14], [-1, -1, 14]].freeze
-
-      # Metres from the nearest source cell to every cell, by the shortest
-      # path that never enters a blocked cell (Dial's buckets); infinite
-      # beyond limit metres. source, blocked: layers (see painted).
-      def path_distance(source, blocked, limit)
-        far = (limit / @cell * 10).ceil
-        run = { dist: Array.new(@on.size, Float::INFINITY), blocked: blocked, far: far,
-                buckets: Array.new(far + 15) { [] } }
-        run[:buckets][0] = source.each_index.select { |i| source[i] }
-        run[:buckets][0].each { |i| run[:dist][i] = 0 }
-        run[:buckets].each_with_index { |bucket, d| bucket.each { |i| relax(i, d, run) if run[:dist][i] == d } }
-        run[:dist].map { |d| d * @cell / 10 }
-      end
-
-      private
-
-      # Shortens the paths to the cell's neighbours through it.
-      def relax(index, dist, run)
-        steps(index).each do |j, cost|
-          next if run[:blocked][j] || dist + cost >= run[:dist][j] || dist + cost > run[:far]
-
-          run[:dist][j] = dist + cost
-          run[:buckets][dist + cost] << j
-        end
-      end
-
-      # [neighbour index, cost] for each of the 8 neighbours inside the grid.
-      def steps(index)
-        col = index % @w
-        row = index / @w
-        MOVES.filter_map do |dc, dr, cost|
-          c = col + dc
-          r = row + dr
-          [(r * @w) + c, cost] if c.between?(0, @w - 1) && r.between?(0, @h - 1)
-        end
-      end
-    end
-
     include Trace
     include Regions
-    include Paths
 
     attr_reader :cell
 

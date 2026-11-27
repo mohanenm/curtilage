@@ -10,6 +10,8 @@ module Curtilage
     # A snapped pin goes this far inside the building's edge.
     SNAP_INSET_M = 1
 
+    PIN_MARGIN_M = 3 # a pin moved this far could pick another building, or none
+
     module_function
 
     # { quality:, building_m: } for the pin as given: on_building, on_road
@@ -17,14 +19,30 @@ module Curtilage
     # (a building within building_max_distance_m) or far; building_m is the
     # distance to the nearest building's edge (0 on one, nil with none).
     def pin_quality(features, opts)
-      return { quality: "on_building", building_m: 0 } if on_building?(features)
+      warnings = pin_warnings(features, opts)
+      extra = warnings.empty? ? {} : { warnings: warnings }
+      return { quality: "on_building", building_m: 0, **extra } if on_building?(features)
 
       nearest = features.buildings.map { |b| Geometry.distance_to_edges(b.xy, ORIGIN) }.min
       quality = if features.public_roads.any? { |r| road_distance(r) <= road_offset(r, opts) } then "on_road"
                 elsif nearest && nearest <= opts[:building_max_distance_m] then "near_building"
                 else "far"
                 end
-      { quality: quality, building_m: nearest&.round(1) }
+      { quality: quality, building_m: nearest&.round(1), **extra }
+    end
+
+    # Where a pin moved a few metres (GPS and geocoders are off by more)
+    # could give a different result: a second building nearly as close as
+    # the nearest (second_building), or the nearest at about the reach limit,
+    # either side of it (reach_limit). Kiosks and canopies don't count.
+    def pin_warnings(features, opts)
+      real = features.buildings.reject { |b| b.area < opts[:small_building_m2] }
+      d = real.map { |b| Geometry.contains?(b.xy, ORIGIN) ? 0.0 : Geometry.distance_to_edges(b.xy, ORIGIN) }.sort
+      warnings = []
+      warnings << "second_building" if d.size >= 2 && d[1] - d[0] <= PIN_MARGIN_M
+      near_limit = d.any? && d[0].positive? && (opts[:building_max_distance_m] - d[0]).abs <= PIN_MARGIN_M
+      warnings << "reach_limit" if near_limit
+      warnings
     end
 
     def on_building?(features) = features.buildings.any? { |b| Geometry.contains?(b.xy, ORIGIN) }

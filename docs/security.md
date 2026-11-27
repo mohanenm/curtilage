@@ -29,7 +29,7 @@ The benchmark's tools (in the repository, not the gem) reach two more kinds of h
 | Environment variables (`CURTILAGE_*`) and `Curtilage.configure` | **Yes**: configuration | Values that reach SQL are quoted (`DuckDB.quote`) or converted to numbers first. |
 | Catalogue folders and bucket URLs | The location is configuration; the files are map data | Paths and URLs are quoted in SQL; what they contain is treated like any map data. |
 | The cache folder | Only if nobody else can write to it | DuckDB reads its Parquet files and the gem trusts its metadata. A new cache folder is created `0700`; one another user owns, or everyone can write to, is refused. Each built file's size and SHA256 are recorded; a missing or wrong-sized file is rebuilt, and `curtilage doctor --verify DIR` checks the hashes. |
-| `curtilage serve` requests | No (and anyone who can reach the port) | Listens on 127.0.0.1 unless `--host`; an optional bearer token (from an environment variable, compared in constant time); body (1 MB), headers (16 KB), pins (100), time (120 s, and 10 s to send the request) and concurrency (4) capped; only generation options accepted per request, never data sources, paths or SQL; pins checked like any input; errors carry a message, never a stack trace; no CORS unless configured; pins logged only with `--log-pins`. Plain HTTP: TLS is a reverse proxy's job. |
+| `curtilage serve` requests | No (and anyone who can reach the port) | Listens on 127.0.0.1 unless `--host`; an optional bearer token (from an environment variable, compared in constant time); body (1 MB), headers (16 KB), pins (100), time (120 s, and 10 s to send the whole request) and concurrency (4) capped; only generation options accepted per request, never data sources, paths or SQL; pins checked like any input; errors carry a message, never a stack trace; no CORS unless configured; pins logged only with `--log-pins`. Plain HTTP: TLS is a reverse proxy's job. |
 | Parcels you supply (`parcels:`) | No: map data | GeoJSON capped at 100 MB and read near the pins only; GeoParquet read through DuckDB with the path quoted; each parcel parsed like map data. |
 | Upstream hosts | No | HTTPS with certificate checks, to a fixed list of hosts; no redirects followed; sizes capped while streaming. |
 
@@ -45,7 +45,7 @@ The benchmark's tools (in the repository, not the gem) reach two more kinds of h
 
 **Hostile configuration** (environment variables, `setup_sql:`, the DuckDB path). Configuration is trusted by design: whoever sets it already controls what runs. It's documented here so nobody fills it from untrusted input.
 
-**The HTTP server** (`curtilage serve`, planned). Not built yet. When it is: it will bind to `127.0.0.1` by default, support an optional bearer token, cap body size, pins, time and concurrency, and never log pins unless asked.
+**A slow or hostile client of the HTTP server** (`curtilage serve`). It binds to `127.0.0.1` unless told otherwise and caps what a request can cost (the table above). The whole request, head and body, must arrive within 10 s of the first byte being awaited, so a client sending a byte at a time can't hold one of the four slots for long. There is no rate limit per client: put it behind a proxy that limits rates if untrusted clients can reach it.
 
 ## Defences in the code
 
@@ -70,7 +70,7 @@ DuckDB's extensions come from its own repository, signed, and their versions fol
 
 ## Known gaps
 
-None open from this review. Releases are published by a workflow with trusted publishing and a signed provenance attestation for the gem ([releases](design/release-plan.md)); the Docker image isn't published. The HTTP server has no rate limit per client beyond its concurrency cap: put it behind a proxy that limits rates if it faces untrusted clients.
+One left from the 2026-11-26 review: a building with thousands of points on its convex outline still costs about a second (finding its minimum rectangle), so a site full of such buildings is slow but bounded by the caps above; simplifying an outline no longer grows with the square of its corners (a 5,000-corner building: 9 s to under 2 s). Releases are published by a workflow with trusted publishing and a signed provenance attestation for the gem ([releases](design/release-plan.md)); the Docker image isn't published. The HTTP server has no rate limit per client beyond its concurrency cap: put it behind a proxy that limits rates if it faces untrusted clients.
 
 
 ## Out of scope

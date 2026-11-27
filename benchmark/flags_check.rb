@@ -44,8 +44,16 @@ module CurtilageBenchmark
     rows.max_by(5) { |r| r["error"] }.map { |r| "#{r["id"]} #{r["error"]} (#{r["confidence"]})" }.join(", ")
   end
 
+  # Held-out: a group under MIN_GROUP sites would show a site's own
+  # score, so only its size is printed.
+  MIN_GROUP = 3
+
   def flag_line(rows, flag)
     with, without = rows.partition { |r| r["flags"].include?(flag) }
+    if rows.first && rows.first["role"] == "holdout" && [with, without].any? { |g| g.size.between?(1, MIN_GROUP - 1) }
+      return "  #{flag.ljust(18)} #{with.size} / #{without.size} sites (a group under #{MIN_GROUP}: means not shown)"
+    end
+
     "  #{flag.ljust(18)} #{with.size}: #{mean(with.map { |r| r["error"] })} / " \
       "#{without.size}: #{mean(without.map { |r| r["error"] })}"
   end

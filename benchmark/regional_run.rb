@@ -16,8 +16,7 @@ module CurtilageBenchmark
   # then the combinations chosen from them (benchmark/regional/README.md,
   # "Options"). parcels: true means the region's official parcels.
   REGIONAL_OPTION_RUNS = {
-    "partition" => { method: :partition }, "touching_cut" => { touching_neighbours: :cut },
-    "notch" => { neighbour_cut: :notch }, "entrances_all" => { entrances: :all },
+    "entrances_all" => { entrances: :all },
     "parcels_clip" => { parcels: true, parcel_mode: :clip }, "parcels_grow" => { parcels: true, parcel_mode: :grow },
     "snap_20" => { snap_m: 20 }, "grow_20" => { grow_m: 20 }, "parking_90" => { parking_max_extent_m: 90 },
     "road_offset_9" => { road_offset_m: 9 }, "tight" => { preset: :tight }, "centre" => { scope: :centre },

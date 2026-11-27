@@ -112,6 +112,22 @@ class ServerTest < Minitest::Test
     socket&.close
   end
 
+  # One deadline for the whole request: a client trickling a byte at a
+  # time (each read well inside the limit) is still cut off.
+  def test_a_trickled_request_times_out
+    reader, writer = UNIXSocket.pair
+    writer.write("GET /health HTTP/1.1\r\n")
+    trickle = Thread.new { loop { writer.write("a") && sleep(0.05) } }
+    started = Process.clock_gettime(Process::CLOCK_MONOTONIC)
+    error = assert_raises(Curtilage::Server::Refused) { Curtilage::Server::Request.read(reader, 100, 0.3) }
+
+    assert_equal 408, error.status
+    assert_operator Process.clock_gettime(Process::CLOCK_MONOTONIC) - started, :<, 2
+  ensure
+    trickle&.kill
+    [reader, writer].each { |s| s&.close }
+  end
+
   def test_slow_generation_times_out
     start(timeout_s: 0.2, generate: ->(*) { sleep 2 })
 

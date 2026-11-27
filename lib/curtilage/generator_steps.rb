@@ -16,6 +16,21 @@ module Curtilage
       result
     end
 
+    # Why a road didn't trim: the pin is on its centreline, or across it
+    # from the building, or the centreline runs through the building.
+    def note_kept_road(log, road, line, target, trimmed)
+      origin, direction = line
+      normal = [direction[1], -direction[0]]
+      pin_side = side([0.0, 0.0], origin, normal)
+      why = if trimmed then "kept both sides of #{road_label(road)}: the pin is on its centreline"
+            elsif target.hull.all? { |p| side(p, origin, normal) * pin_side < -0.25 }
+              "kept the part beyond #{road_label(road)}: the pin is across it from the building"
+            else
+              "kept the part beyond #{road_label(road)}: it would cut the building"
+            end
+      log.note(why, step: "keep_road_side", features: [road.id])
+    end
+
     # One step per road, however many of its stretches trimmed: a later
     # stretch updates the area after. rule: what set the distance (a fixed
     # road_offset_m, half the road's width by class, or a clearance that
