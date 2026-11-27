@@ -2,6 +2,10 @@
 
 ## [Unreleased]
 
+## [0.10.0] - 2026-11-27
+
+Release check: the held-out sets (24 sites) score the same as in 0.9.0 (default view 80.2% caught, 6.8% taken in; core 84.9%, 3.6%).
+
 ### Breaking
 
 - Removed three experimental options, all off by default, whose own evidence was against them (default results don't change):
